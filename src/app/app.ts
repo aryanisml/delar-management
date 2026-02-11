@@ -4,6 +4,7 @@ import { SupabaseService } from './services/supabase';
 import { Auth } from './services/auth';
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
+
 @Component({
   selector: 'app-root',
   imports: [RouterOutlet],
@@ -12,19 +13,32 @@ import { Router } from '@angular/router';
 })
 export class App {
 
- auth = inject(Auth);
+  auth = inject(Auth);
   router = inject(Router);
+  private supabase = inject(SupabaseService);
 
   async ngOnInit() {
-    const role = await this.auth.getUserRole();
+    try {
+      // Get the current user if authenticated
+      const user = await this.auth.getCurrentUser();
 
-    if (role === 'admin') {
-      this.router.navigate(['/admin']);
-    }
-    else  {
-      this.router.navigate(['/dealer']);
+      if (!user) {
+        // No user, let routing handle it
+        return;
+      }
+
+      // User is authenticated, get their role and navigate
+      const role = await this.auth.getUserRole();
+
+      if (role === 'admin') {
+        this.router.navigate(['/admin']);
+      } else {
+        this.router.navigate(['/dealer']);
+      }
+    } catch (error) {
+      console.error('App initialization error:', error);
+      // On error, let routing default to login
     }
   }
-
 }
 

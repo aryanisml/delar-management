@@ -13,14 +13,24 @@ export class SupabaseService {
   );
 
   async signInWithGoogle() {
+    // Always use the current origin for the redirect URL
+    const redirectUrl = `${window.location.origin}/auth/callback`;
     return await this.supabase.auth.signInWithOAuth({
-      provider: 'google'
+      provider: 'google',
+      options: {
+        redirectTo: redirectUrl
+      }
     });
   }
 
+  async recoverSession() {
+    const { data } = await this.supabase.auth.refreshSession();
+    return data.session;
+  }
+
   async getCurrentUser() {
-  const { data } = await this.supabase.auth.getUser();
-  return data.user;
-}
+    const { data } = await this.supabase.auth.getUser();
+    return data.user;
+  }
 
 }
