@@ -1,0 +1,23 @@
+<div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-600 to-purple-700">
+
+  <!-- Login Card -->
+  <div class="w-full max-w-md bg-white rounded-xl shadow-2xl p-8">
+
+    <div class="text-center mb-8">
+      <h1 class="text-3xl font-bold text-gray-900">Welcome</h1>
+      <p class="text-gray-500 mt-2">Sign in to continue</p>
+    </div>
+
+    <button
+      pButton
+      pRipple
+      icon="pi pi-google"
+      class="w-full bg-gray-900 text-white font-semibold py-3 rounded-lg hover:bg-gray-800 transition flex items-center justify-center gap-2"
+      (click)="googleLogin()"
+    >
+      Continue with Google
+    </button>
+
+  </div>
+
+</div>
