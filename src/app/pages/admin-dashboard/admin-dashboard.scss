@@ -1,0 +1,114 @@
+ :host {
+	 display: block;
+	 min-height: 100vh;
+	 background: var(--surface-a, #f5f7fb);
+ }
+ 
+ .brand {
+	 font-weight: 700;
+	 font-size: 1.1rem;
+ }
+ 
+ .dashboard {
+	 display: flex;
+	 gap: 1rem;
+	 padding: 1rem;
+ }
+ 
+ .sidebar {
+	 width: 220px;
+	 background: #fff;
+	 border-radius: 8px;
+	 padding: 12px;
+	 box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+ }
+ 
+ .sidebar ul {
+	 list-style: none;
+	 padding: 0;
+	 margin: 0;
+ }
+ 
+ .sidebar li {
+	 padding: 10px 8px;
+	 border-radius: 6px;
+	 cursor: pointer;
+	 color: #444;
+ }
+ 
+ .sidebar li.active {
+	 background: var(--primary-color, #0066cc);
+	 color: #fff;
+ }
+ 
+ .content {
+	 flex: 1 1 auto;
+ }
+ 
+ .table-wrap {
+	 min-height: 300px;
+ }
+ 
+ .center-spinner {
+	 display: block;
+	 margin: 40px auto;
+ }
+ 
+ .empty {
+	 padding: 32px;
+	 text-align: center;
+	 color: #666;
+ }
+
+.table-wrap {
+	min-height: 300px;
+	padding: 0.5rem;
+}
+
+.empty {
+	padding: 32px;
+	text-align: center;
+	color: #6b7280; /* gray-500 */
+}
+
+/* PrimeNG table polish */
+.p-datatable .p-datatable-thead > tr > th {
+	background: #f8fafc; /* light */
+	color: #111827;
+	font-weight: 600;
+	border-bottom: 1px solid #e5e7eb;
+}
+
+.p-datatable .p-datatable-tbody > tr > td {
+	border-bottom: 1px solid #e5e7eb;
+}
+
+.p-datatable-striped .p-datatable-tbody > tr:nth-child(even) {
+	background: #fbfdff;
+}
+
+.p-datatable-hover .p-datatable-tbody > tr:hover {
+	background: #f1f5f9;
+}
+
+/* toolbar input style fallback when Tailwind not applied */
+.p-input-icon-left .pi {
+	margin-right: 8px;
+	color: #6b7280;
+}
+
+@media (max-width:900px){
+	.table-wrap { overflow-x:auto }
+}
+ 
+ .site-footer {
+	 margin-top: 24px;
+	 padding: 16px;
+	 text-align: center;
+	 color: #777;
+ }
+ 
+ @media (max-width: 900px) {
+	 .dashboard { flex-direction: column; }
+	 .sidebar { width: 100%; display:flex; overflow:auto }
+ }

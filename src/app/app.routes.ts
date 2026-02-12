@@ -4,6 +4,7 @@ import { AdminDashboard } from './pages/admin-dashboard/admin-dashboard';
 import { DealerDashboard } from './pages/dealer-dashboard/dealer-dashboard';
 import { AuthCallback } from './pages/auth-callback/auth-callback';
 import { authGuard } from './auth-guard';
+import { Layout } from './layout/layout';
 
 export const routes: Routes = [
 
@@ -17,23 +18,16 @@ export const routes: Routes = [
     component: AuthCallback
   },
 
-  // Protected routes
-  {
-    path: 'admin',
-    component: AdminDashboard,
-    canActivate: [authGuard]
-  },
-  {
-    path: 'dealer',
-    component: DealerDashboard,
-    canActivate: [authGuard]
-  },
-
-  // Default redirect
+  // Protected (layout) routes
   {
     path: '',
-    redirectTo: 'login',
-    pathMatch: 'full'
+    component: Layout,
+    canActivate: [authGuard],
+    children: [
+      { path: 'admin', component: AdminDashboard },
+      { path: 'dealer', component: DealerDashboard },
+      { path: '', redirectTo: 'admin', pathMatch: 'full' }
+    ]
   },
 
   // Unknown route fallback

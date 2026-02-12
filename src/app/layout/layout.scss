@@ -1,0 +1,16 @@
+:host {
+  display:block;
+}
+.layout { display:flex; gap:1rem; padding:1rem; }
+.sidebar { width:240px; background:#fff; border-radius:8px; box-shadow:0 1px 6px rgba(0,0,0,0.06); padding:12px; transform: translateX(-260px); transition: transform .25s ease; position:relative; z-index:20 }
+.sidebar.open { transform: translateX(0); }
+.sidebar-inner { display:flex; flex-direction:column; gap:12px }
+.profile-block { display:flex; gap:10px; align-items:center }
+.avatar { width:44px; height:44px; border-radius:50%; background:var(--primary-color,#0066cc); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700 }
+.menu ul { list-style:none; margin:0; padding:0 }
+.menu li { display:flex; gap:10px; align-items:center; padding:10px; border-radius:8px; cursor:pointer; color:#333 }
+.menu li:hover { background:#f5f7fb }
+.content { flex:1; }
+.sidebar-backdrop { position:fixed; inset:0; background:rgba(0,0,0,0.35); z-index:10 }
+.site-footer { margin-top:24px; padding:12px; text-align:center; color:#666 }
+@media (max-width:900px){ .sidebar{ position:fixed; left:0; top:56px; height:calc(100% - 56px) } .layout{ padding:0 } .content{ padding:12px } }

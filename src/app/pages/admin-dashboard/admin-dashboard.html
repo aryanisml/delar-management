@@ -1,1 +1,61 @@
-<p>admin-dashboard works!</p>
+<main class="content">
+	<p-card class="shadow">
+		<ng-template pTemplate="title">
+			<div class="card-title text-xl font-semibold">Vehicles</div>
+		</ng-template>
+
+		<p-toolbar class="mb-3">
+			<div class="p-toolbar-group-left">
+				<!-- place for filters/actions if needed -->
+			</div>
+			<div class="p-toolbar-group-right">
+				<span class="p-input-icon-left">
+					<i class="pi pi-search"></i>
+					<input pInputText type="search" (input)="setFilter($any($event.target).value)" placeholder="Search brand, make or model..." class="w-80" />
+				</span>
+			</div>
+		</p-toolbar>
+
+		<div class="table-wrap bg-white rounded border">
+						@if (loading()) {
+							<p-progressSpinner styleClass="center-spinner"></p-progressSpinner>
+						}
+
+						@if (!loading()) {
+							<p-table
+								[value]="filteredVehicles()"
+				[paginator]="true"
+				[rows]="12"
+				[rowsPerPageOptions]="[12,24,48]"
+				[showCurrentPageReport]="true"
+				currentPageReportTemplate="Showing {first} to {last} of {totalRecords}"
+				responsiveLayout="scroll"
+				rowHover]="true"
+				sortField="brand"
+				[sortOrder]="1"
+				class="p-datatable-striped p-datatable-hover"
+			>
+				<ng-template pTemplate="header">
+					<tr>
+						<th pSortableColumn="brand">Brand <p-sortIcon field="brand"></p-sortIcon></th>
+						<th pSortableColumn="make">Make <p-sortIcon field="make"></p-sortIcon></th>
+						<th pSortableColumn="model">Model <p-sortIcon field="model"></p-sortIcon></th>
+					</tr>
+				</ng-template>
+
+				<ng-template pTemplate="body" let-row>
+					<tr>
+						<td>{{ row.brand }}</td>
+						<td>{{ row.make }}</td>
+						<td>{{ row.model }}</td>
+					</tr>
+				</ng-template>
+							</p-table>
+						}
+
+						@if (!loading() && filteredVehicles().length === 0) {
+							<div class="empty p-8 text-center text-gray-500">No vehicles found</div>
+						}
+		</div>
+	</p-card>
+</main>
