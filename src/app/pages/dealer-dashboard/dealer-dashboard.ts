@@ -44,13 +44,7 @@ export class DealerDashboard implements OnInit {
   editMode = false;
   selectedVehicle: any = null;
 
-  newVehicle: any = {
-    Brand: '',
-    model: '',
-    Stock: 0,
-    status: 'active',
-    daily_rate: 0
-  };
+  newVehicle: any = this.resetVehicle();
 
   constructor(
     private supabase: SupabaseService,
@@ -61,6 +55,18 @@ export class DealerDashboard implements OnInit {
   async ngOnInit() {
     await this.loadVehicles();
     await this.loadBookings();
+  }
+
+  resetVehicle() {
+    return {
+      Brand: '',
+      make: '',
+      model: '',
+      Stock: 0,
+      status: 'active',
+      daily_rate: 0,
+      location: ''
+    };
   }
 
   async loadVehicles() {
@@ -75,13 +81,7 @@ export class DealerDashboard implements OnInit {
 
   openNew() {
     this.editMode = false;
-    this.newVehicle = {
-      Brand: '',
-      model: '',
-      Stock: 0,
-      status: 'active',
-      daily_rate: 0
-    };
+    this.newVehicle = this.resetVehicle();
     this.displayDialog = true;
   }
 
@@ -102,6 +102,7 @@ export class DealerDashboard implements OnInit {
     }
 
     this.displayDialog = false;
+    this.newVehicle = this.resetVehicle();
     await this.loadVehicles();
   }
 
@@ -116,18 +117,6 @@ export class DealerDashboard implements OnInit {
         await this.loadVehicles();
       }
     });
-  }
-
-  async approveBooking(id: string) {
-    await this.supabase.updateBookingStatus(id, 'approved');
-    this.messageService.add({ severity: 'success', summary: 'Approved', detail: 'Booking approved' });
-    await this.loadBookings();
-  }
-
-  async rejectBooking(id: string) {
-    await this.supabase.updateBookingStatus(id, 'rejected');
-    this.messageService.add({ severity: 'warn', summary: 'Rejected', detail: 'Booking rejected' });
-    await this.loadBookings();
   }
 
   get activeVehicleCount(): number {
