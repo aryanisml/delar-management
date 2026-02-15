@@ -1,1 +1,236 @@
-<p>dealer-dashboard works!</p>
+<p-tabs>
+
+  <p-tablist>
+    <p-tab>Overview</p-tab>
+    <p-tab>Inventory</p-tab>
+    <p-tab>Requests</p-tab>
+  </p-tablist>
+
+  <p-tabpanels>
+
+    <!-- ================= OVERVIEW ================= -->
+    <p-tabpanel>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+
+        <p-card>
+          <ng-template pTemplate="title">Total Vehicles</ng-template>
+          <div class="text-3xl font-bold text-primary">
+            {{ vehicles.length }}
+          </div>
+        </p-card>
+
+        <p-card>
+          <ng-template pTemplate="title">Pending Requests</ng-template>
+          <div class="text-3xl font-bold text-orange-500">
+            {{ bookings.length }}
+          </div>
+        </p-card>
+
+        <p-card>
+          <ng-template pTemplate="title">Available Vehicles</ng-template>
+          <div class="text-3xl font-bold text-green-500">
+            {{ activeVehicleCount }}
+          </div>
+        </p-card>
+
+      </div>
+    </p-tabpanel>
+
+
+    <!-- ================= INVENTORY ================= -->
+    <p-tabpanel>
+
+      <div class="flex justify-between items-center mb-4 mt-4">
+        <h2 class="text-xl font-semibold">Vehicle Inventory</h2>
+
+        <button pButton
+                label="Add Vehicle"
+                icon="pi pi-plus"
+                class="p-button-primary"
+                (click)="displayDialog=true">
+        </button>
+      </div>
+
+      <p-table
+        #dt
+        [value]="vehicles"
+        [paginator]="true"
+        [rows]="5"
+        [rowsPerPageOptions]="[5, 10, 20]"
+        responsiveLayout="scroll"
+        styleClass="p-datatable-sm p-datatable-striped"
+        [showCurrentPageReport]="true"
+        currentPageReportTemplate="Showing {first} to {last} of {totalRecords} vehicles"
+      >
+
+        <!-- Search -->
+        <ng-template pTemplate="caption">
+          <div class="flex justify-between items-center">
+            <span class="font-semibold text-lg">Manage Fleet</span>
+
+            <span class="p-input-icon-left">
+              <i class="pi pi-search"></i>
+              <input
+                pInputText
+                type="text"
+                (input)="dt.filterGlobal($any($event.target).value, 'contains')"
+                placeholder="Search vehicles"
+              />
+            </span>
+          </div>
+        </ng-template>
+
+        <!-- Header -->
+        <ng-template pTemplate="header">
+          <tr>
+            <th pSortableColumn="brand">
+              Brand <p-sortIcon field="brand"></p-sortIcon>
+            </th>
+
+            <th pSortableColumn="model">
+              Model <p-sortIcon field="model"></p-sortIcon>
+            </th>
+
+            <th pSortableColumn="Stock">
+              Stock <p-sortIcon field="Stock"></p-sortIcon>
+            </th>
+
+            <th>Status</th>
+
+            <th pSortableColumn="daily_rate">
+              Rate <p-sortIcon field="daily_rate"></p-sortIcon>
+            </th>
+          </tr>
+        </ng-template>
+
+        <!-- Body -->
+        <ng-template pTemplate="body" let-vehicle>
+          <tr class="hover:bg-gray-50 transition">
+            <td class="font-medium">{{ vehicle.brand }}</td>
+            <td>{{ vehicle.model }}</td>
+            <td>{{ vehicle.Stock }}</td>
+
+            <td>
+              <p-tag
+                [value]="vehicle.status"
+                [severity]="vehicle.status === 'active' ? 'success' : 'warn'">
+              </p-tag>
+            </td>
+
+            <td class="font-semibold">
+              ₹{{ vehicle.daily_rate }}
+            </td>
+          </tr>
+        </ng-template>
+
+      </p-table>
+
+    </p-tabpanel>
+
+
+    <!-- ================= REQUESTS ================= -->
+    <p-tabpanel>
+
+      <div class="mt-4">
+        <h2 class="text-xl font-semibold mb-4">Booking Requests</h2>
+
+        <p-table
+          [value]="bookings"
+          [paginator]="true"
+          [rows]="5"
+          responsiveLayout="scroll"
+          styleClass="p-datatable-sm p-datatable-striped"
+        >
+
+          <ng-template pTemplate="header">
+            <tr>
+              <th>User</th>
+              <th>Vehicle</th>
+              <th>Start</th>
+              <th>End</th>
+              <th>Actions</th>
+            </tr>
+          </ng-template>
+
+          <ng-template pTemplate="body" let-booking>
+            <tr>
+              <td>{{ booking.user_id }}</td>
+              <td>{{ booking.vechile?.model }}</td>
+              <td>{{ booking.start_date }}</td>
+              <td>{{ booking.end_date }}</td>
+              <td class="flex gap-2">
+
+                <button pButton
+                        icon="pi pi-check"
+                        class="p-button-success p-button-sm"
+                        (click)="approveBooking(booking.id)">
+                </button>
+
+                <button pButton
+                        icon="pi pi-times"
+                        class="p-button-danger p-button-sm"
+                        (click)="rejectBooking(booking.id)">
+                </button>
+
+              </td>
+            </tr>
+          </ng-template>
+
+        </p-table>
+      </div>
+
+    </p-tabpanel>
+
+  </p-tabpanels>
+
+</p-tabs>
+
+
+<!-- ================= ADD VEHICLE DIALOG ================= -->
+<p-dialog
+  header="Add Vehicle"
+  [(visible)]="displayDialog"
+  [modal]="true"
+  [style]="{ width: '400px' }"
+>
+
+  <div class="flex flex-col gap-4 mt-2">
+
+    <input
+      pInputText
+      placeholder="Brand"
+      [(ngModel)]="newVehicle.Brand"
+    />
+
+    <input
+      pInputText
+      placeholder="Model"
+      [(ngModel)]="newVehicle.model"
+    />
+
+    <input
+      pInputText
+      type="number"
+      placeholder="Stock"
+      [(ngModel)]="newVehicle.Stock"
+    />
+
+    <input
+      pInputText
+      type="number"
+      placeholder="Daily Rate"
+      [(ngModel)]="newVehicle.daily_rate"
+    />
+
+    <button
+      pButton
+      label="Save Vehicle"
+      icon="pi pi-check"
+      class="p-button-success"
+      (click)="saveVehicle()"
+    >
+    </button>
+
+  </div>
+
+</p-dialog>

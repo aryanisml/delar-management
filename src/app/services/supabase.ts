@@ -13,8 +13,11 @@ export class SupabaseService {
     environment.supabaseKey
   );
 
+  // =============================
+  // AUTH (UNCHANGED)
+  // =============================
+
   async signInWithGoogle() {
-    // Always use the current origin for the redirect URL
     const redirectUrl = `${window.location.origin}/auth/callback`;
     return await this.supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -34,13 +37,20 @@ export class SupabaseService {
     return data.user;
   }
 
-  /**
-   * Fetch vehicles from `vechile` table.
-   * Returns an object { data, error } similar to supabase response so callers can handle.
-   */
+  async signOut() {
+    try {
+      await this.supabase.auth.signOut();
+    } catch (err) {
+      console.error('SupabaseService.signOut error', err);
+    }
+  }
+
+  // =============================
+  // VEHICLES (EXISTING + SAFE EXTENSION)
+  // =============================
+
   async getVehicles(): Promise<{ data: Vehicle[] | null; error: any | null }> {
     try {
-      // Try ordering by created_at if the column exists; if not, fall back to no-order.
       let data: any[] | null = null;
       let error: any = null;
 
@@ -53,7 +63,6 @@ export class SupabaseService {
       error = tryOrder.error ?? null;
 
       if (error) {
-        // If the error indicates the column doesn't exist, retry without ordering
         const msg = (error.message || '').toString();
         if (error.code === '42703' || /does not exist/.test(msg)) {
           const fallback = await this.supabase.from('vechile').select('*');
@@ -62,8 +71,10 @@ export class SupabaseService {
         }
       }
 
-      // Normalize brand casing to `brand` for consistent consumer usage
-      const normalized = (data ?? []).map((r: any) => ({ ...r, brand: r.brand ?? r.Brand }));
+      const normalized = (data ?? []).map((r: any) => ({
+        ...r,
+        brand: r.brand ?? r.Brand
+      }));
 
       return { data: normalized as Vehicle[], error };
     } catch (err) {
@@ -72,12 +83,35 @@ export class SupabaseService {
     }
   }
 
-  async signOut() {
-    try {
-      await this.supabase.auth.signOut();
-    } catch (err) {
-      console.error('SupabaseService.signOut error', err);
-    }
+  // NEW METHODS (SAFE ADDITIONS)
+
+  async addVehicle(vehicle: any) {
+    return await this.supabase.from('vechile').insert([vehicle]);
   }
 
+  async updateVehicle(id: string, vehicle: any) {
+    return await this.supabase.from('vechile').update(vehicle).eq('id', id);
+  }
+
+  async deleteVehicle(id: string) {
+    return await this.supabase.from('vechile').delete().eq('id', id);
+  }
+
+  // =============================
+  // BOOKINGS
+  // =============================
+
+  async getPendingBookings() {
+    return await this.supabase
+      .from('bookings')
+      .select('*, vechile(*)')
+      .eq('status', 'pending');
+  }
+
+  async updateBookingStatus(id: string, status: string) {
+    return await this.supabase
+      .from('bookings')
+      .update({ status })
+      .eq('id', id);
+  }
 }
