@@ -1,145 +1,122 @@
-<p-tabs>
+<p-toast></p-toast>
+<p-confirmDialog></p-confirmDialog>
 
-  <p-tablist>
-    <p-tab>Overview</p-tab>
-    <p-tab>Inventory</p-tab>
-    <p-tab>Requests</p-tab>
-  </p-tablist>
+<div class="p-6">
 
-  <p-tabpanels>
+  <h1 class="text-2xl font-bold mb-6">Dealer Dashboard</h1>
 
-    <!-- ================= OVERVIEW ================= -->
-    <p-tabpanel>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+  <p-tabs>
 
-        <p-card>
-          <ng-template pTemplate="title">Total Vehicles</ng-template>
-          <div class="text-3xl font-bold text-primary">
-            {{ vehicles.length }}
-          </div>
-        </p-card>
+    <p-tablist>
+      <p-tab>Overview</p-tab>
+      <p-tab>Inventory</p-tab>
+      <p-tab>Booking Requests</p-tab>
+    </p-tablist>
 
-        <p-card>
-          <ng-template pTemplate="title">Pending Requests</ng-template>
-          <div class="text-3xl font-bold text-orange-500">
-            {{ bookings.length }}
-          </div>
-        </p-card>
+    <p-tabpanels>
 
-        <p-card>
-          <ng-template pTemplate="title">Available Vehicles</ng-template>
-          <div class="text-3xl font-bold text-green-500">
-            {{ activeVehicleCount }}
-          </div>
-        </p-card>
+      <!-- OVERVIEW -->
+      <p-tabpanel>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
 
-      </div>
-    </p-tabpanel>
+          <p-card>
+            <ng-template pTemplate="title">Total Vehicles</ng-template>
+            <div class="text-3xl font-bold text-primary">
+              {{ vehicles.length }}
+            </div>
+          </p-card>
 
+          <p-card>
+            <ng-template pTemplate="title">Pending Requests</ng-template>
+            <div class="text-3xl font-bold text-orange-500">
+              {{ bookings.length }}
+            </div>
+          </p-card>
 
-    <!-- ================= INVENTORY ================= -->
-    <p-tabpanel>
+          <p-card>
+            <ng-template pTemplate="title">Active Vehicles</ng-template>
+            <div class="text-3xl font-bold text-green-500">
+              {{ activeVehicleCount }}
+            </div>
+          </p-card>
 
-      <div class="flex justify-between items-center mb-4 mt-4">
-        <h2 class="text-xl font-semibold">Vehicle Inventory</h2>
+        </div>
+      </p-tabpanel>
 
-        <button pButton
-                label="Add Vehicle"
-                icon="pi pi-plus"
-                class="p-button-primary"
-                (click)="displayDialog=true">
-        </button>
-      </div>
+      <!-- INVENTORY -->
+      <p-tabpanel>
 
-      <p-table
-        #dt
-        [value]="vehicles"
-        [paginator]="true"
-        [rows]="5"
-        [rowsPerPageOptions]="[5, 10, 20]"
-        responsiveLayout="scroll"
-        styleClass="p-datatable-sm p-datatable-striped"
-        [showCurrentPageReport]="true"
-        currentPageReportTemplate="Showing {first} to {last} of {totalRecords} vehicles"
-      >
+        <div class="flex justify-between items-center mb-4 mt-4">
+          <h2 class="text-xl font-semibold">Vehicle Inventory</h2>
 
-        <!-- Search -->
-        <ng-template pTemplate="caption">
-          <div class="flex justify-between items-center">
-            <span class="font-semibold text-lg">Manage Fleet</span>
+          <button pButton
+                  label="Add Vehicle"
+                  icon="pi pi-plus"
+                  (click)="openNew()">
+          </button>
+        </div>
 
-            <span class="p-input-icon-left">
-              <i class="pi pi-search"></i>
-              <input
-                pInputText
-                type="text"
-                (input)="dt.filterGlobal($any($event.target).value, 'contains')"
-                placeholder="Search vehicles"
-              />
-            </span>
-          </div>
-        </ng-template>
+        <p-table
+          [value]="vehicles"
+          [paginator]="true"
+          [rows]="5"
+          responsiveLayout="scroll"
+          styleClass="p-datatable-striped"
+        >
 
-        <!-- Header -->
-        <ng-template pTemplate="header">
-          <tr>
-            <th pSortableColumn="brand">
-              Brand <p-sortIcon field="brand"></p-sortIcon>
-            </th>
+          <ng-template pTemplate="header">
+            <tr>
+              <th>Brand</th>
+              <th>Model</th>
+              <th>Stock</th>
+              <th>Status</th>
+              <th>Rate</th>
+              <th>Actions</th>
+            </tr>
+          </ng-template>
 
-            <th pSortableColumn="model">
-              Model <p-sortIcon field="model"></p-sortIcon>
-            </th>
+          <ng-template pTemplate="body" let-vehicle>
+            <tr>
+              <td>{{ vehicle.brand }}</td>
+              <td>{{ vehicle.model }}</td>
+              <td>{{ vehicle.Stock }}</td>
+              <td>
+                <p-tag
+                  [value]="vehicle.status"
+                  [severity]="vehicle.status === 'active' ? 'success' : 'warn'">
+                </p-tag>
+              </td>
+              <td>₹{{ vehicle.daily_rate }}</td>
 
-            <th pSortableColumn="Stock">
-              Stock <p-sortIcon field="Stock"></p-sortIcon>
-            </th>
+              <td class="flex gap-2">
+                <button pButton
+                        icon="pi pi-pencil"
+                        class="p-button-warning p-button-sm"
+                        (click)="editVehicle(vehicle)">
+                </button>
 
-            <th>Status</th>
+                <button pButton
+                        icon="pi pi-trash"
+                        class="p-button-danger p-button-sm"
+                        (click)="deleteVehicle(vehicle)">
+                </button>
+              </td>
+            </tr>
+          </ng-template>
 
-            <th pSortableColumn="daily_rate">
-              Rate <p-sortIcon field="daily_rate"></p-sortIcon>
-            </th>
-          </tr>
-        </ng-template>
+        </p-table>
 
-        <!-- Body -->
-        <ng-template pTemplate="body" let-vehicle>
-          <tr class="hover:bg-gray-50 transition">
-            <td class="font-medium">{{ vehicle.brand }}</td>
-            <td>{{ vehicle.model }}</td>
-            <td>{{ vehicle.Stock }}</td>
+      </p-tabpanel>
 
-            <td>
-              <p-tag
-                [value]="vehicle.status"
-                [severity]="vehicle.status === 'active' ? 'success' : 'warn'">
-              </p-tag>
-            </td>
-
-            <td class="font-semibold">
-              ₹{{ vehicle.daily_rate }}
-            </td>
-          </tr>
-        </ng-template>
-
-      </p-table>
-
-    </p-tabpanel>
-
-
-    <!-- ================= REQUESTS ================= -->
-    <p-tabpanel>
-
-      <div class="mt-4">
-        <h2 class="text-xl font-semibold mb-4">Booking Requests</h2>
+      <!-- BOOKING REQUESTS -->
+      <p-tabpanel>
 
         <p-table
           [value]="bookings"
           [paginator]="true"
           [rows]="5"
           responsiveLayout="scroll"
-          styleClass="p-datatable-sm p-datatable-striped"
+          styleClass="p-datatable-striped"
         >
 
           <ng-template pTemplate="header">
@@ -177,58 +154,36 @@
           </ng-template>
 
         </p-table>
-      </div>
 
-    </p-tabpanel>
+      </p-tabpanel>
 
-  </p-tabpanels>
+    </p-tabpanels>
 
-</p-tabs>
+  </p-tabs>
+
+</div>
 
 
-<!-- ================= ADD VEHICLE DIALOG ================= -->
+<!-- ADD / EDIT VEHICLE DIALOG -->
 <p-dialog
-  header="Add Vehicle"
+  [header]="editMode ? 'Edit Vehicle' : 'Add Vehicle'"
   [(visible)]="displayDialog"
   [modal]="true"
   [style]="{ width: '400px' }"
 >
 
-  <div class="flex flex-col gap-4 mt-2">
+  <div class="flex flex-col gap-4">
 
-    <input
-      pInputText
-      placeholder="Brand"
-      [(ngModel)]="newVehicle.Brand"
-    />
+    <input pInputText placeholder="Brand" [(ngModel)]="newVehicle.Brand" />
+    <input pInputText placeholder="Model" [(ngModel)]="newVehicle.model" />
+    <input pInputText type="number" placeholder="Stock" [(ngModel)]="newVehicle.Stock" />
+    <input pInputText type="number" placeholder="Daily Rate" [(ngModel)]="newVehicle.daily_rate" />
 
-    <input
-      pInputText
-      placeholder="Model"
-      [(ngModel)]="newVehicle.model"
-    />
-
-    <input
-      pInputText
-      type="number"
-      placeholder="Stock"
-      [(ngModel)]="newVehicle.Stock"
-    />
-
-    <input
-      pInputText
-      type="number"
-      placeholder="Daily Rate"
-      [(ngModel)]="newVehicle.daily_rate"
-    />
-
-    <button
-      pButton
-      label="Save Vehicle"
-      icon="pi pi-check"
-      class="p-button-success"
-      (click)="saveVehicle()"
-    >
+    <button pButton
+            [label]="editMode ? 'Update' : 'Save'"
+            icon="pi pi-check"
+            class="p-button-success"
+            (click)="saveVehicle()">
     </button>
 
   </div>

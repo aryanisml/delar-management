@@ -46,55 +46,61 @@ export class SupabaseService {
   }
 
   // =============================
-  // VEHICLES (EXISTING + SAFE EXTENSION)
+  // VEHICLES
   // =============================
 
   async getVehicles(): Promise<{ data: Vehicle[] | null; error: any | null }> {
     try {
-      let data: any[] | null = null;
-      let error: any = null;
-
-      const tryOrder = await this.supabase
+      const { data, error } = await this.supabase
         .from('vechile')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      data = tryOrder.data ?? null;
-      error = tryOrder.error ?? null;
+        .select('*');
 
       if (error) {
-        const msg = (error.message || '').toString();
-        if (error.code === '42703' || /does not exist/.test(msg)) {
-          const fallback = await this.supabase.from('vechile').select('*');
-          data = fallback.data ?? null;
-          error = fallback.error ?? null;
-        }
+        console.error('SupabaseService.getVehicles error:', error);
+        return { data: null, error };
       }
 
+      // Normalize brand casing safely
       const normalized = (data ?? []).map((r: any) => ({
         ...r,
         brand: r.brand ?? r.Brand
       }));
 
-      return { data: normalized as Vehicle[], error };
+      return { data: normalized as Vehicle[], error: null };
+
     } catch (err) {
       console.error('SupabaseService.getVehicles error', err);
       return { data: null, error: err };
     }
   }
 
-  // NEW METHODS (SAFE ADDITIONS)
-
   async addVehicle(vehicle: any) {
-    return await this.supabase.from('vechile').insert([vehicle]);
+    const { data, error } = await this.supabase
+      .from('vechile')
+      .insert([vehicle]);
+
+    if (error) console.error('addVehicle error:', error);
+    return { data, error };
   }
 
   async updateVehicle(id: string, vehicle: any) {
-    return await this.supabase.from('vechile').update(vehicle).eq('id', id);
+    const { data, error } = await this.supabase
+      .from('vechile')
+      .update(vehicle)
+      .eq('id', id);
+
+    if (error) console.error('updateVehicle error:', error);
+    return { data, error };
   }
 
   async deleteVehicle(id: string) {
-    return await this.supabase.from('vechile').delete().eq('id', id);
+    const { data, error } = await this.supabase
+      .from('vechile')
+      .delete()
+      .eq('id', id);
+
+    if (error) console.error('deleteVehicle error:', error);
+    return { data, error };
   }
 
   // =============================
@@ -102,16 +108,22 @@ export class SupabaseService {
   // =============================
 
   async getPendingBookings() {
-    return await this.supabase
+    const { data, error } = await this.supabase
       .from('bookings')
-      .select('*, vechile(*)')
+      .select('*')
       .eq('status', 'pending');
+
+    if (error) console.error('getPendingBookings error:', error);
+    return { data, error };
   }
 
   async updateBookingStatus(id: string, status: string) {
-    return await this.supabase
+    const { data, error } = await this.supabase
       .from('bookings')
       .update({ status })
       .eq('id', id);
+
+    if (error) console.error('updateBookingStatus error:', error);
+    return { data, error };
   }
 }

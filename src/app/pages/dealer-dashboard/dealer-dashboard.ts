@@ -11,10 +11,14 @@ import { CardModule } from 'primeng/card';
 import { TabsModule } from 'primeng/tabs';
 import { TagModule } from 'primeng/tag';
 import { InputTextModule } from 'primeng/inputtext';
+import { ConfirmDialogModule } from 'primeng/confirmdialog';
+import { ToastModule } from 'primeng/toast';
+import { ConfirmationService, MessageService } from 'primeng/api';
 
 @Component({
   selector: 'app-dealer-dashboard',
   standalone: true,
+  providers: [ConfirmationService, MessageService],
   imports: [
     CommonModule,
     FormsModule,
@@ -24,7 +28,9 @@ import { InputTextModule } from 'primeng/inputtext';
     CardModule,
     TabsModule,
     TagModule,
-    InputTextModule
+    InputTextModule,
+    ConfirmDialogModule,
+    ToastModule
   ],
   templateUrl: './dealer-dashboard.html',
   styleUrl: './dealer-dashboard.scss',
@@ -35,7 +41,8 @@ export class DealerDashboard implements OnInit {
   bookings: any[] = [];
 
   displayDialog = false;
-  activeTabIndex = 0;
+  editMode = false;
+  selectedVehicle: any = null;
 
   newVehicle: any = {
     Brand: '',
@@ -45,7 +52,11 @@ export class DealerDashboard implements OnInit {
     daily_rate: 0
   };
 
-  constructor(private supabase: SupabaseService) {}
+  constructor(
+    private supabase: SupabaseService,
+    private confirmationService: ConfirmationService,
+    private messageService: MessageService
+  ) {}
 
   async ngOnInit() {
     await this.loadVehicles();
@@ -62,10 +73,8 @@ export class DealerDashboard implements OnInit {
     this.bookings = data || [];
   }
 
-  async saveVehicle() {
-    await this.supabase.addVehicle(this.newVehicle);
-    this.displayDialog = false;
-
+  openNew() {
+    this.editMode = false;
     this.newVehicle = {
       Brand: '',
       model: '',
@@ -73,25 +82,55 @@ export class DealerDashboard implements OnInit {
       status: 'active',
       daily_rate: 0
     };
+    this.displayDialog = true;
+  }
 
+  editVehicle(vehicle: any) {
+    this.editMode = true;
+    this.selectedVehicle = vehicle;
+    this.newVehicle = { ...vehicle };
+    this.displayDialog = true;
+  }
+
+  async saveVehicle() {
+    if (this.editMode) {
+      await this.supabase.updateVehicle(this.selectedVehicle.id, this.newVehicle);
+      this.messageService.add({ severity: 'success', summary: 'Updated', detail: 'Vehicle updated successfully' });
+    } else {
+      await this.supabase.addVehicle(this.newVehicle);
+      this.messageService.add({ severity: 'success', summary: 'Created', detail: 'Vehicle added successfully' });
+    }
+
+    this.displayDialog = false;
     await this.loadVehicles();
+  }
+
+  deleteVehicle(vehicle: any) {
+    this.confirmationService.confirm({
+      message: 'Are you sure you want to delete this vehicle?',
+      header: 'Confirm Delete',
+      icon: 'pi pi-exclamation-triangle',
+      accept: async () => {
+        await this.supabase.deleteVehicle(vehicle.id);
+        this.messageService.add({ severity: 'success', summary: 'Deleted', detail: 'Vehicle deleted successfully' });
+        await this.loadVehicles();
+      }
+    });
   }
 
   async approveBooking(id: string) {
     await this.supabase.updateBookingStatus(id, 'approved');
+    this.messageService.add({ severity: 'success', summary: 'Approved', detail: 'Booking approved' });
     await this.loadBookings();
   }
 
   async rejectBooking(id: string) {
     await this.supabase.updateBookingStatus(id, 'rejected');
+    this.messageService.add({ severity: 'warn', summary: 'Rejected', detail: 'Booking rejected' });
     await this.loadBookings();
   }
 
   get activeVehicleCount(): number {
     return this.vehicles?.filter(v => v.status === 'active').length || 0;
-  }
-
-  get approvedBookings(): number {
-    return this.bookings?.filter(b => b.status === 'approved').length || 0;
   }
 }
