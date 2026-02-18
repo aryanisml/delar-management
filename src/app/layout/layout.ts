@@ -37,8 +37,8 @@ export class Layout {
     ];
 
     const dealerMenu: MenuItem[] = [
-      { label: 'Dashboard', icon: 'pi pi-th-large', route: '/dealer' },
-      { label: 'Inventory', icon: 'pi pi-car', route: '/dealer' },
+      { label: 'Dashboard', icon: 'pi pi-home', route: '/dealer/dashboard' },
+      { label: 'Inventory', icon: 'pi pi-car', route: '/dealer/inventory' },
       { label: 'Analytics', icon: 'pi pi-chart-line', route: '/dealer/analytics' },
       { label: 'Bookings', icon: 'pi pi-calendar', route: '/dealer/bookings' }
     ];
