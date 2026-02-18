@@ -5,39 +5,33 @@ import { DealerDashboard } from './pages/dealer-dashboard/dealer-dashboard';
 import { AuthCallback } from './pages/auth-callback/auth-callback';
 import { authGuard } from './auth-guard';
 import { Layout } from './layout/layout';
+import { DealerAnalytics } from './pages/dealer-analytics/dealer-analytics';
+import { DealerBookings } from './pages/dealer-bookings/dealer-bookings';
+import { DealerInventory } from './pages/dealer-inventory/dealer-inventory';
 
 export const routes: Routes = [
 
-  // Public routes
-  {
-    path: 'login',
-    component: Login
-  },
-  {
-    path: 'auth/callback',
-    component: AuthCallback
-  },
+  // Public
+  { path: 'login', component: Login },
+  { path: 'auth/callback', component: AuthCallback },
 
-  // Protected (layout) routes
+  // Protected
   {
     path: '',
     component: Layout,
     canActivate: [authGuard],
     children: [
 
-      // Admin
-      {
-        path: 'admin',
-        component: AdminDashboard
-      },
+      { path: 'admin', component: AdminDashboard },
 
-      // Dealer (now parent with children)
       {
         path: 'dealer',
         children: [
-          { path: '', component: DealerDashboard },
-          { path: 'analytics', component: DealerDashboard },
-          { path: 'bookings', component: DealerDashboard }
+          { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
+          { path: 'dashboard', component: DealerDashboard },
+          { path: 'inventory', component: DealerInventory },
+          { path: 'analytics', component: DealerAnalytics },
+          { path: 'bookings', component: DealerBookings }
         ]
       },
 
@@ -45,9 +39,5 @@ export const routes: Routes = [
     ]
   },
 
-  // Unknown route fallback
-  {
-    path: '**',
-    redirectTo: 'login'
-  }
+  { path: '**', redirectTo: 'login' }
 ];

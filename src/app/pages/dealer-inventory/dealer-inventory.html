@@ -1,0 +1,108 @@
+<p-toast></p-toast>
+<p-confirmDialog></p-confirmDialog>
+
+<div class="p-6">
+  <h1 class="text-2xl font-bold mb-6">Inventory</h1>
+
+  <div class="flex justify-between items-center mb-4">
+    <h2 class="text-xl font-semibold">Vehicle Inventory</h2>
+
+    <button pButton
+            label="Add Vehicle"
+            icon="pi pi-plus"
+            (click)="openNew()">
+    </button>
+  </div>
+
+  <p-table
+    [value]="vehicles"
+    [paginator]="true"
+    [rows]="5"
+    responsiveLayout="scroll"
+    styleClass="p-datatable-striped"
+  >
+
+    <ng-template pTemplate="header">
+      <tr>
+        <th>Brand</th>
+        <th>Make</th>
+        <th>Model</th>
+        <th>Location</th>
+        <th>Stock</th>
+        <th>Status</th>
+        <th>Rate</th>
+        <th>Actions</th>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="body" let-vehicle>
+      <tr>
+        <td>{{ vehicle.Brand }}</td>
+        <td>{{ vehicle.make }}</td>
+        <td>{{ vehicle.model }}</td>
+        <td>{{ vehicle.location }}</td>
+        <td>{{ vehicle.Stock }}</td>
+        <td>
+          <p-tag
+            [value]="vehicle.status"
+            [severity]="vehicle.status === 'active' ? 'success' : 'warn'">
+          </p-tag>
+        </td>
+        <td>₹{{ vehicle.daily_rate }}</td>
+
+        <td class="flex gap-2">
+          <button pButton icon="pi pi-pencil"
+                  class="p-button-warning p-button-sm"
+                  (click)="editVehicle(vehicle)">
+          </button>
+
+          <button pButton icon="pi pi-trash"
+                  class="p-button-danger p-button-sm"
+                  (click)="deleteVehicle(vehicle)">
+          </button>
+        </td>
+      </tr>
+    </ng-template>
+
+  </p-table>
+</div>
+
+<p-dialog
+  [header]="editMode ? 'Edit Vehicle Details' : 'Add New Vehicle Details'"
+  [(visible)]="displayDialog"
+  [modal]="true"
+  [style]="{ width: '450px' }"
+>
+
+  <div class="flex flex-col gap-4">
+
+    <input pInputText placeholder="Brand"
+           [(ngModel)]="newVehicle.Brand" />
+
+    <input pInputText placeholder="Make"
+           [(ngModel)]="newVehicle.make" />
+
+    <input pInputText placeholder="Model"
+           [(ngModel)]="newVehicle.model" />
+
+    <input pInputText placeholder="Location"
+           [(ngModel)]="newVehicle.location" />
+
+    <input pInputText type="number"
+           placeholder="Stock"
+           [(ngModel)]="newVehicle.Stock" />
+
+    <input pInputText type="number"
+           placeholder="Daily Rate"
+           [(ngModel)]="newVehicle.daily_rate" />
+
+    <button pButton
+            [label]="editMode ? 'Update Vehicle' : 'Save Vehicle'"
+            icon="pi pi-check"
+            class="p-button-success"
+            (click)="saveVehicle()">
+    </button>
+
+  </div>
+
+</p-dialog>

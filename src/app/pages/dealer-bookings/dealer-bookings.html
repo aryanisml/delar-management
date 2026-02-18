@@ -1,0 +1,36 @@
+<div class="p-6">
+  <h1 class="text-2xl font-bold mb-6">Bookings</h1>
+
+  <p-card>
+    <p-table
+      [value]="bookings"
+      [paginator]="true"
+      [rows]="5"
+      responsiveLayout="scroll"
+      styleClass="p-datatable-striped"
+    >
+
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Customer</th>
+          <th>Vehicle</th>
+          <th>Status</th>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="body" let-booking>
+        <tr>
+          <td>{{ booking.customer_name }}</td>
+          <td>{{ booking.vehicle_model }}</td>
+          <td>
+            <p-tag
+              [value]="booking.status"
+              [severity]="booking.status === 'approved' ? 'success' : 'warn'">
+            </p-tag>
+          </td>
+        </tr>
+      </ng-template>
+
+    </p-table>
+  </p-card>
+</div>

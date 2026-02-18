@@ -1,222 +1,72 @@
-<p-toast></p-toast>
-<p-confirmDialog></p-confirmDialog>
-
 <div class="p-6">
 
-  <h1 class="text-2xl font-bold mb-6">Dealer Dashboard</h1>
+  <h1 class="text-2xl font-bold mb-6">Dealer Overview</h1>
 
-  <!-- ============================= -->
-  <!-- INVENTORY VIEW -->
-  <!-- ============================= -->
-  <ng-container *ngIf="currentView === 'inventory'">
-
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-      <p-card>
-        <ng-template pTemplate="title">Total Vehicles</ng-template>
-        <div class="text-3xl font-bold text-primary">
-          {{ vehicles.length }}
-        </div>
-      </p-card>
-
-      <p-card>
-        <ng-template pTemplate="title">Active Vehicles</ng-template>
-        <div class="text-3xl font-bold text-green-500">
-          {{ activeVehicleCount }}
-        </div>
-      </p-card>
-
-      <p-card>
-        <ng-template pTemplate="title">Total Daily Revenue</ng-template>
-        <div class="text-3xl font-bold text-blue-500">
-          ₹{{ totalRevenue }}
-        </div>
-      </p-card>
-    </div>
-
-    <div class="flex justify-between items-center mb-4">
-      <h2 class="text-xl font-semibold">Vehicle Inventory</h2>
-
-      <button pButton
-              label="Add Vehicle"
-              icon="pi pi-plus"
-              (click)="openNew()">
-      </button>
-    </div>
-
-    <p-table
-      [value]="vehicles"
-      [paginator]="true"
-      [rows]="5"
-      responsiveLayout="scroll"
-      styleClass="p-datatable-striped"
-    >
-
-      <ng-template pTemplate="header">
-        <tr>
-          <th>Brand</th>
-          <th>Make</th>
-          <th>Model</th>
-          <th>Location</th>
-          <th>Stock</th>
-          <th>Status</th>
-          <th>Rate</th>
-          <th>Actions</th>
-        </tr>
-      </ng-template>
-
-      <ng-template pTemplate="body" let-vehicle>
-        <tr>
-          <td>{{ vehicle.Brand }}</td>
-          <td>{{ vehicle.make }}</td>
-          <td>{{ vehicle.model }}</td>
-          <td>{{ vehicle.location }}</td>
-          <td>{{ vehicle.Stock }}</td>
-          <td>
-            <p-tag
-              [value]="vehicle.status"
-              [severity]="vehicle.status === 'active' ? 'success' : 'warn'">
-            </p-tag>
-          </td>
-          <td>₹{{ vehicle.daily_rate }}</td>
-
-          <td class="flex gap-2">
-            <button pButton icon="pi pi-pencil"
-                    class="p-button-warning p-button-sm"
-                    (click)="editVehicle(vehicle)">
-            </button>
-
-            <button pButton icon="pi pi-trash"
-                    class="p-button-danger p-button-sm"
-                    (click)="deleteVehicle(vehicle)">
-            </button>
-          </td>
-        </tr>
-      </ng-template>
-
-    </p-table>
-
-  </ng-container>
-
-  <!-- ============================= -->
-  <!-- ANALYTICS VIEW -->
-  <!-- ============================= -->
-  <ng-container *ngIf="currentView === 'analytics'">
-
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-      <p-card>
-        <ng-template pTemplate="title">Total Vehicles</ng-template>
-        <div class="text-3xl font-bold text-primary">
-          {{ vehicles.length }}
-        </div>
-      </p-card>
-
-      <p-card>
-        <ng-template pTemplate="title">Active Vehicles</ng-template>
-        <div class="text-3xl font-bold text-green-500">
-          {{ activeVehicleCount }}
-        </div>
-      </p-card>
-
-      <p-card>
-        <ng-template pTemplate="title">Estimated Daily Revenue</ng-template>
-        <div class="text-3xl font-bold text-blue-500">
-          ₹{{ totalRevenue }}
-        </div>
-      </p-card>
-    </div>
+  <!-- KPI SECTION -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
 
     <p-card>
-      <ng-template pTemplate="title">Revenue Insight</ng-template>
-      <p>
-        Based on your current fleet, your potential daily rental revenue is
-        <strong>₹{{ totalRevenue }}</strong>.
-      </p>
-      <p class="mt-2 text-sm text-gray-500">
-        (Next step: we can plug in real booking data and add chart visualization.)
-      </p>
+      <ng-template pTemplate="title">Total Vehicles</ng-template>
+      <div class="text-3xl font-bold text-primary">
+        {{ vehicles.length }}
+      </div>
     </p-card>
 
-  </ng-container>
+    <p-card>
+      <ng-template pTemplate="title">Active Vehicles</ng-template>
+      <div class="text-3xl font-bold text-green-500">
+        {{ activeVehicleCount }}
+      </div>
+    </p-card>
 
-  <!-- ============================= -->
-  <!-- BOOKINGS VIEW -->
-  <!-- ============================= -->
-  <ng-container *ngIf="currentView === 'bookings'">
-
-    <h2 class="text-xl font-semibold mb-4">Pending Bookings</h2>
-
-    <p-table
-      [value]="bookings"
-      [paginator]="true"
-      [rows]="5"
-      responsiveLayout="scroll"
-      styleClass="p-datatable-striped"
-    >
-
-      <ng-template pTemplate="header">
-        <tr>
-          <th>Customer</th>
-          <th>Vehicle</th>
-          <th>Status</th>
-        </tr>
-      </ng-template>
-
-      <ng-template pTemplate="body" let-booking>
-        <tr>
-          <td>{{ booking.customer_name }}</td>
-          <td>{{ booking.vehicle_model }}</td>
-          <td>
-            <p-tag
-              [value]="booking.status"
-              [severity]="booking.status === 'approved' ? 'success' : 'warn'">
-            </p-tag>
-          </td>
-        </tr>
-      </ng-template>
-
-    </p-table>
-
-  </ng-container>
-
-</div>
-
-<!-- ADD / EDIT VEHICLE DIALOG -->
-<p-dialog
-  [header]="editMode ? 'Edit Vehicle Details' : 'Add New Vehicle Details'"
-  [(visible)]="displayDialog"
-  [modal]="true"
-  [style]="{ width: '450px' }"
->
-
-  <div class="flex flex-col gap-4">
-
-    <input pInputText placeholder="Enter Brand Name (e.g., Toyota)"
-           [(ngModel)]="newVehicle.Brand" />
-
-    <input pInputText placeholder="Enter Make (e.g., Corolla Series)"
-           [(ngModel)]="newVehicle.make" />
-
-    <input pInputText placeholder="Enter Model (e.g., 2023 Hybrid)"
-           [(ngModel)]="newVehicle.model" />
-
-    <input pInputText placeholder="Enter Location (e.g., Bangalore)"
-           [(ngModel)]="newVehicle.location" />
-
-    <input pInputText type="number"
-           placeholder="Enter Available Stock Quantity"
-           [(ngModel)]="newVehicle.Stock" />
-
-    <input pInputText type="number"
-           placeholder="Enter Daily Rental Rate"
-           [(ngModel)]="newVehicle.daily_rate" />
-
-    <button pButton
-            [label]="editMode ? 'Update Vehicle' : 'Save Vehicle'"
-            icon="pi pi-check"
-            class="p-button-success"
-            (click)="saveVehicle()">
-    </button>
+    <p-card>
+      <ng-template pTemplate="title">Estimated Daily Revenue</ng-template>
+      <div class="text-3xl font-bold text-blue-500">
+        ₹{{ totalRevenue }}
+      </div>
+    </p-card>
 
   </div>
 
-</p-dialog>
+  <!-- QUICK ACTION SECTION -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+    <p-card>
+      <ng-template pTemplate="title">Manage Inventory</ng-template>
+      <p class="mb-4 text-sm text-gray-500">
+        Add, edit or remove vehicles from your fleet.
+      </p>
+      <button pButton
+              label="Go to Inventory"
+              icon="pi pi-car"
+              (click)="navigateTo('inventory')">
+      </button>
+    </p-card>
+
+    <p-card>
+      <ng-template pTemplate="title">View Analytics</ng-template>
+      <p class="mb-4 text-sm text-gray-500">
+        Analyze revenue and vehicle performance.
+      </p>
+      <button pButton
+              label="Open Analytics"
+              icon="pi pi-chart-line"
+              (click)="navigateTo('analytics')">
+      </button>
+    </p-card>
+
+    <p-card>
+      <ng-template pTemplate="title">Manage Bookings</ng-template>
+      <p class="mb-4 text-sm text-gray-500">
+        Review and manage incoming bookings.
+      </p>
+      <button pButton
+              label="View Bookings"
+              icon="pi pi-calendar"
+              (click)="navigateTo('bookings')">
+      </button>
+    </p-card>
+
+  </div>
+
+</div>

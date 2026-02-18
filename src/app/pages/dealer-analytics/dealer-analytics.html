@@ -1,0 +1,17 @@
+<div class="p-6">
+  <h1 class="text-2xl font-bold mb-6">Analytics</h1>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+    <p-card>
+      <ng-template pTemplate="title">Revenue by Vehicle</ng-template>
+      <p-chart type="bar" [data]="revenueChartData"></p-chart>
+    </p-card>
+
+    <p-card>
+      <ng-template pTemplate="title">Vehicle Status Distribution</ng-template>
+      <p-chart type="pie" [data]="vehicleStatusChartData"></p-chart>
+    </p-card>
+
+  </div>
+</div>
