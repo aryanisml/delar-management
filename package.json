@@ -33,6 +33,7 @@
     "@primeng/themes": "^21.0.4",
     "@primeuix/themes": "^2.0.3",
     "@supabase/supabase-js": "^2.95.3",
+    "chart.js": "^4.5.1",
     "primeicons": "^7.0.0",
     "primeng": "^21.1.1",
     "rxjs": "~7.8.0",

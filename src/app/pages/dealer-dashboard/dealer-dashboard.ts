@@ -1,6 +1,7 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 
 import { SupabaseService } from '../../services/supabase';
 
@@ -37,8 +38,13 @@ import { ConfirmationService, MessageService } from 'primeng/api';
 })
 export class DealerDashboard implements OnInit {
 
+  private router = inject(Router);
+  private route = inject(ActivatedRoute);
+
   vehicles: any[] = [];
   bookings: any[] = [];
+
+  currentView: 'inventory' | 'analytics' | 'bookings' = 'inventory';
 
   displayDialog = false;
   editMode = false;
@@ -53,8 +59,27 @@ export class DealerDashboard implements OnInit {
   ) {}
 
   async ngOnInit() {
+
+    this.detectView();
+
     await this.loadVehicles();
     await this.loadBookings();
+
+    this.supabase.subscribeToVehicles(() => {
+      this.loadVehicles();
+    });
+  }
+
+  detectView() {
+    const url = this.router.url;
+
+    if (url.includes('analytics')) {
+      this.currentView = 'analytics';
+    } else if (url.includes('bookings')) {
+      this.currentView = 'bookings';
+    } else {
+      this.currentView = 'inventory';
+    }
   }
 
   resetVehicle() {
@@ -121,5 +146,9 @@ export class DealerDashboard implements OnInit {
 
   get activeVehicleCount(): number {
     return this.vehicles?.filter(v => v.status === 'active').length || 0;
+  }
+
+  get totalRevenue(): number {
+    return this.vehicles?.reduce((sum, v) => sum + (v.daily_rate || 0), 0) || 0;
   }
 }

@@ -45,6 +45,28 @@ export class SupabaseService {
     }
   }
 
+// =============================
+// REAL-TIME SUBSCRIPTIONS
+// =============================
+
+subscribeToVehicles(callback: (payload: any) => void) {
+  return this.supabase
+    .channel('vechile-changes')
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'vechile'
+      },
+      (payload) => {
+        callback(payload);
+      }
+    )
+    .subscribe();
+}
+
+
   // =============================
   // VEHICLES
   // =============================

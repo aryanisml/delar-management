@@ -36,13 +36,14 @@ export class Layout {
       { label: 'Settings', icon: 'pi pi-cog', route: '/admin' }
     ];
 
-    const userMenu: MenuItem[] = [
+    const dealerMenu: MenuItem[] = [
       { label: 'Dashboard', icon: 'pi pi-th-large', route: '/dealer' },
-      { label: 'My Vehicles', icon: 'pi pi-car', route: '/dealer' },
-      { label: 'Profile', icon: 'pi pi-user', route: '/dealer' }
+      { label: 'Inventory', icon: 'pi pi-car', route: '/dealer' },
+      { label: 'Analytics', icon: 'pi pi-chart-line', route: '/dealer/analytics' },
+      { label: 'Bookings', icon: 'pi pi-calendar', route: '/dealer/bookings' }
     ];
 
-    this.menuItems.set(r === 'admin' ? adminMenu : userMenu);
+    this.menuItems.set(r === 'admin' ? adminMenu : dealerMenu);
   }
 
   toggleMenu() {

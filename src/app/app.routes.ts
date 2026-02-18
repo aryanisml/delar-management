@@ -24,8 +24,23 @@ export const routes: Routes = [
     component: Layout,
     canActivate: [authGuard],
     children: [
-      { path: 'admin', component: AdminDashboard },
-      { path: 'dealer', component: DealerDashboard },
+
+      // Admin
+      {
+        path: 'admin',
+        component: AdminDashboard
+      },
+
+      // Dealer (now parent with children)
+      {
+        path: 'dealer',
+        children: [
+          { path: '', component: DealerDashboard },
+          { path: 'analytics', component: DealerDashboard },
+          { path: 'bookings', component: DealerDashboard }
+        ]
+      },
+
       { path: '', redirectTo: 'admin', pathMatch: 'full' }
     ]
   },
