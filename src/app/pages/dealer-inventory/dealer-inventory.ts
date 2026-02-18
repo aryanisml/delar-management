@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 
 import { SupabaseService } from '../../services/supabase';
 
@@ -36,25 +37,87 @@ import { ConfirmationService, MessageService } from 'primeng/api';
 export class DealerInventory implements OnInit {
 
   vehicles: any[] = [];
+  filteredVehicles: any[] = [];
+
+  searchTerm = '';
+  activeFilter: string = 'all';
+
+  smartSuggestion: string | null = null;
 
   displayDialog = false;
   editMode = false;
   selectedVehicle: any = null;
-
   newVehicle: any = this.resetVehicle();
 
   constructor(
     private supabase: SupabaseService,
     private confirmationService: ConfirmationService,
-    private messageService: MessageService
+    private messageService: MessageService,
+    private router: Router
   ) {}
 
   async ngOnInit() {
     await this.loadVehicles();
-
     this.supabase.subscribeToVehicles(() => {
       this.loadVehicles();
     });
+  }
+
+  async loadVehicles() {
+    const { data } = await this.supabase.getVehicles();
+    this.vehicles = data || [];
+    this.applyFilters();
+  }
+
+  setFilter(filter: string) {
+    this.activeFilter = filter;
+    this.applyFilters();
+  }
+
+  applyFilters() {
+    let data = [...this.vehicles];
+
+    if (this.activeFilter === 'available') {
+      data = data.filter(v => v.status === 'active');
+    }
+
+    if (this.activeFilter === 'inactive') {
+      data = data.filter(v => v.status === 'inactive');
+    }
+
+    if (this.activeFilter === 'maintenance') {
+      data = data.filter(v => v.status === 'maintenance');
+    }
+
+    if (this.searchTerm) {
+      const term = this.searchTerm.toLowerCase();
+      data = data.filter(v =>
+        v.Brand?.toLowerCase().includes(term) ||
+        v.model?.toLowerCase().includes(term) ||
+        v.location?.toLowerCase().includes(term)
+      );
+      this.detectSmartSuggestion(term);
+    } else {
+      this.smartSuggestion = null;
+    }
+
+    this.filteredVehicles = data;
+  }
+
+  detectSmartSuggestion(term: string) {
+    if (term.includes('revenue') || term.includes('performance') || term.includes('most booked')) {
+      this.smartSuggestion = 'analytics';
+    } else if (term.includes('upcoming') || term.includes('rentals')) {
+      this.smartSuggestion = 'bookings';
+    } else {
+      this.smartSuggestion = null;
+    }
+  }
+
+  navigateToSuggestion() {
+    if (this.smartSuggestion) {
+      this.router.navigateByUrl(`/dealer/${this.smartSuggestion}`);
+    }
   }
 
   resetVehicle() {
@@ -67,11 +130,6 @@ export class DealerInventory implements OnInit {
       daily_rate: 0,
       location: ''
     };
-  }
-
-  async loadVehicles() {
-    const { data } = await this.supabase.getVehicles();
-    this.vehicles = data || [];
   }
 
   openNew() {
@@ -112,5 +170,21 @@ export class DealerInventory implements OnInit {
         await this.loadVehicles();
       }
     });
+  }
+
+  get totalVehicles(): number {
+    return this.vehicles.length;
+  }
+
+  get availableNow(): number {
+    return this.vehicles.filter(v => v.status === 'active').length;
+  }
+
+  get inactiveCount(): number {
+    return this.vehicles.filter(v => v.status === 'inactive').length;
+  }
+
+  get maintenanceCount(): number {
+    return this.vehicles.filter(v => v.status === 'maintenance').length;
   }
 }

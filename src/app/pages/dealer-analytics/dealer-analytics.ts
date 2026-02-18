@@ -18,10 +18,15 @@ export class DealerAnalytics implements OnInit {
   vehicles: any[] = [];
 
   revenueChartData: any;
-  vehicleStatusChartData: any;
+  statusChartData: any;
+  locationChartData: any;
 
   async ngOnInit() {
     await this.loadVehicles();
+
+    this.supabase.subscribeToVehicles(() => {
+      this.loadVehicles();
+    });
   }
 
   async loadVehicles() {
@@ -30,27 +35,91 @@ export class DealerAnalytics implements OnInit {
     this.prepareCharts();
   }
 
+  // ========================
+  // KPIs
+  // ========================
+
+  get totalVehicles(): number {
+    return this.vehicles.length;
+  }
+
+  get activeCount(): number {
+    return this.vehicles.filter(v => v.status === 'active').length;
+  }
+
+  get maintenanceCount(): number {
+    return this.vehicles.filter(v => v.status === 'maintenance').length;
+  }
+
+  get avgDailyRate(): number {
+    if (!this.vehicles.length) return 0;
+    const total = this.vehicles.reduce((sum, v) => sum + (v.daily_rate || 0), 0);
+    return Math.round(total / this.vehicles.length);
+  }
+
+  get estimatedMonthlyRevenue(): number {
+    return this.vehicles.reduce((sum, v) => {
+      if (v.status === 'active') {
+        return sum + ((v.daily_rate || 0) * 30 * (v.Stock || 0));
+      }
+      return sum;
+    }, 0);
+  }
+
+  get topVehicle(): any {
+    if (!this.vehicles.length) return null;
+
+    return [...this.vehicles].sort((a, b) =>
+      ((b.daily_rate || 0) * (b.Stock || 0)) -
+      ((a.daily_rate || 0) * (a.Stock || 0))
+    )[0];
+  }
+
+  // ========================
+  // Charts
+  // ========================
+
   prepareCharts() {
+
     this.revenueChartData = {
       labels: this.vehicles.map(v => v.model),
       datasets: [
         {
-          label: 'Daily Rate',
-          backgroundColor: '#42A5F5',
-          data: this.vehicles.map(v => v.daily_rate || 0)
+          label: 'Estimated Monthly Revenue',
+          data: this.vehicles.map(v =>
+            v.status === 'active'
+              ? (v.daily_rate || 0) * 30 * (v.Stock || 0)
+              : 0
+          )
         }
       ]
     };
 
     const active = this.vehicles.filter(v => v.status === 'active').length;
-    const inactive = this.vehicles.length - active;
+    const inactive = this.vehicles.filter(v => v.status === 'inactive').length;
+    const maintenance = this.vehicles.filter(v => v.status === 'maintenance').length;
 
-    this.vehicleStatusChartData = {
-      labels: ['Active', 'Inactive'],
+    this.statusChartData = {
+      labels: ['Active', 'Inactive', 'Maintenance'],
       datasets: [
         {
-          data: [active, inactive],
-          backgroundColor: ['#4CAF50', '#FF9800']
+          data: [active, inactive, maintenance]
+        }
+      ]
+    };
+
+    const locationMap: any = {};
+    this.vehicles.forEach(v => {
+      const loc = v.location || 'Unknown';
+      locationMap[loc] = (locationMap[loc] || 0) + 1;
+    });
+
+    this.locationChartData = {
+      labels: Object.keys(locationMap),
+      datasets: [
+        {
+          label: 'Vehicles by Location',
+          data: Object.values(locationMap)
         }
       ]
     };

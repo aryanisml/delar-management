@@ -1,106 +1,238 @@
 <p-toast></p-toast>
 <p-confirmDialog></p-confirmDialog>
 
-<div class="p-6">
-  <h1 class="text-2xl font-bold mb-6">Inventory</h1>
+<div class="grid gap-4">
 
-  <div class="flex justify-between items-center mb-4">
-    <h2 class="text-xl font-semibold">Vehicle Inventory</h2>
+  <!-- ===================== -->
+  <!-- KPI STRIP -->
+  <!-- ===================== -->
 
-    <button pButton
-            label="Add Vehicle"
-            icon="pi pi-plus"
-            (click)="openNew()">
-    </button>
+  <div class="grid grid-cols-4 gap-4">
+
+    <p-card header="Total Vehicles">
+      <h2 class="text-2xl font-bold">{{ totalVehicles }}</h2>
+    </p-card>
+
+    <p-card header="Available">
+      <h2 class="text-2xl font-bold text-green-600">
+        {{ availableNow }}
+      </h2>
+    </p-card>
+
+    <p-card header="Inactive">
+      <h2 class="text-2xl font-bold text-gray-500">
+        {{ inactiveCount }}
+      </h2>
+    </p-card>
+
+    <p-card header="Maintenance">
+      <h2 class="text-2xl font-bold text-yellow-600">
+        {{ maintenanceCount }}
+      </h2>
+    </p-card>
+
   </div>
 
-  <p-table
-    [value]="vehicles"
-    [paginator]="true"
-    [rows]="5"
-    responsiveLayout="scroll"
-    styleClass="p-datatable-striped"
-  >
+  <!-- ===================== -->
+  <!-- FILTER + SEARCH -->
+  <!-- ===================== -->
 
-    <ng-template pTemplate="header">
-      <tr>
-        <th>Brand</th>
-        <th>Make</th>
-        <th>Model</th>
-        <th>Location</th>
-        <th>Stock</th>
-        <th>Status</th>
-        <th>Rate</th>
-        <th>Actions</th>
-      </tr>
-    </ng-template>
+  <p-card header="Inventory Controls">
 
-    <ng-template pTemplate="body" let-vehicle>
-      <tr>
-        <td>{{ vehicle.Brand }}</td>
-        <td>{{ vehicle.make }}</td>
-        <td>{{ vehicle.model }}</td>
-        <td>{{ vehicle.location }}</td>
-        <td>{{ vehicle.Stock }}</td>
-        <td>
-          <p-tag
-            [value]="vehicle.status"
-            [severity]="vehicle.status === 'active' ? 'success' : 'warn'">
-          </p-tag>
-        </td>
-        <td>₹{{ vehicle.daily_rate }}</td>
+    <div class="flex flex-wrap gap-3 items-center justify-between">
 
-        <td class="flex gap-2">
-          <button pButton icon="pi pi-pencil"
-                  class="p-button-warning p-button-sm"
-                  (click)="editVehicle(vehicle)">
-          </button>
+      <div class="flex gap-2">
 
-          <button pButton icon="pi pi-trash"
-                  class="p-button-danger p-button-sm"
-                  (click)="deleteVehicle(vehicle)">
-          </button>
-        </td>
-      </tr>
-    </ng-template>
+        <button
+          pButton
+          label="All"
+          [outlined]="activeFilter !== 'all'"
+          (click)="setFilter('all')">
+        </button>
 
-  </p-table>
+        <button
+          pButton
+          label="Available"
+          severity="success"
+          [outlined]="activeFilter !== 'available'"
+          (click)="setFilter('available')">
+        </button>
+
+        <button
+          pButton
+          label="Inactive"
+          severity="secondary"
+          [outlined]="activeFilter !== 'inactive'"
+          (click)="setFilter('inactive')">
+        </button>
+
+        <button
+          pButton
+          label="Maintenance"
+          severity="warn"
+          [outlined]="activeFilter !== 'maintenance'"
+          (click)="setFilter('maintenance')">
+        </button>
+
+      </div>
+
+      <div class="flex gap-2 items-center">
+
+        <input
+          pInputText
+          placeholder="Search by brand, model, location..."
+          [(ngModel)]="searchTerm"
+          (ngModelChange)="applyFilters()"
+          class="w-64"
+        />
+
+        <button
+          pButton
+          label="Add Vehicle"
+          icon="pi pi-plus"
+          (click)="openNew()">
+        </button>
+
+      </div>
+
+    </div>
+
+  </p-card>
+
+  <!-- ===================== -->
+  <!-- SMART SUGGESTION -->
+  <!-- ===================== -->
+
+  <p-card *ngIf="smartSuggestion" header="Smart Suggestion">
+    <div class="flex justify-between items-center">
+      <div>
+        🔎 Looking for deeper insights?
+      </div>
+      <button
+        pButton
+        label="Open"
+        (click)="navigateToSuggestion()">
+      </button>
+    </div>
+  </p-card>
+
+  <!-- ===================== -->
+  <!-- INVENTORY TABLE -->
+  <!-- ===================== -->
+
+  <p-card header="Vehicle Inventory">
+
+    <p-table
+      [value]="filteredVehicles"
+      [paginator]="true"
+      [rows]="10"
+      responsiveLayout="scroll"
+    >
+
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Brand</th>
+          <th>Model</th>
+          <th>Location</th>
+          <th>Status</th>
+          <th>Daily Rate</th>
+          <th>Stock</th>
+          <th style="width: 150px">Actions</th>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="body" let-vehicle>
+        <tr>
+          <td>{{ vehicle.Brand }}</td>
+          <td>{{ vehicle.model }}</td>
+          <td>{{ vehicle.location }}</td>
+          <td>
+            <p-tag
+              [value]="vehicle.status"
+              [severity]="
+                vehicle.status === 'active' ? 'success' :
+                vehicle.status === 'maintenance' ? 'warn' :
+                'secondary'
+              ">
+            </p-tag>
+          </td>
+          <td>₹{{ vehicle.daily_rate }}</td>
+          <td>{{ vehicle.Stock }}</td>
+          <td class="flex gap-2">
+
+            <button
+              pButton
+              icon="pi pi-pencil"
+              severity="info"
+              (click)="editVehicle(vehicle)">
+            </button>
+
+            <button
+              pButton
+              icon="pi pi-trash"
+              severity="danger"
+              (click)="deleteVehicle(vehicle)">
+            </button>
+
+          </td>
+        </tr>
+      </ng-template>
+
+    </p-table>
+
+  </p-card>
+
 </div>
 
+<!-- ===================== -->
+<!-- ADD / EDIT DIALOG -->
+<!-- ===================== -->
+
 <p-dialog
-  [header]="editMode ? 'Edit Vehicle Details' : 'Add New Vehicle Details'"
   [(visible)]="displayDialog"
   [modal]="true"
-  [style]="{ width: '450px' }"
->
+  [closable]="true"
+  [style]="{ width: '400px' }"
+  header="Vehicle">
 
-  <div class="flex flex-col gap-4">
+  <div class="flex flex-col gap-3">
 
-    <input pInputText placeholder="Brand"
-           [(ngModel)]="newVehicle.Brand" />
+    <input
+      pInputText
+      placeholder="Brand"
+      [(ngModel)]="newVehicle.Brand"
+    />
 
-    <input pInputText placeholder="Make"
-           [(ngModel)]="newVehicle.make" />
+    <input
+      pInputText
+      placeholder="Model"
+      [(ngModel)]="newVehicle.model"
+    />
 
-    <input pInputText placeholder="Model"
-           [(ngModel)]="newVehicle.model" />
+    <input
+      pInputText
+      placeholder="Location"
+      [(ngModel)]="newVehicle.location"
+    />
 
-    <input pInputText placeholder="Location"
-           [(ngModel)]="newVehicle.location" />
+    <input
+      pInputText
+      type="number"
+      placeholder="Daily Rate"
+      [(ngModel)]="newVehicle.daily_rate"
+    />
 
-    <input pInputText type="number"
-           placeholder="Stock"
-           [(ngModel)]="newVehicle.Stock" />
+    <input
+      pInputText
+      type="number"
+      placeholder="Stock"
+      [(ngModel)]="newVehicle.Stock"
+    />
 
-    <input pInputText type="number"
-           placeholder="Daily Rate"
-           [(ngModel)]="newVehicle.daily_rate" />
-
-    <button pButton
-            [label]="editMode ? 'Update Vehicle' : 'Save Vehicle'"
-            icon="pi pi-check"
-            class="p-button-success"
-            (click)="saveVehicle()">
+    <button
+      pButton
+      label="Save"
+      (click)="saveVehicle()">
     </button>
 
   </div>
