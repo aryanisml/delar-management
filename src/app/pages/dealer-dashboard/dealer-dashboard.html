@@ -1,72 +1,13 @@
-<div class="p-6">
+<main class="p-6">
+  <p-card>
+    <ng-template pTemplate="title">
+      Dealer Dashboard
+    </ng-template>
 
-  <h1 class="text-2xl font-bold mb-6">Dealer Overview</h1>
+    <p>Welcome {{ userEmail() }}</p>
 
-  <!-- KPI SECTION -->
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-
-    <p-card>
-      <ng-template pTemplate="title">Total Vehicles</ng-template>
-      <div class="text-3xl font-bold text-primary">
-        {{ vehicles.length }}
-      </div>
-    </p-card>
-
-    <p-card>
-      <ng-template pTemplate="title">Active Vehicles</ng-template>
-      <div class="text-3xl font-bold text-green-500">
-        {{ activeVehicleCount }}
-      </div>
-    </p-card>
-
-    <p-card>
-      <ng-template pTemplate="title">Estimated Daily Revenue</ng-template>
-      <div class="text-3xl font-bold text-blue-500">
-        ₹{{ totalRevenue }}
-      </div>
-    </p-card>
-
-  </div>
-
-  <!-- QUICK ACTION SECTION -->
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-
-    <p-card>
-      <ng-template pTemplate="title">Manage Inventory</ng-template>
-      <p class="mb-4 text-sm text-gray-500">
-        Add, edit or remove vehicles from your fleet.
-      </p>
-      <button pButton
-              label="Go to Inventory"
-              icon="pi pi-car"
-              (click)="navigateTo('inventory')">
-      </button>
-    </p-card>
-
-    <p-card>
-      <ng-template pTemplate="title">View Analytics</ng-template>
-      <p class="mb-4 text-sm text-gray-500">
-        Analyze revenue and vehicle performance.
-      </p>
-      <button pButton
-              label="Open Analytics"
-              icon="pi pi-chart-line"
-              (click)="navigateTo('analytics')">
-      </button>
-    </p-card>
-
-    <p-card>
-      <ng-template pTemplate="title">Manage Bookings</ng-template>
-      <p class="mb-4 text-sm text-gray-500">
-        Review and manage incoming bookings.
-      </p>
-      <button pButton
-              label="View Bookings"
-              icon="pi pi-calendar"
-              (click)="navigateTo('bookings')">
-      </button>
-    </p-card>
-
-  </div>
-
-</div>
+    <div class="mt-4">
+      <button pButton label="Logout" icon="pi pi-sign-out" (click)="signOut()"></button>
+    </div>
+  </p-card>
+</main>

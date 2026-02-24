@@ -1,69 +1,84 @@
-<header class="shadow-sm bg-white">
-  <div class="max-w-screen-xl mx-auto px-4 py-3 flex items-center justify-between">
-    <div class="flex items-center gap-3">
-      <button
-        pButton
-        type="button"
-        icon="pi pi-bars"
-        class="p-button-text text-gray-600"
-        (click)="toggleMenu()"
-      ></button>
-      <div class="text-lg font-semibold">Dealer Management</div>
-    </div>
-    <div class="flex items-center gap-3">
-      <button
-        pButton
-        type="button"
-        label="Logout"
-        icon="pi pi-sign-out"
-        (click)="signOut()"
-        class="p-button-danger"
-      ></button>
-    </div>
+<header class="topbar">
+
+  <div class="topbar-left">
+    <button
+      pButton
+      type="button"
+      icon="pi pi-bars"
+      class="p-button-text"
+      (click)="toggleSidebar()">
+    </button>
+
+    <div class="app-title">Admin Management</div>
   </div>
+
+  <div class="topbar-right">
+    <div class="role-badge">
+      {{ role() === 'admin' ? 'Admin Panel' : 'Dealer Panel' }}
+    </div>
+
+    <button
+      pButton
+      type="button"
+      label="Logout"
+      icon="pi pi-sign-out"
+      class="p-button-danger p-button-sm"
+      (click)="signOut()">
+    </button>
+  </div>
+
 </header>
 
-<div class="flex bg-gray-50 min-h-[calc(100vh-64px)]">
-  <aside
-    class="bg-white shadow rounded-r-lg p-4 w-64 hidden md:block"
-    [class.hidden]="!menuOpen() && false"
-  >
-    <div class="flex flex-col gap-4">
-      <div class="flex items-center gap-3">
-        <div
-          class="w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold"
-        >
-          A
-        </div>
-        <div>
-          <div class="font-semibold">{{ role() === 'admin' ? 'Admin' : 'User' }}</div>
-          <div class="text-xs text-gray-500">({{ role() }})</div>
-        </div>
+<div class="layout-container">
+
+  <!-- =============================== -->
+  <!-- SIDEBAR                         -->
+  <!-- =============================== -->
+
+  <aside class="sidebar" [class.collapsed]="sidebarCollapsed()">
+
+    <div class="sidebar-header">
+      <div class="avatar">
+        {{ role()?.charAt(0)?.toUpperCase() }}
       </div>
 
-      <nav class="mt-4">
-        <ul class="space-y-2">
-          @for (item of menuItems(); track item.label) {
-            <li
-              (click)="navigate(item)"
-              class="flex items-center gap-3 p-2 rounded hover:bg-gray-100 cursor-pointer"
-            >
-              <i [class]="item.icon + ' text-lg text-gray-600'"></i>
-              <span class="text-gray-700">{{ item.label }}</span>
-            </li>
-          }
-        </ul>
-      </nav>
+      <div class="role-info" *ngIf="!sidebarCollapsed()">
+        <div class="role-title">
+          {{ role() === 'admin' ? 'Administrator' : 'Dealer User' }}
+        </div>
+        <div class="role-sub">{{ role() }}</div>
+      </div>
     </div>
+
+    <nav class="sidebar-nav">
+      <ul>
+        @for (item of menuItems(); track item.label) {
+          <li
+            (click)="navigate(item)"
+            [class.active]="isActive(item.route)"
+          >
+            <i [class]="item.icon"></i>
+
+            <span *ngIf="!sidebarCollapsed()">
+              {{ item.label }}
+            </span>
+          </li>
+        }
+      </ul>
+    </nav>
+
   </aside>
 
-  <main class="flex-1 p-6">
+  <!-- =============================== -->
+  <!-- MAIN CONTENT                    -->
+  <!-- =============================== -->
+
+  <main class="content">
     <router-outlet></router-outlet>
   </main>
+
 </div>
 
-<footer class="bg-white mt-6">
-  <div class="max-w-screen-xl mx-auto px-4 py-4 text-center text-sm text-gray-500">
-    © {{ currentYear }} Dealer Management
-  </div>
+<footer class="footer">
+  © {{ currentYear }} Dealer Management
 </footer>

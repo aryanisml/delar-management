@@ -1,0 +1,65 @@
+<div class="analytics-wrapper">
+
+  <!-- ================= KPI STRIP ================= -->
+
+  <div class="kpi-grid">
+
+    <p-card class="kpi-card">
+      <div class="kpi-title">Total Vehicles</div>
+      <div class="kpi-value">{{ totalVehicles() }}</div>
+    </p-card>
+
+    <p-card class="kpi-card success">
+      <div class="kpi-title">Active Vehicles</div>
+      <div class="kpi-value">{{ activeCount() }}</div>
+      <div class="kpi-sub">{{ activePercentage() }}% Active</div>
+    </p-card>
+
+    <p-card class="kpi-card warning">
+      <div class="kpi-title">Low Stock</div>
+      <div class="kpi-value">{{ lowStockCount() }}</div>
+    </p-card>
+
+    <p-card class="kpi-card revenue">
+      <div class="kpi-title">Est. Monthly Revenue</div>
+      <div class="kpi-value">₹{{ monthlyRevenue() }}</div>
+      <div class="kpi-sub">Daily: ₹{{ estimatedRevenue() }}</div>
+    </p-card>
+
+  </div>
+
+  <!-- ================= CHART SECTION ================= -->
+
+  <div class="charts-grid">
+
+    <p-card>
+      <ng-template pTemplate="title">
+        Vehicle Status Distribution
+      </ng-template>
+
+      <div class="doughnut-wrapper">
+        <p-chart
+          type="doughnut"
+          [data]="chartData()"
+          [options]="chartOptions()">
+        </p-chart>
+      </div>
+    </p-card>
+
+    <p-card>
+      <ng-template pTemplate="title">
+        Stock Distribution
+      </ng-template>
+
+      <div class="bar-wrapper">
+        <p-chart
+          type="bar"
+          [data]="stockChart()"
+          [options]="stockOptions()">
+        </p-chart>
+      </div>
+    </p-card>
+
+  </div>
+
+</div>

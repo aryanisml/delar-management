@@ -1,0 +1,48 @@
+<p-toast></p-toast>
+
+<p-card>
+  <ng-template pTemplate="title">
+    User & Role Management
+  </ng-template>
+
+  <p-table
+    [value]="users()"
+    [paginator]="true"
+    [rows]="10"
+    responsiveLayout="scroll"
+    dataKey="user_id"
+    styleClass="p-datatable-sm p-datatable-striped">
+
+    <ng-template pTemplate="header">
+      <tr>
+        <th>User ID</th>
+        <th>Role</th>
+        <th style="width:160px">Actions</th>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="body" let-row>
+      <tr>
+        <td>{{ row.user_id }}</td>
+
+        <td>
+          <p-tag
+            [value]="row.role"
+            [severity]="row.role === 'admin' ? 'success' : 'info'">
+          </p-tag>
+        </td>
+
+        <td>
+          <button
+            pButton
+            label="Toggle Role"
+            icon="pi pi-sync"
+            class="p-button-sm p-button-warning"
+            (click)="toggleRole(row)">
+          </button>
+        </td>
+      </tr>
+    </ng-template>
+
+  </p-table>
+</p-card>

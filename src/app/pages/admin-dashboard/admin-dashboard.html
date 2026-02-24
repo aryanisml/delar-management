@@ -1,61 +1,261 @@
-<main class="content">
-	<p-card class="shadow">
-		<ng-template pTemplate="title">
-			<div class="card-title text-xl font-semibold">Vehicles</div>
-		</ng-template>
+<p-toast></p-toast>
+<p-confirmDialog></p-confirmDialog>
 
-		<p-toolbar class="mb-3">
-			<div class="p-toolbar-group-left">
-				<!-- place for filters/actions if needed -->
-			</div>
-			<div class="p-toolbar-group-right">
-				<span class="p-input-icon-left">
-					<i class="pi pi-search"></i>
-					<input pInputText type="search" (input)="setFilter($any($event.target).value)" placeholder="Search brand, make or model..." class="w-80" />
-				</span>
-			</div>
-		</p-toolbar>
+<div class="admin-wrapper">
 
-		<div class="table-wrap bg-white rounded border">
-						@if (loading()) {
-							<p-progressSpinner styleClass="center-spinner"></p-progressSpinner>
-						}
+  <p-card class="main-card">
 
-						@if (!loading()) {
-							<p-table
-								[value]="filteredVehicles()"
-				[paginator]="true"
-				[rows]="12"
-				[rowsPerPageOptions]="[12,24,48]"
-				[showCurrentPageReport]="true"
-				currentPageReportTemplate="Showing {first} to {last} of {totalRecords}"
-				responsiveLayout="scroll"
-				rowHover]="true"
-				sortField="brand"
-				[sortOrder]="1"
-				class="p-datatable-striped p-datatable-hover"
-			>
-				<ng-template pTemplate="header">
-					<tr>
-						<th pSortableColumn="brand">Brand <p-sortIcon field="brand"></p-sortIcon></th>
-						<th pSortableColumn="make">Make <p-sortIcon field="make"></p-sortIcon></th>
-						<th pSortableColumn="model">Model <p-sortIcon field="model"></p-sortIcon></th>
-					</tr>
-				</ng-template>
+    <ng-template pTemplate="title">
+      <div class="section-title">
+        Vehicle Management
+      </div>
+    </ng-template>
 
-				<ng-template pTemplate="body" let-row>
-					<tr>
-						<td>{{ row.brand }}</td>
-						<td>{{ row.make }}</td>
-						<td>{{ row.model }}</td>
-					</tr>
-				</ng-template>
-							</p-table>
-						}
+    <!-- ============================= -->
+    <!-- TOOLBAR                       -->
+    <!-- ============================= -->
 
-						@if (!loading() && filteredVehicles().length === 0) {
-							<div class="empty p-8 text-center text-gray-500">No vehicles found</div>
-						}
-		</div>
-	</p-card>
-</main>
+    <p-toolbar class="toolbar-clean mb-4">
+
+      <div class="p-toolbar-group-left">
+        <button
+          pButton
+          label="Add Vehicle"
+          icon="pi pi-plus"
+          class="p-button-sm"
+          (click)="openNew()">
+        </button>
+      </div>
+
+      <div class="p-toolbar-group-right toolbar-actions">
+
+        <div class="quick-filters">
+
+          <button
+            pButton
+            label="All"
+            class="p-button-sm"
+            [class.active-filter]="statusFilter() === 'all'"
+            [outlined]="statusFilter() !== 'all'"
+            (click)="statusFilter.set('all')">
+          </button>
+
+          <button
+            pButton
+            label="Active"
+            class="p-button-sm p-button-success"
+            [class.active-filter]="statusFilter() === 'active'"
+            [outlined]="statusFilter() !== 'active'"
+            (click)="statusFilter.set('active')">
+          </button>
+
+          <button
+            pButton
+            label="Inactive"
+            class="p-button-sm p-button-warning"
+            [class.active-filter]="statusFilter() === 'inactive'"
+            [outlined]="statusFilter() !== 'inactive'"
+            (click)="statusFilter.set('inactive')">
+          </button>
+
+          <button
+            pButton
+            label="Archived"
+            class="p-button-sm p-button-secondary"
+            [class.active-filter]="statusFilter() === 'deleted'"
+            [outlined]="statusFilter() !== 'deleted'"
+            (click)="statusFilter.set('deleted')">
+          </button>
+
+        </div>
+
+        <input
+          pInputText
+          type="search"
+          placeholder="Search vehicles..."
+          (input)="filter.set($any($event.target).value)" />
+
+      </div>
+
+    </p-toolbar>
+
+    <!-- ============================= -->
+    <!-- TABLE                         -->
+    <!-- ============================= -->
+
+    <p-table
+      [value]="filteredVehicles()"
+      [loading]="loading()"
+      [paginator]="true"
+      [rows]="10"
+      responsiveLayout="scroll"
+      dataKey="id"
+      styleClass="p-datatable-sm p-datatable-striped">
+
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Brand</th>
+          <th>Model</th>
+          <th>Stock</th>
+          <th>Daily Rate</th>
+          <th>Status</th>
+          <th style="width:280px">Actions</th>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="body" let-row>
+        <tr>
+
+          <td>{{ row.brand }}</td>
+          <td>{{ row.model }}</td>
+
+          <td>
+            {{ row.stock }}
+            <p-tag
+              *ngIf="row.stock < 3 && row.status === 'active'"
+              severity="danger"
+              value="Low">
+            </p-tag>
+          </td>
+
+          <td>₹{{ row.daily_rate }}</td>
+
+          <td>
+            <p-tag
+              [value]="row.status"
+              [severity]="
+                row.status === 'active'
+                  ? 'success'
+                  : row.status === 'inactive'
+                  ? 'warn'
+                  : 'secondary'
+              ">
+            </p-tag>
+          </td>
+
+          <!-- ============================= -->
+          <!-- FIXED ACTION SLOT LAYOUT      -->
+          <!-- ============================= -->
+
+          <td class="action-buttons">
+
+            <!-- 1️⃣ EDIT (always slot 1) -->
+            <button
+              pButton
+              icon="pi pi-pencil"
+              class="p-button-sm p-button-info"
+              [disabled]="row.status === 'deleted'"
+              (click)="openEdit(row)">
+            </button>
+
+            <!-- 2️⃣ ENABLE / DISABLE (always slot 2) -->
+            <button
+              pButton
+              [label]="row.status === 'active' ? 'Disable' : 'Enable'"
+              class="p-button-sm"
+              [ngClass]="
+                row.status === 'active'
+                  ? 'p-button-danger'
+                  : 'p-button-success'
+              "
+              [disabled]="row.status === 'deleted'"
+              (click)="
+                row.status === 'active'
+                  ? deactivateVehicle(row)
+                  : activateVehicle(row)
+              ">
+            </button>
+
+            <!-- 3️⃣ ARCHIVE (always slot 3) -->
+            <button
+              pButton
+              icon="pi pi-trash"
+              class="p-button-sm p-button-secondary"
+              [disabled]="row.status === 'deleted'"
+              (click)="confirmDelete(row)">
+            </button>
+
+            <!-- 4️⃣ RESTORE (only visible for archived, slot preserved) -->
+            <button
+              pButton
+              label="Restore"
+              class="p-button-sm p-button-success"
+              [style.visibility]="row.status === 'deleted' ? 'visible' : 'hidden'"
+              [disabled]="row.status !== 'deleted'"
+              (click)="restoreVehicle(row)">
+            </button>
+
+          </td>
+
+        </tr>
+      </ng-template>
+
+    </p-table>
+
+  </p-card>
+
+</div>
+
+<!-- ============================= -->
+<!-- ADD / EDIT VEHICLE DIALOG     -->
+<!-- ============================= -->
+
+<p-dialog
+  header="Add Vehicle"
+  [visible]="dialogVisible()"
+  (onHide)="dialogVisible.set(false)"
+  [modal]="true"
+  [style]="{ width: '450px' }">
+
+  <div class="dialog-form">
+
+    <input pInputText placeholder="Brand"
+           [(ngModel)]="newVehicle.brand" />
+
+    <input pInputText placeholder="Make"
+           [(ngModel)]="newVehicle.make" />
+
+    <input pInputText placeholder="Model"
+           [(ngModel)]="newVehicle.model" />
+
+    <input pInputText placeholder="Location"
+           [(ngModel)]="newVehicle.location" />
+
+    <p-inputNumber
+      [(ngModel)]="newVehicle.stock"
+      placeholder="Stock">
+    </p-inputNumber>
+
+    <p-inputNumber
+      [(ngModel)]="newVehicle.daily_rate"
+      placeholder="Daily Rate"
+      mode="currency"
+      currency="INR">
+    </p-inputNumber>
+
+    <p-select
+      [options]="statusOptions"
+      [(ngModel)]="newVehicle.status"
+      optionLabel="label"
+      optionValue="value"
+      placeholder="Select Status">
+    </p-select>
+
+  </div>
+
+  <ng-template pTemplate="footer">
+    <button
+      pButton
+      label="Cancel"
+      class="p-button-text"
+      (click)="dialogVisible.set(false)">
+    </button>
+
+    <button
+      pButton
+      label="Save"
+      (click)="saveVehicle()">
+    </button>
+  </ng-template>
+
+</p-dialog>

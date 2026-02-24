@@ -1,0 +1,61 @@
+.analytics-wrapper {
+  max-width: 1200px;
+  margin: auto;
+  padding: 2rem;
+}
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.kpi-card {
+  border-radius: 14px;
+  padding: 1rem;
+}
+
+.kpi-title {
+  font-size: 0.85rem;
+  color: #6b7280;
+  margin-bottom: 0.5rem;
+}
+
+.kpi-value {
+  font-size: 1.8rem;
+  font-weight: 600;
+}
+
+.kpi-sub {
+  font-size: 0.8rem;
+  margin-top: 0.3rem;
+  color: #6b7280;
+}
+
+.success {
+  border-left: 4px solid #22c55e;
+}
+
+.warning {
+  border-left: 4px solid #f59e0b;
+}
+
+.revenue {
+  border-left: 4px solid #3b82f6;
+}
+
+.charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+
+.doughnut-wrapper {
+  max-width: 300px;
+  margin: auto;
+}
+
+.bar-wrapper {
+  height: 350px;
+}

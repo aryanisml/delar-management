@@ -14,16 +14,14 @@ export class SupabaseService {
   );
 
   // =============================
-  // AUTH (UNCHANGED)
+  // AUTH
   // =============================
 
   async signInWithGoogle() {
     const redirectUrl = `${window.location.origin}/auth/callback`;
     return await this.supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: {
-        redirectTo: redirectUrl
-      }
+      options: { redirectTo: redirectUrl }
     });
   }
 
@@ -38,114 +36,87 @@ export class SupabaseService {
   }
 
   async signOut() {
-    try {
-      await this.supabase.auth.signOut();
-    } catch (err) {
-      console.error('SupabaseService.signOut error', err);
-    }
+    await this.supabase.auth.signOut();
   }
 
-// =============================
-// REAL-TIME SUBSCRIPTIONS
-// =============================
+  // =============================
+  // ROLE
+  // =============================
 
-subscribeToVehicles(callback: (payload: any) => void) {
-  return this.supabase
-    .channel('vechile-changes')
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'vechile'
-      },
-      (payload) => {
-        callback(payload);
-      }
-    )
-    .subscribe();
-}
+  async getUserRole(userId: string) {
+    const { data, error } = await this.supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId)
+      .single();
 
+    if (error) {
+      console.error('Error fetching role:', error);
+      return null;
+    }
+
+    return data?.role ?? null;
+  }
+
+  async getAllUserRoles() {
+    const { data, error } = await this.supabase
+      .from('user_roles')
+      .select('*');
+
+    return { data, error };
+  }
+
+  async updateUserRole(userId: string, role: string) {
+    return await this.supabase
+      .from('user_roles')
+      .update({ role })
+      .eq('user_id', userId);
+  }
 
   // =============================
   // VEHICLES
   // =============================
 
-  async getVehicles(): Promise<{ data: Vehicle[] | null; error: any | null }> {
-    try {
-      const { data, error } = await this.supabase
-        .from('vechile')
-        .select('*');
+  async getVehicles() {
+    const { data, error } = await this.supabase
+      .from('vechile')
+      .select('*');
 
-      if (error) {
-        console.error('SupabaseService.getVehicles error:', error);
-        return { data: null, error };
-      }
-
-      // Normalize brand casing safely
-      const normalized = (data ?? []).map((r: any) => ({
-        ...r,
-        brand: r.brand ?? r.Brand
-      }));
-
-      return { data: normalized as Vehicle[], error: null };
-
-    } catch (err) {
-      console.error('SupabaseService.getVehicles error', err);
-      return { data: null, error: err };
-    }
+    return { data, error };
   }
 
   async addVehicle(vehicle: any) {
-    const { data, error } = await this.supabase
-      .from('vechile')
-      .insert([vehicle]);
-
-    if (error) console.error('addVehicle error:', error);
-    return { data, error };
+    return await this.supabase.from('vechile').insert([vehicle]);
   }
 
   async updateVehicle(id: string, vehicle: any) {
-    const { data, error } = await this.supabase
+    return await this.supabase
       .from('vechile')
       .update(vehicle)
       .eq('id', id);
-
-    if (error) console.error('updateVehicle error:', error);
-    return { data, error };
   }
 
   async deleteVehicle(id: string) {
-    const { data, error } = await this.supabase
+    return await this.supabase
       .from('vechile')
       .delete()
       .eq('id', id);
-
-    if (error) console.error('deleteVehicle error:', error);
-    return { data, error };
   }
 
   // =============================
-  // BOOKINGS
-  // =============================
+// AUDIT LOGGING
+// =============================
 
-  async getPendingBookings() {
-    const { data, error } = await this.supabase
-      .from('bookings')
-      .select('*')
-      .eq('status', 'pending');
+async logAudit(action: string) {
+  const user = await this.getCurrentUser();
+  if (!user) return;
 
-    if (error) console.error('getPendingBookings error:', error);
-    return { data, error };
-  }
-
-  async updateBookingStatus(id: string, status: string) {
-    const { data, error } = await this.supabase
-      .from('bookings')
-      .update({ status })
-      .eq('id', id);
-
-    if (error) console.error('updateBookingStatus error:', error);
-    return { data, error };
-  }
+  await this.supabase.from('audit_logs').insert([
+    {
+      action,
+      user_id: user.id,
+      created_at: new Date()
+    }
+  ]);
+}
 }
