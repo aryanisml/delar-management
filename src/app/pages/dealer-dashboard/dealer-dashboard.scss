@@ -1,0 +1,110 @@
+/* 1. Base Container Styling */
+:host {
+    display: block;
+    min-height: 100vh;
+    background: #f5f7fb; 
+    padding: 1.5rem;
+}
+
+.dashboard {
+    display: flex;
+    flex-direction: column; /* Stack Top Section and Table vertically */
+    gap: 1.5rem;
+}
+
+/* 2. Top Section Layout (KPIs + Chart) */
+.dashboard-top-section {
+    display: flex;     /* Forces children (KPI wrapper & Chart) to be side-by-side */
+    flex-wrap: wrap;      
+	flex-direction: row;  /* Ensures horizontal alignment */
+    gap: 1.5rem;
+    align-items: flex-start;
+}
+
+.kpi-wrapper {
+    display: grid;  /* Forces the cards inside to follow a grid */
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); /* Creates TWO equal columns side-by-side */
+    flex: 1; /* Makes KPIs take up the left-side space */
+	gap: 1rem;
+}
+
+/* 3. KPI Card Internal Styling */
+.kpi-card {
+    height: auto; /* Prevents the cards from stretching to the chart's height */
+    
+    .stat-content {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .stat-title { 
+        color: #64748b; 
+        font-size: 0.9rem; 
+        display: block;
+    }
+
+    .stat-value { 
+        font-size: 1.8rem; 
+        font-weight: 700; 
+        display: block;
+    }
+}
+
+/* 4. Chart Card Styling */
+.chart-card {
+    width: 400px;
+    min-height: 320px;
+}
+
+/* 5. Table & Content Styling */
+.content {
+    width: 100%;
+}
+
+.table-wrap {
+    min-height: 300px;
+    padding: 0.5rem;
+    background: white;
+    border-radius: 8px;
+}
+
+/* PrimeNG Table Customization */
+::ng-deep {
+    .p-datatable .p-datatable-thead > tr > th {
+        background: #f8fafc;
+        color: #111827;
+        font-weight: 600;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .p-datatable-striped .p-datatable-tbody > tr:nth-child(even) {
+        background: #fbfdff;
+    }
+
+    .p-datatable-hover .p-datatable-tbody > tr:hover {
+        background: #f1f5f9;
+    }
+}
+
+/* 6. Utility Styles (Spinners & Helpers) */
+.center-spinner {
+    display: block;
+    margin: 40px auto;
+}
+
+.empty {
+    padding: 32px;
+    text-align: center;
+    color: #6b7280;
+}
+
+/* 7. Responsive Fixes */
+@media (max-width: 1100px) {
+    .dashboard-top-section {
+        flex-direction: column; /* Stack chart under KPIs on smaller screens */
+    }
+    .chart-card {
+        width: 100%; /* Chart takes full width on tablets/phones */
+    }
+}

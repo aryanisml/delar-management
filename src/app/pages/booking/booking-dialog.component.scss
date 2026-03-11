@@ -1,0 +1,22 @@
+.booking-form{
+display:flex;
+flex-direction:column;
+gap:16px;
+}
+
+.field{
+display:flex;
+flex-direction:column;
+gap:6px;
+}
+
+.field label{
+font-weight:500;
+}
+
+.dialog-actions{
+display:flex;
+justify-content:flex-end;
+gap:10px;
+margin-top:10px;
+}

@@ -35,42 +35,96 @@ export class SupabaseService {
   }
 
   /**
-   * Fetch vehicles from `vechile` table.
+   * Fetch vehicles from `vehicle` table.
    * Returns an object { data, error } similar to supabase response so callers can handle.
    */
   async getVehicles(): Promise<{ data: Vehicle[] | null; error: any | null }> {
-    try {
-      // Try ordering by created_at if the column exists; if not, fall back to no-order.
-      let data: any[] | null = null;
-      let error: any = null;
+  try {
+    let data: any[] | null = null;
+    let error: any = null;
 
-      const tryOrder = await this.supabase
-        .from('vechile')
-        .select('*')
-        .order('created_at', { ascending: false });
+    // Try ordering by created_at
+    const tryOrder = await this.supabase
+      .from('vehicle')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-      data = tryOrder.data ?? null;
-      error = tryOrder.error ?? null;
+    data = tryOrder.data ?? null;
+    error = tryOrder.error ?? null;
 
-      if (error) {
-        // If the error indicates the column doesn't exist, retry without ordering
-        const msg = (error.message || '').toString();
-        if (error.code === '42703' || /does not exist/.test(msg)) {
-          const fallback = await this.supabase.from('vechile').select('*');
-          data = fallback.data ?? null;
-          error = fallback.error ?? null;
-        }
+    // Fallback if created_at column doesn't exist
+    if (error) {
+      const msg = (error.message || '').toString();
+
+      if (error.code === '42703' || /does not exist/.test(msg)) {
+        const fallback = await this.supabase
+          .from('vehicle')
+          .select('*');
+
+        data = fallback.data ?? null;
+        error = fallback.error ?? null;
       }
-
-      // Normalize brand casing to `brand` for consistent consumer usage
-      const normalized = (data ?? []).map((r: any) => ({ ...r, brand: r.brand ?? r.Brand }));
-
-      return { data: normalized as Vehicle[], error };
-    } catch (err) {
-      console.error('SupabaseService.getVehicles error', err);
-      return { data: null, error: err };
     }
+
+    // Normalize fields
+    const normalized = (data ?? []).map((r: any) => ({
+      ...r,
+
+      // ensure brand always exists
+      brand: r.brand ?? r.Brand,
+
+      // ensure booked always boolean
+      booked: Boolean(r.booked)
+    }));
+
+    return { data: normalized as Vehicle[], error };
+
+  } catch (err) {
+    console.error('SupabaseService.getVehicles error', err);
+    return { data: null, error: err };
   }
+}
+  async createBooking(booking: any) {
+
+const { data, error } = await this.supabase
+.from('bookings')
+.insert([booking]);
+
+return { data, error };
+
+}
+
+async getMyBookings(userId: string) {
+  return await this.supabase
+    .from('bookings')
+    .select(`
+      id,
+      pickup_location,
+      drop_location,
+      start_date,
+      end_date,
+      purpose,
+      status,
+      created_at,
+      vehicle (
+        id,
+        brand,
+        make,
+        model,
+        location,
+        daily_rate
+      )
+    `)
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+}
+
+async getBookingsByVehicle(vehicleId: string) {
+  return await this.supabase
+    .from('bookings')
+    .select('*')
+    .eq('vehicle_id', vehicleId);
+}
 
   async signOut() {
     try {

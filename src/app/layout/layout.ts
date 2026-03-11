@@ -38,7 +38,8 @@ export class Layout {
 
     const userMenu: MenuItem[] = [
       { label: 'Dashboard', icon: 'pi pi-th-large', route: '/dealer' },
-      { label: 'My Vehicles', icon: 'pi pi-car', route: '/dealer' },
+      { label: 'Vehicles', icon: 'pi pi-car', route: '/dealer' },
+      { label: 'My Bookings', icon: 'pi pi-calendar', route: '/my-bookings' },
       { label: 'Profile', icon: 'pi pi-user', route: '/dealer' }
     ];
 

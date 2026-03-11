@@ -1,0 +1,58 @@
+<p-card>
+
+<h2>My Bookings</h2>
+
+<p-table
+[value]="bookings()"
+[paginator]="true"
+[rows]="10"
+responsiveLayout="scroll">
+
+<ng-template pTemplate="header">
+<tr>
+<th>Vehicle</th>
+<th>Pickup</th>
+<th>Drop</th>
+<th>Start Date</th>
+<th>End Date</th>
+<th>Status</th>
+</tr>
+</ng-template>
+
+<ng-template pTemplate="body" let-row>
+
+<tr>
+
+<td>
+{{row.vehicle?.brand}} {{row.vechicle?.model}}
+</td>
+
+<td>{{row.pickup_location}}</td>
+
+<td>{{row.drop_location}}</td>
+
+<td>{{row.start_date}}</td>
+
+<td>{{row.end_date}}</td>
+
+<td>
+
+<p-tag
+[value]="row.status"
+[severity]="
+row.status === 'approved'
+? 'success'
+: row.status === 'rejected'
+? 'danger'
+: 'warn'
+"> </p-tag>
+
+</td>
+
+</tr>
+
+</ng-template>
+
+</p-table>
+
+</p-card>

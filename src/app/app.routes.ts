@@ -5,6 +5,7 @@ import { DealerDashboard } from './pages/dealer-dashboard/dealer-dashboard';
 import { AuthCallback } from './pages/auth-callback/auth-callback';
 import { authGuard } from './auth-guard';
 import { Layout } from './layout/layout';
+import { MyBookingsComponent } from './pages/booking/my-bookings.component';
 
 export const routes: Routes = [
 
@@ -26,6 +27,7 @@ export const routes: Routes = [
     children: [
       { path: 'admin', component: AdminDashboard },
       { path: 'dealer', component: DealerDashboard },
+      { path: 'my-bookings', component: MyBookingsComponent },
       { path: '', redirectTo: 'admin', pathMatch: 'full' }
     ]
   },
@@ -34,5 +36,7 @@ export const routes: Routes = [
   {
     path: '**',
     redirectTo: 'login'
-  }
+  },
+
+
 ];
