@@ -13,14 +13,15 @@ export class SupabaseService {
     environment.supabaseKey
   );
 
+  // =============================
+  // AUTH
+  // =============================
+
   async signInWithGoogle() {
-    // Always use the current origin for the redirect URL
     const redirectUrl = `${window.location.origin}/auth/callback`;
     return await this.supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: {
-        redirectTo: redirectUrl
-      }
+      options: { redirectTo: redirectUrl }
     });
   }
 
@@ -34,50 +35,88 @@ export class SupabaseService {
     return data.user;
   }
 
-  /**
-   * Fetch vehicles from `vechile` table.
-   * Returns an object { data, error } similar to supabase response so callers can handle.
-   */
-  async getVehicles(): Promise<{ data: Vehicle[] | null; error: any | null }> {
-    try {
-      // Try ordering by created_at if the column exists; if not, fall back to no-order.
-      let data: any[] | null = null;
-      let error: any = null;
-
-      const tryOrder = await this.supabase
-        .from('vechile')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      data = tryOrder.data ?? null;
-      error = tryOrder.error ?? null;
-
-      if (error) {
-        // If the error indicates the column doesn't exist, retry without ordering
-        const msg = (error.message || '').toString();
-        if (error.code === '42703' || /does not exist/.test(msg)) {
-          const fallback = await this.supabase.from('vechile').select('*');
-          data = fallback.data ?? null;
-          error = fallback.error ?? null;
-        }
-      }
-
-      // Normalize brand casing to `brand` for consistent consumer usage
-      const normalized = (data ?? []).map((r: any) => ({ ...r, brand: r.brand ?? r.Brand }));
-
-      return { data: normalized as Vehicle[], error };
-    } catch (err) {
-      console.error('SupabaseService.getVehicles error', err);
-      return { data: null, error: err };
-    }
-  }
-
   async signOut() {
-    try {
-      await this.supabase.auth.signOut();
-    } catch (err) {
-      console.error('SupabaseService.signOut error', err);
-    }
+    await this.supabase.auth.signOut();
   }
 
+  // =============================
+  // ROLE
+  // =============================
+
+  async getUserRole(userId: string) {
+    const { data, error } = await this.supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId)
+      .single();
+
+    if (error) {
+      console.error('Error fetching role:', error);
+      return null;
+    }
+
+    return data?.role ?? null;
+  }
+
+  async getAllUserRoles() {
+    const { data, error } = await this.supabase
+      .from('user_roles')
+      .select('*');
+
+    return { data, error };
+  }
+
+  async updateUserRole(userId: string, role: string) {
+    return await this.supabase
+      .from('user_roles')
+      .update({ role })
+      .eq('user_id', userId);
+  }
+
+  // =============================
+  // VEHICLES
+  // =============================
+
+  async getVehicles() {
+    const { data, error } = await this.supabase
+      .from('vechile')
+      .select('*');
+
+    return { data, error };
+  }
+
+  async addVehicle(vehicle: any) {
+    return await this.supabase.from('vechile').insert([vehicle]);
+  }
+
+  async updateVehicle(id: string, vehicle: any) {
+    return await this.supabase
+      .from('vechile')
+      .update(vehicle)
+      .eq('id', id);
+  }
+
+  async deleteVehicle(id: string) {
+    return await this.supabase
+      .from('vechile')
+      .delete()
+      .eq('id', id);
+  }
+
+  // =============================
+// AUDIT LOGGING
+// =============================
+
+async logAudit(action: string) {
+  const user = await this.getCurrentUser();
+  if (!user) return;
+
+  await this.supabase.from('audit_logs').insert([
+    {
+      action,
+      user_id: user.id,
+      created_at: new Date()
+    }
+  ]);
+}
 }

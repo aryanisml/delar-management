@@ -1,0 +1,34 @@
+<div class="p-6">
+
+  <p-card>
+    <ng-template pTemplate="title">
+      Audit Logs
+    </ng-template>
+
+    <p-table
+      [value]="logs()"
+      [loading]="loading()"
+      [paginator]="true"
+      [rows]="10"
+      responsiveLayout="scroll">
+
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Action</th>
+          <th>User ID</th>
+          <th>Date</th>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="body" let-row>
+        <tr>
+          <td>{{ row.action }}</td>
+          <td>{{ row.user_id }}</td>
+          <td>{{ row.created_at | date:'medium' }}</td>
+        </tr>
+      </ng-template>
+
+    </p-table>
+  </p-card>
+
+</div>

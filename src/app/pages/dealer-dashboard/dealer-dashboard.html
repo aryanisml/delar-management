@@ -1,1 +1,13 @@
-<p>dealer-dashboard works!</p>
+<main class="p-6">
+  <p-card>
+    <ng-template pTemplate="title">
+      Dealer Dashboard
+    </ng-template>
+
+    <p>Welcome {{ userEmail() }}</p>
+
+    <div class="mt-4">
+      <button pButton label="Logout" icon="pi pi-sign-out" (click)="signOut()"></button>
+    </div>
+  </p-card>
+</main>

@@ -1,0 +1,37 @@
+.overview-wrapper {
+  padding: 8px;
+}
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+}
+
+.kpi-card {
+  padding: 20px;
+  text-align: center;
+}
+
+.kpi-label {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.kpi-value {
+  font-size: 28px;
+  font-weight: 600;
+  margin-top: 6px;
+}
+
+.kpi-card.active {
+  border-left: 4px solid #16a34a;
+}
+
+.kpi-card.archived {
+  border-left: 4px solid #6b7280;
+}
+
+.kpi-card.low {
+  border-left: 4px solid #dc2626;
+}

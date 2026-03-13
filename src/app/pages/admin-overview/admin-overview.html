@@ -1,0 +1,49 @@
+<div class="overview-wrapper">
+
+  <div class="kpi-grid">
+
+    <p-card class="kpi-card">
+      <div class="kpi-label">Total Vehicles</div>
+      <div class="kpi-value">{{ totalVehicles() }}</div>
+    </p-card>
+
+    <p-card class="kpi-card active">
+      <div class="kpi-label">Active</div>
+      <div class="kpi-value">{{ activeVehicles() }}</div>
+    </p-card>
+
+    <p-card class="kpi-card inactive">
+      <div class="kpi-label">Inactive</div>
+      <div class="kpi-value">{{ inactiveVehicles() }}</div>
+    </p-card>
+
+    <p-card class="kpi-card archived">
+      <div class="kpi-label">Archived</div>
+      <div class="kpi-value">{{ archivedVehicles() }}</div>
+    </p-card>
+
+    <p-card class="kpi-card">
+      <div class="kpi-label">Dealers</div>
+      <div class="kpi-value">{{ totalDealers() }}</div>
+    </p-card>
+
+    <p-card class="kpi-card">
+      <div class="kpi-label">Admins</div>
+      <div class="kpi-value">{{ totalAdmins() }}</div>
+    </p-card>
+
+  </div>
+
+  <p-card class="mt-6">
+    <ng-template pTemplate="title">
+      System Summary
+    </ng-template>
+
+    <p>
+      The platform currently manages {{ totalVehicles() }} vehicles
+      across {{ totalDealers() }} dealers.
+      {{ archivedVehicles() }} vehicles are archived.
+    </p>
+  </p-card>
+
+</div>
