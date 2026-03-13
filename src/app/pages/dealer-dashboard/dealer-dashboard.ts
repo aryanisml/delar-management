@@ -15,7 +15,7 @@ import { TagModule } from 'primeng/tag';
 import { FormsModule } from '@angular/forms';
 import { ChartModule} from 'primeng/chart';
 import { BookingDialogComponent } from '../booking/booking-dialog.component';
-
+import { ReusableTableComponent, TableColumn } from '../../models/dynamic-table.component';
 @Component({
   selector: 'app-dealer-dashboard',
   standalone: true,
@@ -30,7 +30,8 @@ import { BookingDialogComponent } from '../booking/booking-dialog.component';
     TagModule,
     FormsModule,
     BookingDialogComponent,
-    ChartModule
+    ChartModule,
+    ReusableTableComponent
   ],
   templateUrl: './dealer-dashboard.html',
   styleUrl: './dealer-dashboard.scss'
@@ -75,26 +76,43 @@ export class DealerDashboard {
     cutout: '60%' // This makes it a doughnut instead of a pie
   };
 
+  /* ---------------- Table Columns ---------------- */
+  tableColumns: TableColumn[] = [
+  { field: 'vin', header: 'VIN', sortable: true },
+  { field: 'brand', header: 'Brand', sortable: true },
+  { field: 'model', header: 'Model', sortable: true },
+  { field: 'location', header: 'Location', sortable: true },
+  { field: 'daily_rate', header: 'Price/Day', sortable: true },
+  { field: 'available', header: 'Status', sortable: false }
+];
   /* ---------------- FILTER ---------------- */
 
   filteredVehicles = computed(() => {
+  const q = this.filter().trim().toLowerCase();
+  const allVehicles = this.vehicles(); // Get the raw data from Supabase
 
-    const q = this.filter().trim().toLowerCase();
+  // If search is empty, return everything immediately
+  if (!q) return allVehicles;
 
-    if (!q) return this.vehicles();
+  return allVehicles.filter(v => {
+    // We use (?? '') to ensure that if a database field is null, 
+    // it becomes an empty string instead of crashing the search.
+    const brand = (v.brand ?? '').toLowerCase();
+    const model = (v.model ?? '').toLowerCase();
+    const vin = (v.vin ?? '').toLowerCase();
+    const make = (v.make ?? '').toLowerCase();
 
-    return this.vehicles().filter(v =>
-      (v.brand ?? '').toLowerCase().includes(q) ||
-      (v.make ?? '').toLowerCase().includes(q) ||
-      (v.model ?? '').toLowerCase().includes(q)
-    );
-
+    return brand.includes(q) || 
+           model.includes(q) || 
+           vin.includes(q) || 
+           make.includes(q);
   });
+});
 
   /* ---------------- AVAILABILITY ---------------- */
 
   availableVehicles = computed(() => {
-
+   // 1. Get the ALREADY FILTERED list
     const vehicles = this.filteredVehicles();
     const bookings = this.myBookings();
 

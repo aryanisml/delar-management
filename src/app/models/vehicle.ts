@@ -9,4 +9,5 @@ export interface Vehicle {
   daily_rate: number
   location: string
   created_at?: string
+  available?: number
 }
