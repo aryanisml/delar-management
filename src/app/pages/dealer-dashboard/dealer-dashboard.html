@@ -1,13 +1,168 @@
-<main class="p-6">
-  <p-card>
-    <ng-template pTemplate="title">
-      Dealer Dashboard
-    </ng-template>
+<div class="dealer-dashboard dashboard-shell">
+  <section class="dashboard-header">
+    <div class="dashboard-header__copy">
+      <div class="dashboard-kicker">
+        <i class="pi pi-compass"></i>
+        Dealer workspace
+      </div>
+      <h1 class="dashboard-title">Welcome back, {{ userName() }}.</h1>
+      <p class="dashboard-subtitle">
+        The dealer landing screen now uses the same button hierarchy as the admin side, with one
+        primary next action and softer secondary paths for scanning, bookings and reporting.
+      </p>
 
-    <p>Welcome {{ userEmail() }}</p>
+      <div class="dashboard-button-row">
+        @for (action of quickActions; track action.route) {
+          <button
+            pButton
+            [label]="action.label"
+            [icon]="action.icon"
+            class="dashboard-btn"
+            [ngClass]="action.tone"
+            (click)="openRoute(action.route)">
+          </button>
+        }
 
-    <div class="mt-4">
-      <button pButton label="Logout" icon="pi pi-sign-out" (click)="signOut()"></button>
+        <button
+          pButton
+          label="Logout"
+          icon="pi pi-sign-out"
+          class="dashboard-btn dashboard-btn--danger-soft"
+          (click)="signOut()">
+        </button>
+      </div>
     </div>
-  </p-card>
-</main>
+
+    <div class="dealer-summary dashboard-panel">
+      <p class="dealer-summary__eyebrow">Signed in as</p>
+      <h3 class="dealer-summary__email">{{ userEmail() || 'Loading account...' }}</h3>
+      <p class="dealer-summary__body">
+        Keep your inventory updated, respond to booking demand quickly, and use analytics to spot
+        underperforming vehicles before they sit too long.
+      </p>
+    </div>
+  </section>
+
+  <section class="dealer-grid">
+    <p-card class="dashboard-panel quick-actions-card">
+      <ng-template pTemplate="title">
+        Next best actions
+      </ng-template>
+
+      <div class="quick-action-list">
+        @for (action of quickActions; track action.route) {
+          <button
+            pButton
+            [label]="action.label"
+            [icon]="action.icon"
+            class="dashboard-btn quick-action-list__button"
+            [ngClass]="action.tone"
+            (click)="openRoute(action.route)">
+          </button>
+        }
+      </div>
+    </p-card>
+
+    <p-stepper
+      [value]="activeStep()"
+      (valueChange)="setActiveStep($event)"
+      class="dashboard-stepper dealer-stepper">
+      <p-step-list>
+        <p-step [value]="1">Set up</p-step>
+        <p-step [value]="2">Monitor</p-step>
+        <p-step [value]="3">Grow</p-step>
+      </p-step-list>
+
+      <p-step-panels>
+        <p-step-panel [value]="1">
+          <ng-template #content let-activateCallback="activateCallback">
+            <div class="step-card">
+              <p class="step-card__eyebrow">Setup</p>
+              <h3 class="step-card__title">Keep inventory current</h3>
+              <p class="step-card__body">
+                Clean button grouping works best when the main task is obvious. Here that means
+                inventory gets the strongest visual priority.
+              </p>
+              <div class="step-card__actions">
+                <button
+                  pButton
+                  label="Open Inventory"
+                  icon="pi pi-car"
+                  class="dashboard-btn dashboard-btn--hero"
+                  (click)="openRoute('/dealer/inventory')">
+                </button>
+                <button
+                  pButton
+                  label="Next"
+                  icon="pi pi-arrow-right"
+                  iconPos="right"
+                  class="dashboard-btn dashboard-btn--soft"
+                  (click)="activateCallback(2)">
+                </button>
+              </div>
+            </div>
+          </ng-template>
+        </p-step-panel>
+
+        <p-step-panel [value]="2">
+          <ng-template #content let-activateCallback="activateCallback">
+            <div class="step-card">
+              <p class="step-card__eyebrow">Monitor</p>
+              <h3 class="step-card__title">Track bookings as they move</h3>
+              <p class="step-card__body">
+                Use a medium-emphasis button for daily monitoring tasks so they remain easy to
+                reach without competing with the primary inventory CTA.
+              </p>
+              <div class="step-card__actions">
+                <button
+                  pButton
+                  label="View Bookings"
+                  icon="pi pi-calendar"
+                  class="dashboard-btn dashboard-btn--soft"
+                  (click)="openRoute('/dealer/bookings')">
+                </button>
+                <button
+                  pButton
+                  label="Next"
+                  icon="pi pi-arrow-right"
+                  iconPos="right"
+                  class="dashboard-btn dashboard-btn--ghost"
+                  (click)="activateCallback(3)">
+                </button>
+              </div>
+            </div>
+          </ng-template>
+        </p-step-panel>
+
+        <p-step-panel [value]="3">
+          <ng-template #content let-activateCallback="activateCallback">
+            <div class="step-card">
+              <p class="step-card__eyebrow">Grow</p>
+              <h3 class="step-card__title">Read trends before making changes</h3>
+              <p class="step-card__body">
+                Analytics is a lower-frequency action, so it works well as a softer ghost-style
+                button paired with clear supporting copy.
+              </p>
+              <div class="step-card__actions">
+                <button
+                  pButton
+                  label="Open Analytics"
+                  icon="pi pi-chart-line"
+                  class="dashboard-btn dashboard-btn--ghost"
+                  (click)="openRoute('/dealer/analytics')">
+                </button>
+                <button
+                  pButton
+                  label="Restart"
+                  icon="pi pi-replay"
+                  class="dashboard-btn dashboard-btn--soft"
+                  (click)="activateCallback(1)">
+                </button>
+              </div>
+            </div>
+          </ng-template>
+        </p-step-panel>
+      </p-step-panels>
+    </p-stepper>
+  </section>
+</div>

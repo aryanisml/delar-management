@@ -15,6 +15,9 @@ import { AdminAnalytics } from './pages/admin-analytics/admin-analytics';
 import { AdminAuditLogs } from './pages/admin-audit-logs/admin-audit-logs';
 import { AdminRevenue } from './pages/admin-revenue/admin-revenue';
 import { AdminDealerPerformance } from './pages/admin-dealer-performance/admin-dealer-performance';
+import { DealerInventory } from './pages/dealer-inventory/dealer-inventory';
+import { DealerAnalytics } from './pages/dealer-analytics/dealer-analytics';
+import { DealerBookings } from './pages/dealer-bookings/dealer-bookings';
 
 export const routes: Routes = [
 
@@ -44,6 +47,9 @@ export const routes: Routes = [
       },
 
       { path: 'dealer/dashboard', component: DealerDashboard },
+      { path: 'dealer/inventory', component: DealerInventory },
+      { path: 'dealer/analytics', component: DealerAnalytics },
+      { path: 'dealer/bookings', component: DealerBookings },
 
       { path: '', redirectTo: 'admin', pathMatch: 'full' }
     ]

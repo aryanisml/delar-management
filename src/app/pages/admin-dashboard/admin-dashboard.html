@@ -1,87 +1,177 @@
 <p-toast></p-toast>
 <p-confirmDialog></p-confirmDialog>
 
-<div class="admin-wrapper">
-
-  <p-card class="main-card">
-
-    <ng-template pTemplate="title">
-      <div class="section-title">
-        Vehicle Management
+<div class="admin-wrapper dashboard-shell">
+  <section class="dashboard-header">
+    <div class="dashboard-header__copy">
+      <div class="dashboard-kicker">
+        <i class="pi pi-sparkles"></i>
+        Fleet control
       </div>
-    </ng-template>
-
-    <!-- ============================= -->
-    <!-- TOOLBAR                       -->
-    <!-- ============================= -->
-
-    <p-toolbar class="toolbar-clean mb-4">
-
-      <div class="p-toolbar-group-left">
+      <h1 class="dashboard-title">Manage vehicles with a clearer action hierarchy.</h1>
+      <p class="dashboard-subtitle">
+        Buttons now follow one system: a strong primary call to action, compact filter pills,
+        and row actions grouped by intent so dealers and admins can scan faster.
+      </p>
+      <div class="dashboard-button-row">
         <button
           pButton
           label="Add Vehicle"
           icon="pi pi-plus"
-          class="p-button-sm"
+          class="dashboard-btn dashboard-btn--hero"
           (click)="openNew()">
         </button>
+
+        <button
+          pButton
+          label="Refresh Fleet"
+          icon="pi pi-refresh"
+          class="dashboard-btn dashboard-btn--soft"
+          [loading]="loading()"
+          (click)="loadVehicles()">
+        </button>
+      </div>
+    </div>
+
+    <p-stepper
+      [value]="workflowStep()"
+      (valueChange)="setWorkflowStep($event)"
+      class="dashboard-stepper admin-workflow-stepper">
+      <p-step-list>
+        <p-step [value]="1">Create</p-step>
+        <p-step [value]="2">Review</p-step>
+        <p-step [value]="3">Activate</p-step>
+      </p-step-list>
+
+      <p-step-panels>
+        <p-step-panel [value]="1">
+          <ng-template #content let-activateCallback="activateCallback">
+            <div class="step-card">
+              <p class="step-card__eyebrow">Step 1</p>
+              <h3 class="step-card__title">Create a complete vehicle profile</h3>
+              <p class="step-card__body">
+                Start with brand, stock, rate and location so the listing is searchable and ready
+                for downstream dealer workflows.
+              </p>
+              <div class="step-card__actions">
+                <button
+                  pButton
+                  label="Open Form"
+                  icon="pi pi-plus"
+                  class="dashboard-btn dashboard-btn--hero"
+                  (click)="openNew()">
+                </button>
+                <button
+                  pButton
+                  label="Next"
+                  icon="pi pi-arrow-right"
+                  iconPos="right"
+                  class="dashboard-btn dashboard-btn--soft"
+                  (click)="activateCallback(2)">
+                </button>
+              </div>
+            </div>
+          </ng-template>
+        </p-step-panel>
+
+        <p-step-panel [value]="2">
+          <ng-template #content let-activateCallback="activateCallback">
+            <div class="step-card">
+              <p class="step-card__eyebrow">Step 2</p>
+              <h3 class="step-card__title">Review status and stock signals</h3>
+              <p class="step-card__body">
+                Use the segmented filters to isolate ready, paused, or archived vehicles before
+                changing availability.
+              </p>
+              <div class="step-card__actions">
+                <button
+                  pButton
+                  label="View Active Fleet"
+                  icon="pi pi-check-circle"
+                  class="dashboard-btn dashboard-btn--success-soft"
+                  (click)="statusFilter.set('active'); activateCallback(3)">
+                </button>
+                <button
+                  pButton
+                  label="Back"
+                  icon="pi pi-arrow-left"
+                  class="dashboard-btn dashboard-btn--ghost"
+                  (click)="activateCallback(1)">
+                </button>
+              </div>
+            </div>
+          </ng-template>
+        </p-step-panel>
+
+        <p-step-panel [value]="3">
+          <ng-template #content let-activateCallback="activateCallback">
+            <div class="step-card">
+              <p class="step-card__eyebrow">Step 3</p>
+              <h3 class="step-card__title">Activate, pause, archive or restore</h3>
+              <p class="step-card__body">
+                The row action bar keeps destructive actions soft, recovery visible, and the edit
+                action anchored in the same position for every vehicle.
+              </p>
+              <div class="step-card__actions">
+                <button
+                  pButton
+                  label="Show Archived"
+                  icon="pi pi-inbox"
+                  class="dashboard-btn dashboard-btn--warning-soft"
+                  (click)="statusFilter.set('deleted')">
+                </button>
+                <button
+                  pButton
+                  label="Restart Guide"
+                  icon="pi pi-replay"
+                  class="dashboard-btn dashboard-btn--ghost"
+                  (click)="activateCallback(1)">
+                </button>
+              </div>
+            </div>
+          </ng-template>
+        </p-step-panel>
+      </p-step-panels>
+    </p-stepper>
+  </section>
+
+  <p-card class="main-card dashboard-panel">
+    <ng-template pTemplate="title">
+      <div class="section-title">Vehicle Management</div>
+    </ng-template>
+
+    <p-toolbar class="toolbar-clean mb-4">
+      <div class="p-toolbar-group-left">
+        <div class="toolbar-copy">
+          <span class="toolbar-label">Fleet actions</span>
+          <span class="toolbar-hint">Filters and search stay aligned to the same visual system.</span>
+        </div>
       </div>
 
       <div class="p-toolbar-group-right toolbar-actions">
-
-        <div class="quick-filters">
-
-          <button
-            pButton
-            label="All"
-            class="p-button-sm"
-            [class.active-filter]="statusFilter() === 'all'"
-            [outlined]="statusFilter() !== 'all'"
-            (click)="statusFilter.set('all')">
-          </button>
-
-          <button
-            pButton
-            label="Active"
-            class="p-button-sm p-button-success"
-            [class.active-filter]="statusFilter() === 'active'"
-            [outlined]="statusFilter() !== 'active'"
-            (click)="statusFilter.set('active')">
-          </button>
-
-          <button
-            pButton
-            label="Inactive"
-            class="p-button-sm p-button-warning"
-            [class.active-filter]="statusFilter() === 'inactive'"
-            [outlined]="statusFilter() !== 'inactive'"
-            (click)="statusFilter.set('inactive')">
-          </button>
-
-          <button
-            pButton
-            label="Archived"
-            class="p-button-sm p-button-secondary"
-            [class.active-filter]="statusFilter() === 'deleted'"
-            [outlined]="statusFilter() !== 'deleted'"
-            (click)="statusFilter.set('deleted')">
-          </button>
-
+        <div class="dashboard-filter-bar quick-filters">
+          @for (option of statusFilterOptions; track option.value) {
+            <button
+              pButton
+              [label]="option.label"
+              [icon]="option.icon"
+              class="dashboard-filter-btn"
+              [class.is-active]="statusFilter() === option.value"
+              (click)="statusFilter.set(option.value)">
+            </button>
+          }
         </div>
 
-        <input
-          pInputText
-          type="search"
-          placeholder="Search vehicles..."
-          (input)="filter.set($any($event.target).value)" />
-
+        <span class="search-shell">
+          <i class="pi pi-search"></i>
+          <input
+            pInputText
+            type="search"
+            placeholder="Search vehicles..."
+            (input)="filter.set($any($event.target).value)" />
+        </span>
       </div>
-
     </p-toolbar>
-
-    <!-- ============================= -->
-    <!-- TABLE                         -->
-    <!-- ============================= -->
 
     <p-table
       [value]="filteredVehicles()"
@@ -90,8 +180,7 @@
       [rows]="10"
       responsiveLayout="scroll"
       dataKey="id"
-      styleClass="p-datatable-sm p-datatable-striped">
-
+      styleClass="p-datatable-sm p-datatable-striped admin-vehicle-table">
       <ng-template pTemplate="header">
         <tr>
           <th>Brand</th>
@@ -99,13 +188,12 @@
           <th>Stock</th>
           <th>Daily Rate</th>
           <th>Status</th>
-          <th style="width:280px">Actions</th>
+          <th style="width: 360px">Actions</th>
         </tr>
       </ng-template>
 
       <ng-template pTemplate="body" let-row>
         <tr>
-
           <td>{{ row.brand }}</td>
           <td>{{ row.model }}</td>
 
@@ -127,36 +215,31 @@
                 row.status === 'active'
                   ? 'success'
                   : row.status === 'inactive'
-                  ? 'warn'
-                  : 'secondary'
+                    ? 'warn'
+                    : 'secondary'
               ">
             </p-tag>
           </td>
 
-          <!-- ============================= -->
-          <!-- FIXED ACTION SLOT LAYOUT      -->
-          <!-- ============================= -->
-
           <td class="action-buttons">
-
-            <!-- 1️⃣ EDIT (always slot 1) -->
             <button
               pButton
+              label="Edit"
               icon="pi pi-pencil"
-              class="p-button-sm p-button-info"
+              class="dashboard-btn dashboard-btn--soft action-btn"
               [disabled]="row.status === 'deleted'"
               (click)="openEdit(row)">
             </button>
 
-            <!-- 2️⃣ ENABLE / DISABLE (always slot 2) -->
             <button
               pButton
               [label]="row.status === 'active' ? 'Disable' : 'Enable'"
-              class="p-button-sm"
+              [icon]="row.status === 'active' ? 'pi pi-pause' : 'pi pi-check'"
+              class="dashboard-btn action-btn"
               [ngClass]="
                 row.status === 'active'
-                  ? 'p-button-danger'
-                  : 'p-button-success'
+                  ? 'dashboard-btn--danger-soft'
+                  : 'dashboard-btn--success-soft'
               "
               [disabled]="row.status === 'deleted'"
               (click)="
@@ -166,65 +249,48 @@
               ">
             </button>
 
-            <!-- 3️⃣ ARCHIVE (always slot 3) -->
             <button
               pButton
+              label="Archive"
               icon="pi pi-trash"
-              class="p-button-sm p-button-secondary"
+              class="dashboard-btn dashboard-btn--ghost action-btn"
               [disabled]="row.status === 'deleted'"
               (click)="confirmDelete(row)">
             </button>
 
-            <!-- 4️⃣ RESTORE (only visible for archived, slot preserved) -->
             <button
               pButton
               label="Restore"
-              class="p-button-sm p-button-success"
+              icon="pi pi-history"
+              class="dashboard-btn dashboard-btn--warning-soft action-btn"
               [style.visibility]="row.status === 'deleted' ? 'visible' : 'hidden'"
               [disabled]="row.status !== 'deleted'"
               (click)="restoreVehicle(row)">
             </button>
-
           </td>
-
         </tr>
       </ng-template>
-
     </p-table>
-
   </p-card>
-
 </div>
 
-<!-- ============================= -->
-<!-- ADD / EDIT VEHICLE DIALOG     -->
-<!-- ============================= -->
-
 <p-dialog
-  header="Add Vehicle"
+  [header]="editMode() ? 'Edit Vehicle' : 'Add Vehicle'"
   [visible]="dialogVisible()"
   (onHide)="dialogVisible.set(false)"
   [modal]="true"
-  [style]="{ width: '450px' }">
-
+  [style]="{ width: '520px' }"
+  styleClass="vehicle-dialog">
   <div class="dialog-form">
+    <input pInputText placeholder="Brand" [(ngModel)]="newVehicle.brand" />
 
-    <input pInputText placeholder="Brand"
-           [(ngModel)]="newVehicle.brand" />
+    <input pInputText placeholder="Make" [(ngModel)]="newVehicle.make" />
 
-    <input pInputText placeholder="Make"
-           [(ngModel)]="newVehicle.make" />
+    <input pInputText placeholder="Model" [(ngModel)]="newVehicle.model" />
 
-    <input pInputText placeholder="Model"
-           [(ngModel)]="newVehicle.model" />
+    <input pInputText placeholder="Location" [(ngModel)]="newVehicle.location" />
 
-    <input pInputText placeholder="Location"
-           [(ngModel)]="newVehicle.location" />
-
-    <p-inputNumber
-      [(ngModel)]="newVehicle.stock"
-      placeholder="Stock">
-    </p-inputNumber>
+    <p-inputNumber [(ngModel)]="newVehicle.stock" placeholder="Stock"> </p-inputNumber>
 
     <p-inputNumber
       [(ngModel)]="newVehicle.daily_rate"
@@ -240,22 +306,22 @@
       optionValue="value"
       placeholder="Select Status">
     </p-select>
-
   </div>
 
   <ng-template pTemplate="footer">
     <button
       pButton
       label="Cancel"
-      class="p-button-text"
+      class="dashboard-btn dashboard-btn--ghost"
       (click)="dialogVisible.set(false)">
     </button>
 
     <button
       pButton
-      label="Save"
+      [label]="editMode() ? 'Update Vehicle' : 'Save Vehicle'"
+      icon="pi pi-check"
+      class="dashboard-btn dashboard-btn--hero"
       (click)="saveVehicle()">
     </button>
   </ng-template>
-
 </p-dialog>

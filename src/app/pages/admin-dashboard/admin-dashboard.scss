@@ -1,49 +1,132 @@
 .admin-wrapper {
-  max-width: 1200px;
-  margin: auto;
-  padding: 2rem;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 0.5rem 0 2rem;
+}
+
+.admin-workflow-stepper {
+  width: min(100%, 430px);
 }
 
 .main-card {
-  border-radius: 14px;
+  overflow: hidden;
 }
 
 .section-title {
   font-size: 1.2rem;
-  font-weight: 600;
+  font-weight: 700;
+}
+
+.toolbar-clean {
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.toolbar-copy {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.toolbar-label {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.toolbar-hint {
+  color: var(--text-muted);
+  font-size: 0.9rem;
 }
 
 .toolbar-actions {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 1rem;
   align-items: center;
 }
 
 .quick-filters {
-  display: flex;
-  gap: 8px;
+  flex: 1 1 32rem;
+}
+
+.search-shell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 18rem;
+  padding: 0.2rem 0.95rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.search-shell i {
+  color: var(--text-muted);
+}
+
+.search-shell input {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.search-shell input:enabled:focus {
+  box-shadow: none;
+}
+
+.admin-vehicle-table {
+  overflow: hidden;
+  border-radius: 18px;
 }
 
 .action-buttons {
   display: flex;
-  gap: 0.4rem;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.action-btn {
+  min-width: 5.75rem;
 }
 
 .dialog-form {
-  display: flex;
-  flex-direction: column;
+  display: grid;
   gap: 1rem;
 }
 
-.quick-filters button.p-button {
-  transition: all 0.2s ease;
+:host ::ng-deep .vehicle-dialog .p-dialog-header {
+  padding-bottom: 0;
 }
 
-.quick-filters button.p-button:not(.p-button-outlined) {
-  transform: scale(1.05);
+:host ::ng-deep .vehicle-dialog .p-dialog-content,
+:host ::ng-deep .vehicle-dialog .p-dialog-footer {
+  background: linear-gradient(180deg, rgba(248, 251, 255, 0.98), rgba(255, 255, 255, 1));
 }
 
-.active-filter {
-  transform: scale(1.05);
-  font-weight: 600;
+@media (max-width: 960px) {
+  .admin-wrapper {
+    padding-bottom: 1rem;
+  }
+
+  .admin-workflow-stepper {
+    width: 100%;
+  }
+
+  .toolbar-actions {
+    justify-content: stretch;
+  }
+
+  .quick-filters,
+  .search-shell {
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .action-btn {
+    flex: 1 1 calc(50% - 0.55rem);
+    min-width: 0;
+  }
 }
