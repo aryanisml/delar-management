@@ -7,6 +7,7 @@ import { Vehicle } from '../models/vehicle';
   providedIn: 'root'
 })
 export class SupabaseService {
+  private readonly vehiclesTable = 'vehicle';
 
   supabase = createClient(
     environment.supabaseUrl,
@@ -79,26 +80,26 @@ export class SupabaseService {
 
   async getVehicles() {
     const { data, error } = await this.supabase
-      .from('vechile')
+      .from(this.vehiclesTable)
       .select('*');
 
     return { data, error };
   }
 
   async addVehicle(vehicle: any) {
-    return await this.supabase.from('vechile').insert([vehicle]);
+    return await this.supabase.from(this.vehiclesTable).insert([vehicle]);
   }
 
   async updateVehicle(id: string, vehicle: any) {
     return await this.supabase
-      .from('vechile')
+      .from(this.vehiclesTable)
       .update(vehicle)
       .eq('id', id);
   }
 
   async deleteVehicle(id: string) {
     return await this.supabase
-      .from('vechile')
+      .from(this.vehiclesTable)
       .delete()
       .eq('id', id);
   }
