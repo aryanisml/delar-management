@@ -33,7 +33,7 @@ export class App {
       if (role === 'admin') {
         this.router.navigate(['/admin']);
       } else {
-        this.router.navigate(['/dealer']);
+        this.router.navigate(['/dealer/dashboard']);
       }
     } catch (error) {
       console.error('App initialization error:', error);

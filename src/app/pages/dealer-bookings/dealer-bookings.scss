@@ -1,1 +1,14 @@
-/* optional */
+:host {
+  display: block;
+}
+
+.dealer-page {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.page-copy {
+  margin: 0 0 1rem;
+  color: var(--text-muted);
+  line-height: 1.65;
+}

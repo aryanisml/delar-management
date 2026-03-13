@@ -16,6 +16,7 @@ import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { ToastModule } from 'primeng/toast';
 import { ConfirmationService, MessageService } from 'primeng/api';
 import { FormsModule } from '@angular/forms';
+import { StepperModule } from 'primeng/stepper';
 
 @Component({
   selector: 'app-admin-dashboard',
@@ -33,7 +34,8 @@ import { FormsModule } from '@angular/forms';
     SelectModule,
     TagModule,
     ConfirmDialogModule,
-    ToastModule
+    ToastModule,
+    StepperModule
   ],
   templateUrl: './admin-dashboard.html',
   styleUrl: './admin-dashboard.scss',
@@ -55,8 +57,20 @@ export class AdminDashboard {
   editMode = signal<boolean>(false);
 
   selectedVehicleId = signal<string | null>(null);
+  workflowStep = signal(1);
 
   newVehicle: any = this.resetVehicle();
+
+  readonly statusFilterOptions = [
+    { label: 'All Fleet', value: 'all', icon: 'pi pi-th-large' },
+    { label: 'Ready', value: 'active', icon: 'pi pi-check-circle' },
+    { label: 'Paused', value: 'inactive', icon: 'pi pi-pause-circle' },
+    { label: 'Archived', value: 'deleted', icon: 'pi pi-inbox' }
+  ] as const;
+
+  setWorkflowStep(step?: number) {
+    this.workflowStep.set(step ?? 1);
+  }
 
   statusOptions = [
     { label: 'Active', value: 'active' },

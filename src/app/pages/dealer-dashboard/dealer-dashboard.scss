@@ -1,4 +1,67 @@
-:host {
-  display: block;
-  padding: 20px;
+.dealer-dashboard {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 0.5rem 0 2rem;
+}
+
+.dealer-summary {
+  display: grid;
+  gap: 0.85rem;
+  min-width: min(100%, 22rem);
+  padding: 1.5rem;
+  align-self: stretch;
+}
+
+.dealer-summary__eyebrow {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dealer-summary__email {
+  margin: 0;
+  font-size: 1.35rem;
+  line-height: 1.2;
+}
+
+.dealer-summary__body {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.65;
+}
+
+.dealer-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+  gap: 1.5rem;
+}
+
+.quick-actions-card {
+  height: fit-content;
+}
+
+.quick-action-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.quick-action-list__button {
+  justify-content: flex-start;
+}
+
+.dealer-stepper {
+  min-width: 0;
+}
+
+@media (max-width: 960px) {
+  .dealer-dashboard {
+    padding-bottom: 1rem;
+  }
+
+  .dealer-grid {
+    grid-template-columns: 1fr;
+  }
 }
