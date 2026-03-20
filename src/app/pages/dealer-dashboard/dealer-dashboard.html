@@ -1,27 +1,59 @@
+<div class="profile-section mb-4">
+  <p-card>
+    <div class="flex align-items-center gap-4">
+      <div class="avatar-circle">
+        {{ userLetter() }}
+      </div>
+      
+      <div class="flex-grow-1">
+        <h2 class="m-0 text-900">Welcome back, {{ userName() }}!</h2>
+        <div class="flex gap-3 mt-1">
+          <small class="text-500 font-mono">
+            <i class="pi pi-id-card mr-1"></i>ID: {{ userInfo().id.substring(0,8) }}...
+          </small>
+          <small class="text-500">
+            <i class="pi pi-envelope mr-1"></i>{{ userInfo().email }}
+          </small>
+        </div>
+      </div>
+
+      <div class="hidden md:flex gap-4 px-4 border-left-1 border-200">
+        <div class="text-center">
+          <span class="block font-bold text-xl">{{ activeBookingsCount() }}</span>
+          <span class="text-500 text-sm">Bookings</span>
+        </div>
+      </div>
+    </div>
+  </p-card>
+</div>
+
 <div class="dashboard">
 
   <div class="dashboard-top-section">
-    <div class="kpi-wrapper">
-      <p-card class="kpi-card">
-        <div class="stat-content">
-          <i class="pi pi-car" style="font-size: 2.5rem; color: #3B82F6"></i>
-          <div>
-            <span class="stat-title">Fleet Size</span>
-            <span class="stat-value">{{ vehicles().length }}</span>
-          </div>
-        </div>
-      </p-card>
+   <div class="kpi-wrapper flex gap-3">
+  
+  <app-stat-card 
+    label="Fleet Size" 
+    [value]="vehicles().reduce((sum, v) => sum + (v.stock || 0), 0)" 
+    icon="pi pi-car" 
+    iconColor="#3B82F6">
+  </app-stat-card>
 
-      <p-card class="kpi-card">
-        <div class="stat-content">
-          <i class="pi pi-check-circle" style="font-size: 2.5rem; color: #10B981"></i>
-          <div>
-            <span class="stat-title">Available Now</span>
-            <span class="stat-value">{{ availableVehicles().reduce((sum,v)=>sum + v.available, 0) }}</span>
-          </div>
-        </div>
-      </p-card>
-    </div>
+  <app-stat-card 
+    label="Available Now" 
+    [value]="availableVehicles().reduce((sum, v) => sum + v.available, 0)" 
+    icon="pi pi-check-circle" 
+    iconColor="#10B981">
+  </app-stat-card>
+
+  <app-stat-card 
+    label="Active Bookings" 
+    [value]="activeBookingsCount()" 
+    icon="pi pi-bookmark" 
+    iconColor="#F59E0B">
+  </app-stat-card>
+
+</div> 
 
     <p-card class="chart-card" header="Fleet Status Overview">
       <p-chart type="doughnut" [data]="chartData()" [options]="chartOptions"></p-chart>
@@ -73,10 +105,48 @@
   <button 
     pButton 
     label="Book" 
-    icon="pi pi-calendar" 
-    class="p-button-sm" 
+    icon="pi pi-plus" 
+    class="p-button-outlined p-button-sm" 
     [disabled]="row.available <= 0"
     (click)="openBooking(row)">
+  </button>
+</ng-template>
+
+<div style="margin-top: 3rem;"></div>
+
+<main class="content">
+  <p-card class="shadow">
+    
+    <div class="flex justify-content-between align-items-center mb-3">
+      <div class="card-title text-xl font-semibold">My Booking History</div>
+      <button pButton icon="pi pi-refresh" (click)="loadMyBookings()" class="p-button-text"></button>
+    </div>
+
+    <div class="table-wrap bg-white rounded border">
+      @if (loading()) {
+        <p-progressSpinner styleClass="center-spinner"></p-progressSpinner>
+      }
+
+      @if (!loading()) {
+        <app-reusable-table 
+          [data]="myBookings()" 
+          [cols]="bookingTableColumns" 
+          [actionTemplate]="cancelBtn">
+        </app-reusable-table>
+      }
+    </div>
+
+  </p-card>
+</main>
+
+<ng-template #cancelBtn let-row>
+  <button 
+    pButton 
+    label="Cancel" 
+    icon="pi pi-times" 
+    class="p-button-danger p-button-sm" 
+    [disabled]="row.status === 'cancelled' || row.status === 'completed'"
+    (click)="cancelBooking(row.id)">
   </button>
 </ng-template>
 

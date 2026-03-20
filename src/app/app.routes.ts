@@ -5,8 +5,8 @@ import { DealerDashboard } from './pages/dealer-dashboard/dealer-dashboard';
 import { AuthCallback } from './pages/auth-callback/auth-callback';
 import { authGuard } from './auth-guard';
 import { Layout } from './layout/layout';
-import { MyBookingsComponent } from './pages/booking/my-bookings.component';
-
+import { MyBookingsComponent } from './pages/booking/my-bookings/my-bookings.component';
+import { ProfileComponent } from './pages/profile/profile';
 export const routes: Routes = [
 
   // Public routes
@@ -28,6 +28,7 @@ export const routes: Routes = [
       { path: 'admin', component: AdminDashboard },
       { path: 'dealer', component: DealerDashboard },
       { path: 'my-bookings', component: MyBookingsComponent },
+      { path: 'profile', component: ProfileComponent },
       { path: '', redirectTo: 'admin', pathMatch: 'full' }
     ]
   },

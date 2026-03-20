@@ -4,7 +4,7 @@ import { CommonModule } from '@angular/common';
 import { SupabaseService } from '../../services/supabase';
 import { Vehicle } from '../../models/vehicle';
 import { Booking } from '../../models/booking';
-
+import { StatCardComponent } from '../../Shared/components/stat-card.component';
 import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
@@ -14,8 +14,8 @@ import { InputTextModule } from 'primeng/inputtext';
 import { TagModule } from 'primeng/tag';
 import { FormsModule } from '@angular/forms';
 import { ChartModule} from 'primeng/chart';
-import { BookingDialogComponent } from '../booking/booking-dialog.component';
-import { ReusableTableComponent, TableColumn } from '../../models/dynamic-table.component';
+import { BookingDialogComponent } from '../booking/booking-dialog.component/booking-dialog.component';
+import { ReusableTableComponent, TableColumn } from '../../Shared/components/dynamic-table.component';
 @Component({
   selector: 'app-dealer-dashboard',
   standalone: true,
@@ -31,7 +31,8 @@ import { ReusableTableComponent, TableColumn } from '../../models/dynamic-table.
     FormsModule,
     BookingDialogComponent,
     ChartModule,
-    ReusableTableComponent
+    ReusableTableComponent,
+    StatCardComponent
   ],
   templateUrl: './dealer-dashboard.html',
   styleUrl: './dealer-dashboard.scss'
@@ -39,6 +40,11 @@ import { ReusableTableComponent, TableColumn } from '../../models/dynamic-table.
 export class DealerDashboard {
 
   private supabase = inject(SupabaseService);
+  // --- SIGNALS (State Management) ---
+  userInfo = signal<{email: string, id: string}>({
+  email: 'Loading...',
+  id: 'Fetching...'
+});
 
   vehicles = signal<Vehicle[]>([]);
   myBookings = signal<Booking[]>([]);
@@ -48,23 +54,39 @@ export class DealerDashboard {
   bookingDialogVisible = signal(false);
   selectedVehicle = signal<Vehicle | null>(null);
 
+// --- COMPUTED  ---
+  activeBookingsCount = computed(() => {
+  return this.myBookings().filter(b => 
+    b.status !== 'cancelled' && b.status !== 'rejected'
+  ).length;
+});
+  // Add a signal to hold user info
+// --- COMPUTED (Derived State) ---
+  userName = computed(() => {
+    const email = this.userInfo().email;
+    if (!email || email === 'Loading...') return 'User';
+    return email.split('@')[0];
+  });
+// 2. User Avataar circle with first letter of username
+  userLetter = computed(() => {
+    return this.userName()[0]?.toUpperCase() || 'U';
+  });
+
   // 2. Define the Chart Data Signal
   chartData = computed(() => {
-    const total = this.vehicles().length;
-    const available = this.availableVehicles().reduce((sum, v) => sum + v.available, 0);
-    const booked = Math.max(total - available, 0);
+  // Use the same math for both to keep them consistent
+  const totalUnits = this.vehicles().reduce((sum, v) => sum + (v.stock || 0), 0);
+  const availableUnits = this.availableVehicles().reduce((sum, v) => sum + v.available, 0);
+  const bookedUnits = Math.max(totalUnits - availableUnits, 0);
 
-    return {
-      labels: ['Available', 'Booked/Occupied'],
-      datasets: [
-        {
-          data: [available, booked],
-          backgroundColor: ['#4ade80', '#60a5fa'], // Green and Blue
-          hoverBackgroundColor: ['#22c55e', '#3b82f6']
-        }
-      ]
-    };
-  });
+  return {
+    labels: ['Available', 'Booked'],
+    datasets: [{
+      data: [availableUnits, bookedUnits],
+      backgroundColor: ['#4ade80', '#60a5fa']
+    }]
+  };
+});
 
   // 3. Define Chart Options (Visual styling)
   chartOptions = {
@@ -80,7 +102,9 @@ export class DealerDashboard {
   tableColumns: TableColumn[] = [
   { field: 'vin', header: 'VIN', sortable: true },
   { field: 'brand', header: 'Brand', sortable: true },
+  { field: 'make', header: 'Make', sortable: true },
   { field: 'model', header: 'Model', sortable: true },
+  { field: 'stock', header: 'Stock', sortable: true },
   { field: 'location', header: 'Location', sortable: true },
   { field: 'daily_rate', header: 'Price/Day', sortable: true },
   { field: 'available', header: 'Status', sortable: false }
@@ -120,7 +144,8 @@ export class DealerDashboard {
 
       const activeBookings = bookings.filter(b =>
         b.vehicle_id === v.id &&
-        b.status !== 'cancelled'
+        b.status !== 'cancelled' && // Use the exact string from your DB
+        b.status !== 'rejected'
       ).length;
 
       return {
@@ -132,12 +157,33 @@ export class DealerDashboard {
 
   });
 
+  /* ---------------- Booking Table Columns ---------------- */
+bookingTableColumns: TableColumn[] = [
+  { field: 'start_date', header: 'Start Date', sortable: true },
+  { field: 'end_date', header: 'End Date', sortable: true },
+  { field: 'pickup_location', header: 'Pickup', sortable: true },
+  { field: 'status', header: 'Status', sortable: false }
+];
+
   /* ---------------- INIT ---------------- */
 
   async ngOnInit() {
     await this.loadVehicles();
     await this.loadMyBookings();
+    await this.loadUserInfo();
   }
+
+   async loadUserInfo() {
+  const user = await this.supabase.getCurrentUser();
+
+  if (user) {
+    this.userInfo.set({
+      email: user.email || '',
+      id: user.id
+    });
+  }
+}
+
 
   /* ---------------- LOAD VEHICLES ---------------- */
 
@@ -189,7 +235,8 @@ export class DealerDashboard {
   /* ---------------- BOOKING MODAL ---------------- */
 
   openBooking(vehicle: Vehicle) {
-    this.selectedVehicle.set(vehicle);
+    this.selectedVehicle.set(null);// Reset first to ensure clean state
+    this.selectedVehicle.set(vehicle); // Set the new vehicle
     this.bookingDialogVisible.set(true);
   }
 
@@ -235,6 +282,25 @@ export class DealerDashboard {
   }
 }
 
+async cancelBooking(id: string) {
+  if (!confirm('Are you sure you want to cancel this booking?')) return;
+
+  const { error } = await this.supabase.updateBookingStatus(id, 'cancelled');
+
+  if (error) {
+    console.error('Supabase error:', error);
+    alert('Failed to cancel booking.');
+  } else {
+    // Refreshing BOTH triggers the computed availableVehicles calculation
+    // and updates the Booking History table simultaneously.
+    await Promise.all([
+      this.loadVehicles(),
+      this.loadMyBookings()
+    ]);
+
+    alert('Booking cancelled successfully.');
+  }
+}
   /* ---------------- SIGN OUT ---------------- */
 
   async signOut() {

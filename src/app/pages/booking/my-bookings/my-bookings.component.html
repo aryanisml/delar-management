@@ -1,0 +1,19 @@
+<p-card header="My Bookings">
+  <app-reusable-table 
+    [data]="bookings()" 
+    [cols]="bookingCols"
+    [actionTemplate]="bookingActions">
+  </app-reusable-table>
+
+  <ng-template #bookingActions let-rowData>
+    <div class="flex gap-2">
+      <button pButton icon="pi pi-eye" class="p-button-text p-button-sm" pTooltip="View Details"></button>
+      
+      <button *ngIf="rowData.status === 'pending'" 
+              pButton icon="pi pi-times" 
+              class="p-button-text p-button-danger p-button-sm" 
+              pTooltip="Cancel Booking">
+      </button>
+    </div>
+  </ng-template>
+</p-card>

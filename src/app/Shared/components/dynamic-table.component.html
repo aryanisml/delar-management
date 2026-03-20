@@ -4,7 +4,7 @@
   [rows]="12" 
   [rowsPerPageOptions]="[12, 24, 48]"
   responsiveLayout="scroll" 
-  styleClass="p-datatable-striped p-datatable-gridlines">
+  styleClass="p-datatable-striped p-datatable-gridlines p-datatable-sm">
 
   <ng-template pTemplate="header">
     <tr>
@@ -28,17 +28,26 @@
         
         <ng-container [ngSwitch]="col.field">
 
-          <span *ngSwitchCase="'daily_rate'" class="font-semibold text-green-600">
-            {{ rowData[col.field] | currency }}
-          </span>
+          <span *ngSwitchCase="'daily_rate'" class="font-semibold text-green-600 text-right font-mono block">
+  {{ rowData[col.field] | currency }}
+</span>
 
           <p-tag *ngSwitchCase="'available'" 
             [value]="rowData.available > 0 ? 'Available' : 'Out of Stock'"
             [severity]="rowData.available > 0 ? 'success' : 'danger'">
           </p-tag>
 
+          <p-tag *ngSwitchCase="'status'" 
+      [value]="rowData.status | uppercase"
+      [severity]="getStatusSeverity(rowData.status)"
+      class="custom-pill">
+    </p-tag>
+
+    <span *ngSwitchCase="'start_date'">{{ rowData[col.field] | date:'mediumDate' }}</span>
+    <span *ngSwitchCase="'end_date'">{{ rowData[col.field] | date:'mediumDate' }}</span>
+
           <span *ngSwitchDefault>
-            {{ rowData[col.field] }}
+            {{ rowData[col.field] || '—'}}
           </span>
 
         </ng-container>

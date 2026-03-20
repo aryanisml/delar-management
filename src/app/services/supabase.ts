@@ -30,9 +30,13 @@ export class SupabaseService {
   }
 
   async getCurrentUser() {
-    const { data } = await this.supabase.auth.getUser();
-    return data.user;
+  const { data, error } = await this.supabase.auth.getUser();
+  if (error || !data) {
+    console.error("Auth error:", error?.message);
+    return null; 
   }
+  return data.user;
+}
 
   /**
    * Fetch vehicles from `vehicle` table.
@@ -126,6 +130,12 @@ async getBookingsByVehicle(vehicleId: string) {
     .eq('vehicle_id', vehicleId);
 }
 
+async updateBookingStatus(bookingId: string, newStatus: string) {
+  return await this.supabase
+    .from('bookings')
+    .update({ status: newStatus })
+    .eq('id', bookingId);
+}
   async signOut() {
     try {
       await this.supabase.auth.signOut();

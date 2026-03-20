@@ -1,5 +1,5 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
-import { Vehicle } from '../../models/vehicle';
+import { Component, Input, Output, EventEmitter, OnChanges, SimpleChanges  } from '@angular/core';
+import { Vehicle } from '../../../models/vehicle';
 
 import { DialogModule } from 'primeng/dialog';
 import { InputTextModule } from 'primeng/inputtext';
@@ -36,6 +36,20 @@ export class BookingDialogComponent {
   endDate: Date | null = null;
   purpose = '';
 
+  ngOnChanges(changes: SimpleChanges) {
+    if (changes['visible']?.currentValue === true) {
+      this.resetFields();
+    }
+  }
+
+  resetFields() {
+    this.pickupLocation = '';
+    this.dropLocation = '';
+    this.startDate = null;
+    this.endDate = null;
+    this.purpose = '';
+  }
+  
   submit() {
 
     const bookingData = {
