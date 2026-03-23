@@ -86,6 +86,15 @@ export class SupabaseService {
     return { data, error };
   }
 
+  async getBookings() {
+    const { data, error } = await this.supabase
+      .from('bookings')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    return { data, error };
+  }
+
   async addVehicle(vehicle: any) {
     return await this.supabase.from(this.vehiclesTable).insert([vehicle]);
   }

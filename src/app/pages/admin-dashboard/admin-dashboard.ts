@@ -1,22 +1,33 @@
-import { Component, inject, signal, computed } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { SupabaseService } from '../../services/supabase';
-import { Vehicle } from '../../models/vehicle';
-
-import { TableModule } from 'primeng/table';
+import { CommonModule, CurrencyPipe } from '@angular/common';
+import { Component, computed, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { ConfirmationService, MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
-import { ToolbarModule } from 'primeng/toolbar';
-import { InputTextModule } from 'primeng/inputtext';
-import { DialogModule } from 'primeng/dialog';
-import { InputNumberModule } from 'primeng/inputnumber';
-import { SelectModule } from 'primeng/select';
-import { TagModule } from 'primeng/tag';
+import { CheckboxModule } from 'primeng/checkbox';
+import { ColorPickerModule } from 'primeng/colorpicker';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
+import { DataViewModule } from 'primeng/dataview';
+import { DialogModule } from 'primeng/dialog';
+import { FileUploadModule } from 'primeng/fileupload';
+import { FloatLabelModule } from 'primeng/floatlabel';
+import { ImageModule } from 'primeng/image';
+import { InputNumberModule } from 'primeng/inputnumber';
+import { InputTextModule } from 'primeng/inputtext';
+import { MessageModule } from 'primeng/message';
+import { ProgressBarModule } from 'primeng/progressbar';
+import { ScrollPanelModule } from 'primeng/scrollpanel';
+import { SelectModule } from 'primeng/select';
+import { SelectButtonModule } from 'primeng/selectbutton';
+import { SkeletonModule } from 'primeng/skeleton';
+import { TableLazyLoadEvent, TableModule } from 'primeng/table';
+import { TagModule } from 'primeng/tag';
+import { TextareaModule } from 'primeng/textarea';
 import { ToastModule } from 'primeng/toast';
-import { ConfirmationService, MessageService } from 'primeng/api';
-import { FormsModule } from '@angular/forms';
-import { StepperModule } from 'primeng/stepper';
+import { ToolbarModule } from 'primeng/toolbar';
+import { SupabaseService } from '../../services/supabase';
+import { Vehicle } from '../../models/vehicle';
+import { normalizeVehicle, tagSeverityForStatus } from '../../admin-ui.models';
 
 @Component({
   selector: 'app-admin-dashboard',
@@ -24,206 +35,315 @@ import { StepperModule } from 'primeng/stepper';
   imports: [
     CommonModule,
     FormsModule,
-    TableModule,
     ButtonModule,
     CardModule,
-    ToolbarModule,
-    InputTextModule,
-    DialogModule,
-    InputNumberModule,
-    SelectModule,
-    TagModule,
+    CheckboxModule,
+    ColorPickerModule,
     ConfirmDialogModule,
+    DataViewModule,
+    DialogModule,
+    FileUploadModule,
+    FloatLabelModule,
+    ImageModule,
+    InputNumberModule,
+    InputTextModule,
+    MessageModule,
+    ProgressBarModule,
+    ScrollPanelModule,
+    SelectModule,
+    SelectButtonModule,
+    SkeletonModule,
+    TableModule,
+    TagModule,
+    TextareaModule,
     ToastModule,
-    StepperModule
+    ToolbarModule,
   ],
   templateUrl: './admin-dashboard.html',
   styleUrl: './admin-dashboard.scss',
-  providers: [ConfirmationService, MessageService]
+  providers: [ConfirmationService, MessageService],
 })
 export class AdminDashboard {
-
   private supabase = inject(SupabaseService);
   private confirmationService = inject(ConfirmationService);
   private messageService = inject(MessageService);
 
-  vehicles = signal<Vehicle[]>([]);
-  loading = signal<boolean>(true);
+  readonly isLoading = signal(true);
+  readonly allVehicles = signal<any[]>([]);
+  readonly visibleVehicles = signal<any[]>([]);
+  readonly totalRecords = signal(0);
+  readonly selectedVehicles = signal<any[]>([]);
+  readonly dialogVisible = signal(false);
+  readonly editMode = signal(false);
+  readonly saving = signal(false);
+  readonly submitted = signal(false);
+  readonly viewMode = signal<'table' | 'grid'>('table');
+  readonly searchTerm = signal('');
+  readonly typeFilter = signal<string | null>(null);
+  readonly statusFilter = signal<string | null>(null);
+  readonly fuelFilter = signal<string | null>(null);
+  readonly selectedVehicleId = signal<string | null>(null);
+  readonly vehicleForm = signal<any>(this.createEmptyForm());
 
-  filter = signal<string>('');
-  statusFilter = signal<'all' | 'active' | 'inactive' | 'deleted'>('all');
-
-  dialogVisible = signal<boolean>(false);
-  editMode = signal<boolean>(false);
-
-  selectedVehicleId = signal<string | null>(null);
-  workflowStep = signal(1);
-
-  newVehicle: any = this.resetVehicle();
-
-  readonly statusFilterOptions = [
-    { label: 'All Fleet', value: 'all', icon: 'pi pi-th-large' },
-    { label: 'Ready', value: 'active', icon: 'pi pi-check-circle' },
-    { label: 'Paused', value: 'inactive', icon: 'pi pi-pause-circle' },
-    { label: 'Archived', value: 'deleted', icon: 'pi pi-inbox' }
-  ] as const;
-
-  setWorkflowStep(step?: number) {
-    this.workflowStep.set(step ?? 1);
-  }
-
-  statusOptions = [
-    { label: 'Active', value: 'active' },
-    { label: 'Inactive', value: 'inactive' }
+  readonly vehicleTypes = ['SUV', 'Sedan', 'Truck', 'Van', 'Bus'].map((label) => ({ label, value: label }));
+  readonly statusOptions = ['Available', 'Booked', 'Maintenance', 'InService', 'Inactive'].map((label) => ({ label, value: label }));
+  readonly fuelTypes = ['Petrol', 'Diesel', 'Electric', 'Hybrid', 'CNG'].map((label) => ({ label, value: label }));
+  readonly viewOptions = [
+    { icon: 'pi pi-list', value: 'table' },
+    { icon: 'pi pi-th-large', value: 'grid' },
   ];
 
-  // ===============================
-  // FILTER LOGIC
-  // ===============================
+  readonly filteredVehicles = computed(() =>
+    this.allVehicles().filter((vehicle) => {
+      const query = this.searchTerm().trim().toLowerCase();
+      const matchesSearch =
+        !query ||
+        `${vehicle.make} ${vehicle.model}`.toLowerCase().includes(query) ||
+        vehicle.chassisNumber.toLowerCase().includes(query) ||
+        vehicle.registrationNo.toLowerCase().includes(query);
+      const matchesType = !this.typeFilter() || vehicle.type === this.typeFilter();
+      const matchesStatus = !this.statusFilter() || vehicle.status === this.statusFilter();
+      const matchesFuel = !this.fuelFilter() || vehicle.fuel === this.fuelFilter();
 
-  filteredVehicles = computed(() => {
-    let list = this.vehicles();
-
-    const status = this.statusFilter();
-    if (status !== 'all') {
-      list = list.filter(v => (v as any)['status'] === status);
-    }
-
-    const q = this.filter().toLowerCase();
-    if (q) {
-      list = list.filter(v =>
-        (v.brand ?? '').toLowerCase().includes(q) ||
-        (v.model ?? '').toLowerCase().includes(q)
-      );
-    }
-
-    return list;
-  });
+      return matchesSearch && matchesType && matchesStatus && matchesFuel;
+    })
+  );
 
   async ngOnInit() {
     await this.loadVehicles();
+    this.loadVehiclePage({ first: 0, rows: 10 });
+  }
+
+  createEmptyForm() {
+    return {
+      make: '',
+      model: '',
+      year: 2024,
+      registrationNo: '',
+      chassisNumber: '',
+      type: null,
+      fuel: null,
+      capacity: 5,
+      color: '#1A56DB',
+      mileage: 0,
+      status: 'Available',
+      notes: '',
+      imageUrl: '',
+      stock: 1,
+      dailyRate: 2500,
+      location: 'Delhi',
+    };
   }
 
   async loadVehicles() {
-    this.loading.set(true);
+    this.isLoading.set(true);
     const { data } = await this.supabase.getVehicles();
-    this.vehicles.set(data ?? []);
-    this.loading.set(false);
+    const normalizedVehicles = (data ?? []).map((vehicle, index) => normalizeVehicle(vehicle, index));
+    this.allVehicles.set(normalizedVehicles);
+    this.totalRecords.set(normalizedVehicles.length);
+    this.isLoading.set(false);
   }
 
-  // ===============================
-  // VEHICLE FORM HANDLING
-  // ===============================
+  loadVehiclePage(event: TableLazyLoadEvent) {
+    const first = event.first ?? 0;
+    const rows = event.rows ?? 10;
+    const list = [...this.filteredVehicles()];
+    this.totalRecords.set(list.length);
+    this.visibleVehicles.set(list.slice(first, first + rows));
+  }
 
-  resetVehicle() {
-    return {
-      brand: '',
-      make: '',
-      model: '',
-      stock: 0,
-      daily_rate: 0,
-      location: '',
-      status: 'active'
-    };
+  applyFilters() {
+    this.loadVehiclePage({ first: 0, rows: this.viewMode() === 'grid' ? 12 : 10 });
   }
 
   openNew() {
     this.editMode.set(false);
-    this.newVehicle = this.resetVehicle();
+    this.selectedVehicleId.set(null);
+    this.vehicleForm.set(this.createEmptyForm());
+    this.submitted.set(false);
     this.dialogVisible.set(true);
   }
 
-  openEdit(vehicle: Vehicle) {
+  openEdit(vehicle: any) {
     this.editMode.set(true);
     this.selectedVehicleId.set(vehicle.id);
-    this.newVehicle = { ...vehicle };
+    this.vehicleForm.set({
+      make: vehicle.make,
+      model: vehicle.model,
+      year: vehicle.year,
+      registrationNo: vehicle.registrationNo,
+      chassisNumber: vehicle.chassisNumber,
+      type: vehicle.type,
+      fuel: vehicle.fuel,
+      capacity: vehicle.capacity,
+      color: vehicle.color,
+      mileage: vehicle.mileage,
+      status: vehicle.status,
+      notes: vehicle.notes || '',
+      imageUrl: vehicle.imageUrl,
+      stock: vehicle.stock,
+      dailyRate: vehicle.dailyRate,
+      location: vehicle.location,
+    });
+    this.submitted.set(false);
     this.dialogVisible.set(true);
+  }
+
+  isInvalid(field: string) {
+    const form = this.vehicleForm();
+    if (!this.submitted()) {
+      return false;
+    }
+
+    const value = form[field];
+    if (field === 'chassisNumber') {
+      return !value || this.hasDuplicateChassis(value);
+    }
+
+    return value === null || value === undefined || value === '';
+  }
+
+  hasDuplicateChassis(chassis: string) {
+    return this.allVehicles().some((vehicle) =>
+      vehicle.chassisNumber.toLowerCase() === chassis.toLowerCase() &&
+      vehicle.id !== this.selectedVehicleId()
+    );
   }
 
   async saveVehicle() {
+    this.submitted.set(true);
+    const form = this.vehicleForm();
 
-    if (!this.newVehicle.brand) return;
-
-    if (this.editMode()) {
-      await this.supabase.updateVehicle(
-        this.selectedVehicleId()!,
-        this.newVehicle
-      );
-
-      await this.supabase.logAudit('Vehicle Updated');
-
-      this.messageService.add({
-        severity: 'success',
-        summary: 'Vehicle Updated'
-      });
-
-    } else {
-
-      await this.supabase.addVehicle(this.newVehicle);
-
-      await this.supabase.logAudit('Vehicle Created');
-
-      this.messageService.add({
-        severity: 'success',
-        summary: 'Vehicle Added'
-      });
+    if (
+      !form.make ||
+      !form.model ||
+      !form.registrationNo ||
+      !form.chassisNumber ||
+      !form.type ||
+      !form.fuel ||
+      !form.status
+    ) {
+      return;
     }
 
+    if (this.hasDuplicateChassis(form.chassisNumber)) {
+      this.messageService.add({ severity: 'warn', summary: 'Notice', detail: 'Chassis number already exists' });
+      return;
+    }
+
+    this.saving.set(true);
+
+    const payload = {
+      brand: form.make,
+      make: form.make,
+      model: form.model,
+      status: form.status === 'Available' ? 'active' : form.status === 'Inactive' ? 'deleted' : 'inactive',
+      stock: form.stock,
+      daily_rate: form.dailyRate,
+      location: form.location,
+    };
+
+    let result;
+    if (this.editMode() && this.selectedVehicleId()) {
+      result = await this.supabase.updateVehicle(this.selectedVehicleId()!, payload);
+    } else {
+      result = await this.supabase.addVehicle(payload);
+    }
+
+    if (result?.error) {
+      this.saving.set(false);
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: result.error.message || 'Failed to save vehicle',
+      });
+      return;
+    }
+
+    if (this.editMode() && this.selectedVehicleId()) {
+      await this.supabase.logAudit(`Vehicle Updated: ${form.make} ${form.model}`);
+      this.messageService.add({ severity: 'success', summary: 'Saved', detail: 'Vehicle updated successfully' });
+    } else {
+      await this.supabase.logAudit(`Vehicle Created: ${form.make} ${form.model}`);
+      this.messageService.add({ severity: 'success', summary: 'Saved', detail: 'Vehicle created successfully' });
+    }
+
+    this.saving.set(false);
     this.dialogVisible.set(false);
     await this.loadVehicles();
+    this.applyFilters();
   }
 
-  confirmDelete(vehicle: Vehicle) {
+  confirmDelete(vehicle: any) {
     this.confirmationService.confirm({
-      message: 'Archive this vehicle?',
+      message: `Delete ${vehicle.make} ${vehicle.model}? This cannot be undone.`,
+      header: 'Confirm Delete',
+      icon: 'pi pi-exclamation-triangle',
+      acceptButtonStyleClass: 'p-button-danger',
+      rejectButtonStyleClass: 'p-button-text',
       accept: async () => {
-
         await this.supabase.updateVehicle(vehicle.id, { status: 'deleted' });
-        await this.supabase.logAudit('Vehicle Archived');
-
-        this.messageService.add({
-          severity: 'warn',
-          summary: 'Vehicle Archived'
-        });
-
+        await this.supabase.logAudit(`Vehicle Archived: ${vehicle.make} ${vehicle.model}`);
+        this.messageService.add({ severity: 'success', summary: 'Saved', detail: 'Vehicle archived successfully' });
         await this.loadVehicles();
-      }
+        this.applyFilters();
+      },
     });
   }
 
-  async restoreVehicle(vehicle: Vehicle) {
-    await this.supabase.updateVehicle(vehicle.id, { status: 'active' });
-    await this.supabase.logAudit('Vehicle Restored');
+  confirmBulkDelete() {
+    const selected = this.selectedVehicles();
+    if (!selected.length) {
+      return;
+    }
 
-    this.messageService.add({
-      severity: 'success',
-      summary: 'Vehicle Restored'
+    this.confirmationService.confirm({
+      message: `Delete ${selected.length} selected vehicles? This cannot be undone.`,
+      header: 'Confirm Delete',
+      icon: 'pi pi-exclamation-triangle',
+      acceptButtonStyleClass: 'p-button-danger',
+      rejectButtonStyleClass: 'p-button-text',
+      accept: async () => {
+        for (const vehicle of selected) {
+          await this.supabase.updateVehicle(vehicle.id, { status: 'deleted' });
+        }
+        this.selectedVehicles.set([]);
+        this.messageService.add({ severity: 'success', summary: 'Saved', detail: 'Selected vehicles archived successfully' });
+        await this.loadVehicles();
+        this.applyFilters();
+      },
     });
-
-    await this.loadVehicles();
   }
 
-  async deactivateVehicle(vehicle: Vehicle) {
-    await this.supabase.updateVehicle(vehicle.id, { status: 'inactive' });
-    await this.supabase.logAudit('Vehicle Deactivated');
-
-    this.messageService.add({
-      severity: 'warn',
-      summary: 'Vehicle Deactivated'
-    });
-
-    await this.loadVehicles();
+  copyChassis(value: string) {
+    navigator.clipboard.writeText(value);
+    this.messageService.add({ severity: 'success', summary: 'Copied', detail: 'Chassis number copied' });
   }
 
-  async activateVehicle(vehicle: Vehicle) {
-    await this.supabase.updateVehicle(vehicle.id, { status: 'active' });
-    await this.supabase.logAudit('Vehicle Activated');
+  updateImageUrl(event: any) {
+    const file = event.files?.[0];
+    if (!file) {
+      return;
+    }
 
-    this.messageService.add({
-      severity: 'success',
-      summary: 'Vehicle Activated'
-    });
+    const reader = new FileReader();
+    reader.onload = () => {
+      this.vehicleForm.set({ ...this.vehicleForm(), imageUrl: String(reader.result) });
+    };
+    reader.readAsDataURL(file);
+  }
 
-    await this.loadVehicles();
+  statusSeverity(status: string) {
+    return tagSeverityForStatus(status);
+  }
+
+  fillRateClass(value: number) {
+    if (value > 80) {
+      return 'fill-rate--high';
+    }
+    if (value >= 50) {
+      return 'fill-rate--medium';
+    }
+    return 'fill-rate--low';
   }
 }

@@ -4,10 +4,11 @@ import { SupabaseService } from './services/supabase';
 import { Auth } from './services/auth';
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
+import { ToastModule } from 'primeng/toast';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet],
+  imports: [RouterOutlet, ToastModule],
   templateUrl: './app.html',
   styleUrl: './app.scss'
 })

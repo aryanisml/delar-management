@@ -1,37 +1,17 @@
-.overview-wrapper {
-  padding: 8px;
+:host ::ng-deep .dashboard-dark-card {
+  background: #1f2937;
+  color: #fff;
+  border: 0;
 }
 
-.kpi-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 20px;
+:host ::ng-deep .dashboard-dark-card .p-card-body {
+  background: #1f2937;
 }
 
-.kpi-card {
-  padding: 20px;
-  text-align: center;
+:host ::ng-deep .p-selectbutton .p-button {
+  border-radius: 0.75rem;
 }
 
-.kpi-label {
-  font-size: 14px;
-  color: #6b7280;
-}
-
-.kpi-value {
-  font-size: 28px;
-  font-weight: 600;
-  margin-top: 6px;
-}
-
-.kpi-card.active {
-  border-left: 4px solid #16a34a;
-}
-
-.kpi-card.archived {
-  border-left: 4px solid #6b7280;
-}
-
-.kpi-card.low {
-  border-left: 4px solid #dc2626;
+:host ::ng-deep .p-progressbar {
+  background: #e5e7eb;
 }

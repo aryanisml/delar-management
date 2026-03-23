@@ -1,84 +1,46 @@
-<header class="topbar">
-
-  <div class="topbar-left">
-    <button
-      pButton
-      type="button"
-      icon="pi pi-bars"
-      class="dashboard-btn dashboard-btn--ghost topbar-toggle"
-      (click)="toggleSidebar()">
-    </button>
-
-    <div class="app-title">Admin Management</div>
+<div class="flex h-screen overflow-hidden bg-content">
+  <div class="hidden lg:block">
+    <app-admin-sidebar
+      [roleLabel]="role() === 'admin' ? 'Administrator' : 'Dealer'"
+      [userName]="userName()"
+      [pendingBookingsCount]="pendingBookingsCount()"
+      [vehicleCount]="vehiclesCount()"
+      (logout)="signOut()">
+    </app-admin-sidebar>
   </div>
 
-  <div class="topbar-right">
-    <div class="role-badge">
-      {{ role() === 'admin' ? 'Admin Panel' : 'Dealer Panel' }}
-    </div>
+  <p-drawer
+    [visible]="mobileSidebarOpen()"
+    (visibleChange)="mobileSidebarOpen.set($event)"
+    position="left"
+    [showCloseIcon]="false"
+    styleClass="lg:hidden !w-72 !p-0">
+    <app-admin-sidebar
+      [roleLabel]="role() === 'admin' ? 'Administrator' : 'Dealer'"
+      [userName]="userName()"
+      [pendingBookingsCount]="pendingBookingsCount()"
+      [vehicleCount]="vehiclesCount()"
+      (linkClick)="closeMobileSidebar()"
+      (logout)="signOut()">
+    </app-admin-sidebar>
+  </p-drawer>
 
-    <button
-      pButton
-      type="button"
-      label="Logout"
-      icon="pi pi-sign-out"
-      class="dashboard-btn dashboard-btn--danger-soft topbar-logout"
-      (click)="signOut()">
-    </button>
+  <div class="flex min-w-0 flex-1 flex-col overflow-hidden lg:pl-64">
+    <app-admin-topbar
+      [title]="pageTitle()"
+      [breadcrumbItems]="breadcrumbItems()"
+      [searchValue]="pageSearch()"
+      [notificationCount]="notificationCount()"
+      [notifications]="notifications()"
+      [userInitials]="userName().charAt(0).toUpperCase()"
+      [userMenuItems]="userMenuItems()"
+      (menuToggle)="toggleSidebar()"
+      (searchChange)="onSearchChange($event)"
+      (markAllRead)="markNotificationsRead()">
+    </app-admin-topbar>
+
+    <main class="flex-1 overflow-y-auto p-4 lg:p-6">
+      <router-outlet></router-outlet>
+    </main>
   </div>
-
-</header>
-
-<div class="layout-container">
-
-  <!-- =============================== -->
-  <!-- SIDEBAR                         -->
-  <!-- =============================== -->
-
-  <aside class="sidebar" [class.collapsed]="sidebarCollapsed()">
-
-    <div class="sidebar-header">
-      <div class="avatar">
-        {{ role()?.charAt(0)?.toUpperCase() }}
-      </div>
-
-      <div class="role-info" *ngIf="!sidebarCollapsed()">
-        <div class="role-title">
-          {{ role() === 'admin' ? 'Administrator' : 'Dealer User' }}
-        </div>
-        <div class="role-sub">{{ role() }}</div>
-      </div>
-    </div>
-
-    <nav class="sidebar-nav">
-      <ul>
-        @for (item of menuItems(); track item.label) {
-          <li
-            (click)="navigate(item)"
-            [class.active]="isActive(item.route)"
-          >
-            <i [class]="item.icon"></i>
-
-            <span *ngIf="!sidebarCollapsed()">
-              {{ item.label }}
-            </span>
-          </li>
-        }
-      </ul>
-    </nav>
-
-  </aside>
-
-  <!-- =============================== -->
-  <!-- MAIN CONTENT                    -->
-  <!-- =============================== -->
-
-  <main class="content">
-    <router-outlet></router-outlet>
-  </main>
-
 </div>
-
-<footer class="footer">
-  © {{ currentYear }} Dealer Management
-</footer>

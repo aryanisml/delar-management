@@ -1,0 +1,8 @@
+:host {
+  display: block;
+}
+
+:host ::ng-deep .admin-topbar-search .p-inputtext {
+  padding-left: 2.75rem !important;
+  line-height: 1.25rem;
+}

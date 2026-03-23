@@ -1,82 +1,124 @@
-import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router, RouterModule } from '@angular/router';
+import { Component, HostListener, computed, inject, signal } from '@angular/core';
+import { NavigationEnd, Router, RouterModule } from '@angular/router';
+import { filter } from 'rxjs';
+import { MessageService, MenuItem } from 'primeng/api';
+import { DrawerModule } from 'primeng/drawer';
 import { Auth } from '../services/auth';
 import { SupabaseService } from '../services/supabase';
-import { ButtonModule } from 'primeng/button';
-
-type MenuItem = { label: string; icon?: string; route?: string };
+import { buildBookings, normalizeVehicle } from '../admin-ui.models';
+import { AdminSidebar } from './admin-sidebar';
+import { AdminTopbar } from './admin-topbar';
 
 @Component({
   selector: 'app-layout',
   standalone: true,
-  imports: [CommonModule, RouterModule, ButtonModule],
+  imports: [CommonModule, RouterModule, DrawerModule, AdminSidebar, AdminTopbar],
   templateUrl: './layout.html',
   styleUrl: './layout.scss',
 })
 export class Layout {
-
   private auth = inject(Auth);
   private supabase = inject(SupabaseService);
   private router = inject(Router);
+  private messageService = inject(MessageService);
 
   role = signal<string | null>(null);
-  sidebarCollapsed = signal<boolean>(false);
-  menuItems = signal<MenuItem[]>([]);
-  currentYear = new Date().getFullYear();
+  userName = signal('Admin User');
+  mobileSidebarOpen = signal(false);
+  pageTitle = signal('Dashboard');
+  pageSearch = signal('');
+  notificationCount = signal(5);
+  vehiclesCount = signal(0);
+  pendingBookingsCount = signal(0);
+  breadcrumbItems = signal<MenuItem[]>([]);
+  notifications = signal([
+    { title: 'Urgent booking pending', detail: 'Booking VMS-0004 is still unassigned.', time: '2 min ago' },
+    { title: 'Service due', detail: 'Two vehicles need service approval today.', time: '9 min ago' },
+    { title: 'Revenue export ready', detail: 'March revenue export completed successfully.', time: '28 min ago' },
+    { title: 'New user registered', detail: 'A corporate account was created from the portal.', time: '41 min ago' },
+    { title: 'Maintenance alert', detail: 'Scorpio service window starts in 6 hours.', time: '1 hr ago' },
+  ]);
+
+  readonly userMenuItems = computed<MenuItem[]>(() => [
+    { label: 'Profile', icon: 'pi pi-user' },
+    { label: 'Settings', icon: 'pi pi-cog' },
+    { separator: true },
+    { label: 'Logout', icon: 'pi pi-sign-out', command: () => this.signOut() },
+  ]);
 
   async ngOnInit() {
-    const r = await this.auth.getUserRole();
-    this.role.set(r);
+    const role = await this.auth.getUserRole();
+    this.role.set(role);
 
-    // ===============================
-    // ADMIN MENU (UPDATED)
-    // ===============================
-    const adminMenu: MenuItem[] = [
-      { label: 'Overview', icon: 'pi pi-home', route: '/admin' },
-      { label: 'Vehicles', icon: 'pi pi-car', route: '/admin/vehicles' },
-      { label: 'Dealers', icon: 'pi pi-briefcase', route: '/admin/dealers' },
-      { label: 'Users', icon: 'pi pi-users', route: '/admin/users' },
-      { label: 'Analytics', icon: 'pi pi-chart-bar', route: '/admin/analytics' },
-      { label: 'Revenue', icon: 'pi pi-wallet', route: '/admin/revenue' },
-      { label: 'Dealer Performance', icon: 'pi pi-chart-line', route: '/admin/dealer-performance' },
-      { label: 'Audit Logs', icon: 'pi pi-file', route: '/admin/audit-logs' }
-    ];
+    const user = await this.auth.getCurrentUser();
+    this.userName.set((user?.user_metadata as any)?.['full_name'] || user?.email?.split('@')[0] || 'Admin User');
 
-    // ===============================
-    // DEALER MENU (UNCHANGED)
-    // ===============================
-    const dealerMenu: MenuItem[] = [
-      { label: 'Dashboard', icon: 'pi pi-home', route: '/dealer/dashboard' },
-      { label: 'Inventory', icon: 'pi pi-car', route: '/dealer/inventory' },
-      { label: 'Analytics', icon: 'pi pi-chart-line', route: '/dealer/analytics' },
-      { label: 'Bookings', icon: 'pi pi-calendar', route: '/dealer/bookings' }
-    ];
+    const { data: vehicles } = await this.supabase.getVehicles();
+    const { data: bookings } = await this.supabase.getBookings();
+    const normalizedVehicles = (vehicles ?? []).map((vehicle, index) => normalizeVehicle(vehicle, index));
+    this.vehiclesCount.set(normalizedVehicles.length);
+    this.pendingBookingsCount.set(buildBookings(normalizedVehicles, bookings ?? []).filter((booking) => booking.status === 'Pending').length);
 
-    this.menuItems.set(r === 'admin' ? adminMenu : dealerMenu);
+    this.syncRouteMeta();
+    this.router.events.pipe(filter((event) => event instanceof NavigationEnd)).subscribe(() => this.syncRouteMeta());
   }
 
-  // ===============================
-  // SIDEBAR BEHAVIOR
-  // ===============================
+  @HostListener('window:resize')
+  onResize() {
+    if (window.innerWidth >= 1024) {
+      this.mobileSidebarOpen.set(false);
+    }
+  }
 
   toggleSidebar() {
-    this.sidebarCollapsed.set(!this.sidebarCollapsed());
+    this.mobileSidebarOpen.set(!this.mobileSidebarOpen());
   }
 
-  isActive(route?: string): boolean {
-    if (!route) return false;
-    return this.router.url.startsWith(route);
-  }
-
-  async navigate(item: MenuItem) {
-    if (item.route) {
-      await this.router.navigateByUrl(item.route);
+  closeMobileSidebar() {
+    if (window.innerWidth < 1024) {
+      this.mobileSidebarOpen.set(false);
     }
+  }
+
+  onSearchChange(value: string) {
+    this.pageSearch.set(value);
+  }
+
+  markNotificationsRead() {
+    this.notificationCount.set(0);
+    this.messageService.add({
+      severity: 'success',
+      summary: 'Notifications cleared',
+      detail: 'All recent notifications were marked as read.',
+    });
+  }
+
+  private syncRouteMeta() {
+    const titleMap: Record<string, string> = {
+      '/admin/dashboard': 'Dashboard',
+      '/admin/vehicles': 'Vehicles',
+      '/admin/bookings': 'Bookings',
+      '/admin/users': 'Users',
+      '/admin/reports': 'Reports',
+      '/admin/analytics': 'Analytics',
+      '/admin/audit': 'Audit Log',
+    };
+
+    const currentPath = this.router.url.split('?')[0];
+    this.pageTitle.set(titleMap[currentPath] || 'Dashboard');
+
+    const pathParts = currentPath.split('/').filter(Boolean);
+    const breadcrumbs = pathParts.slice(1).map((part, index) => ({
+      label: part.replace(/-/g, ' ').replace(/\b\w/g, (value) => value.toUpperCase()),
+      routerLink: `/${pathParts.slice(0, index + 2).join('/')}`,
+    }));
+
+    this.breadcrumbItems.set(breadcrumbs);
   }
 
   async signOut() {
     await this.supabase.supabase.auth.signOut();
-    window.location.href = '/login';
+    await this.router.navigateByUrl('/login');
   }
 }
