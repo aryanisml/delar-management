@@ -17,10 +17,10 @@ export const authGuard: CanActivateFn = async (route, state) => {
     const role = await supabase.getUserRole(user.id);
 
     if (role === 'admin') {
-      return router.parseUrl('/admin');
+      return router.parseUrl('/admin/dashboard');
     }
 
-    return router.parseUrl('/dealer/dashboard');
+    return router.parseUrl('/dealer');
   }
 
   return true;

@@ -7,13 +7,15 @@ import { AdminDealerPerformance } from './pages/admin-dealer-performance/admin-d
 import { AdminOverview } from './pages/admin-overview/admin-overview';
 import { AdminRevenue } from './pages/admin-revenue/admin-revenue';
 import { AdminUsers } from './pages/admin-users/admin-users';
+import { authGuard } from './auth-guard';
+import { Layout } from './layout/layout';
+import { MyBookingsComponent } from './pages/booking/my-bookings/my-bookings.component';
 import { DealerAnalytics } from './pages/dealer-analytics/dealer-analytics';
 import { DealerBookings } from './pages/dealer-bookings/dealer-bookings';
 import { DealerDashboard } from './pages/dealer-dashboard/dealer-dashboard';
 import { DealerInventory } from './pages/dealer-inventory/dealer-inventory';
 import { Login } from './pages/login/login';
-import { authGuard } from './auth-guard';
-import { Layout } from './layout/layout';
+import { ProfileComponent } from './pages/profile/profile';
 
 export const routes: Routes = [
   { path: 'login', component: Login },
@@ -36,10 +38,18 @@ export const routes: Routes = [
           { path: 'audit', component: AdminAuditLogs, data: { title: 'Audit Log' } },
         ],
       },
-      { path: 'dealer/dashboard', component: DealerDashboard },
-      { path: 'dealer/inventory', component: DealerInventory },
-      { path: 'dealer/analytics', component: DealerAnalytics },
-      { path: 'dealer/bookings', component: DealerBookings },
+      {
+        path: 'dealer',
+        children: [
+          { path: '', component: DealerDashboard, data: { title: 'Dashboard' } },
+          { path: 'dashboard', component: DealerDashboard, data: { title: 'Dashboard' } },
+          { path: 'inventory', component: DealerInventory, data: { title: 'Inventory' } },
+          { path: 'analytics', component: DealerAnalytics, data: { title: 'Analytics' } },
+          { path: 'bookings', component: DealerBookings, data: { title: 'Bookings' } },
+        ],
+      },
+      { path: 'my-bookings', component: MyBookingsComponent, data: { title: 'My Bookings' } },
+      { path: 'profile', component: ProfileComponent, data: { title: 'Profile' } },
       { path: '', redirectTo: 'admin/dashboard', pathMatch: 'full' },
     ],
   },

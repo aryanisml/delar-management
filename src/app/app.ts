@@ -32,9 +32,9 @@ export class App {
       const role = await this.auth.getUserRole();
 
       if (role === 'admin') {
-        this.router.navigate(['/admin']);
+        this.router.navigate(['/admin/dashboard']);
       } else {
-        this.router.navigate(['/dealer/dashboard']);
+        this.router.navigate(['/dealer']);
       }
     } catch (error) {
       console.error('App initialization error:', error);

@@ -14,10 +14,6 @@ export class SupabaseService {
     environment.supabaseKey
   );
 
-  // =============================
-  // AUTH
-  // =============================
-
   async signInWithGoogle() {
     const redirectUrl = `${window.location.origin}/auth/callback`;
     return await this.supabase.auth.signInWithOAuth({
@@ -32,17 +28,17 @@ export class SupabaseService {
   }
 
   async getCurrentUser() {
-    const { data } = await this.supabase.auth.getUser();
+    const { data, error } = await this.supabase.auth.getUser();
+    if (error || !data) {
+      console.error('Auth error:', error?.message);
+      return null;
+    }
     return data.user;
   }
 
   async signOut() {
     await this.supabase.auth.signOut();
   }
-
-  // =============================
-  // ROLE
-  // =============================
 
   async getUserRole(userId: string) {
     const { data, error } = await this.supabase
@@ -74,16 +70,41 @@ export class SupabaseService {
       .eq('user_id', userId);
   }
 
-  // =============================
-  // VEHICLES
-  // =============================
+  async getVehicles(): Promise<{ data: Vehicle[] | null; error: any | null }> {
+    try {
+      let data: any[] | null = null;
+      let error: any = null;
 
-  async getVehicles() {
-    const { data, error } = await this.supabase
-      .from(this.vehiclesTable)
-      .select('*');
+      const orderedResult = await this.supabase
+        .from(this.vehiclesTable)
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    return { data, error };
+      data = orderedResult.data ?? null;
+      error = orderedResult.error ?? null;
+
+      if (error) {
+        const message = String(error.message || '');
+        if (error.code === '42703' || /does not exist/i.test(message)) {
+          const fallbackResult = await this.supabase
+            .from(this.vehiclesTable)
+            .select('*');
+          data = fallbackResult.data ?? null;
+          error = fallbackResult.error ?? null;
+        }
+      }
+
+      const normalized = (data ?? []).map((row: any) => ({
+        ...row,
+        brand: row.brand ?? row.Brand,
+        booked: Boolean(row.booked)
+      }));
+
+      return { data: normalized as Vehicle[], error };
+    } catch (error) {
+      console.error('SupabaseService.getVehicles error', error);
+      return { data: null, error };
+    }
   }
 
   async getBookings() {
@@ -113,20 +134,64 @@ export class SupabaseService {
       .eq('id', id);
   }
 
-  // =============================
-// AUDIT LOGGING
-// =============================
+  async createBooking(booking: any) {
+    const { data, error } = await this.supabase
+      .from('bookings')
+      .insert([booking]);
 
-async logAudit(action: string) {
-  const user = await this.getCurrentUser();
-  if (!user) return;
+    return { data, error };
+  }
 
-  await this.supabase.from('audit_logs').insert([
-    {
-      action,
-      user_id: user.id,
-      created_at: new Date()
-    }
-  ]);
-}
+  async getMyBookings(userId: string) {
+    return await this.supabase
+      .from('bookings')
+      .select(`
+        id,
+        vehicle_id,
+        pickup_location,
+        drop_location,
+        start_date,
+        end_date,
+        purpose,
+        status,
+        created_at,
+        vehicle (
+          id,
+          brand,
+          make,
+          model,
+          location,
+          daily_rate
+        )
+      `)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+  }
+
+  async getBookingsByVehicle(vehicleId: string) {
+    return await this.supabase
+      .from('bookings')
+      .select('*')
+      .eq('vehicle_id', vehicleId);
+  }
+
+  async updateBookingStatus(bookingId: string, newStatus: string) {
+    return await this.supabase
+      .from('bookings')
+      .update({ status: newStatus })
+      .eq('id', bookingId);
+  }
+
+  async logAudit(action: string) {
+    const user = await this.getCurrentUser();
+    if (!user) return;
+
+    await this.supabase.from('audit_logs').insert([
+      {
+        action,
+        user_id: user.id,
+        created_at: new Date()
+      }
+    ]);
+  }
 }

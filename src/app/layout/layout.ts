@@ -3,6 +3,7 @@ import { Component, HostListener, computed, inject, signal } from '@angular/core
 import { NavigationEnd, Router, RouterModule } from '@angular/router';
 import { filter } from 'rxjs';
 import { MessageService, MenuItem } from 'primeng/api';
+import { ButtonModule } from 'primeng/button';
 import { DrawerModule } from 'primeng/drawer';
 import { Auth } from '../services/auth';
 import { SupabaseService } from '../services/supabase';
@@ -10,10 +11,12 @@ import { buildBookings, normalizeVehicle } from '../admin-ui.models';
 import { AdminSidebar } from './admin-sidebar';
 import { AdminTopbar } from './admin-topbar';
 
+type DealerMenuItem = { label: string; icon: string; route: string };
+
 @Component({
   selector: 'app-layout',
   standalone: true,
-  imports: [CommonModule, RouterModule, DrawerModule, AdminSidebar, AdminTopbar],
+  imports: [CommonModule, RouterModule, DrawerModule, ButtonModule, AdminSidebar, AdminTopbar],
   templateUrl: './layout.html',
   styleUrl: './layout.scss',
 })
@@ -23,15 +26,22 @@ export class Layout {
   private router = inject(Router);
   private messageService = inject(MessageService);
 
+  initialized = signal(false);
   role = signal<string | null>(null);
-  userName = signal('Admin User');
+  userInfo = signal<{ email: string; id: string }>({ email: '', id: '' });
+  userName = signal('User');
+  userLetter = computed(() => this.userName().charAt(0).toUpperCase() || 'U');
+  isAdmin = computed(() => this.role() === 'admin');
   mobileSidebarOpen = signal(false);
+  menuOpen = signal(false);
   pageTitle = signal('Dashboard');
   pageSearch = signal('');
   notificationCount = signal(5);
   vehiclesCount = signal(0);
   pendingBookingsCount = signal(0);
   breadcrumbItems = signal<MenuItem[]>([]);
+  dealerMenuItems = signal<DealerMenuItem[]>([]);
+  currentYear = new Date().getFullYear();
   notifications = signal([
     { title: 'Urgent booking pending', detail: 'Booking VMS-0004 is still unassigned.', time: '2 min ago' },
     { title: 'Service due', detail: 'Two vehicles need service approval today.', time: '9 min ago' },
@@ -48,26 +58,50 @@ export class Layout {
   ]);
 
   async ngOnInit() {
-    const role = await this.auth.getUserRole();
-    this.role.set(role);
+    try {
+      const [role, user] = await Promise.all([this.auth.getUserRole(), this.auth.getCurrentUser()]);
 
-    const user = await this.auth.getCurrentUser();
-    this.userName.set((user?.user_metadata as any)?.['full_name'] || user?.email?.split('@')[0] || 'Admin User');
+      this.role.set(role);
+      this.userInfo.set({
+        email: user?.email || '',
+        id: user?.id || '',
+      });
+      this.userName.set(
+        ((user?.user_metadata as Record<string, string> | undefined)?.['full_name']) ||
+          user?.email?.split('@')[0] ||
+          (role === 'admin' ? 'Admin User' : 'User')
+      );
 
-    const { data: vehicles } = await this.supabase.getVehicles();
-    const { data: bookings } = await this.supabase.getBookings();
-    const normalizedVehicles = (vehicles ?? []).map((vehicle, index) => normalizeVehicle(vehicle, index));
-    this.vehiclesCount.set(normalizedVehicles.length);
-    this.pendingBookingsCount.set(buildBookings(normalizedVehicles, bookings ?? []).filter((booking) => booking.status === 'Pending').length);
+      this.dealerMenuItems.set([
+        { label: 'Dashboard', icon: 'pi pi-th-large', route: '/dealer' },
+        { label: 'My Bookings', icon: 'pi pi-calendar', route: '/my-bookings' },
+        { label: 'Profile', icon: 'pi pi-user', route: '/profile' },
+      ]);
 
-    this.syncRouteMeta();
-    this.router.events.pipe(filter((event) => event instanceof NavigationEnd)).subscribe(() => this.syncRouteMeta());
+      if (role === 'admin') {
+        const { data: vehicles } = await this.supabase.getVehicles();
+        const { data: bookings } = await this.supabase.getBookings();
+        const normalizedVehicles = (vehicles ?? []).map((vehicle, index) => normalizeVehicle(vehicle, index));
+        this.vehiclesCount.set(normalizedVehicles.length);
+        this.pendingBookingsCount.set(
+          buildBookings(normalizedVehicles, bookings ?? []).filter((booking) => booking.status === 'Pending').length
+        );
+
+        this.syncRouteMeta();
+        this.router.events.pipe(filter((event) => event instanceof NavigationEnd)).subscribe(() => this.syncRouteMeta());
+      }
+    } finally {
+      this.initialized.set(true);
+    }
   }
 
   @HostListener('window:resize')
   onResize() {
     if (window.innerWidth >= 1024) {
       this.mobileSidebarOpen.set(false);
+    }
+    if (window.innerWidth >= 768) {
+      this.menuOpen.set(false);
     }
   }
 
@@ -79,6 +113,15 @@ export class Layout {
     if (window.innerWidth < 1024) {
       this.mobileSidebarOpen.set(false);
     }
+  }
+
+  toggleMenu() {
+    this.menuOpen.set(!this.menuOpen());
+  }
+
+  async navigate(item: DealerMenuItem) {
+    this.menuOpen.set(false);
+    await this.router.navigateByUrl(item.route);
   }
 
   onSearchChange(value: string) {
@@ -118,7 +161,11 @@ export class Layout {
   }
 
   async signOut() {
-    await this.supabase.supabase.auth.signOut();
-    await this.router.navigateByUrl('/login');
+    try {
+      await this.supabase.signOut();
+      await this.router.navigateByUrl('/login');
+    } catch (error) {
+      window.location.href = '/login';
+    }
   }
 }
