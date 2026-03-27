@@ -1,132 +1,23 @@
-.admin-wrapper {
-  max-width: 1320px;
-  margin: 0 auto;
-  padding: 0.5rem 0 2rem;
+:host ::ng-deep .p-card .p-card-body {
+  padding: 1.25rem;
 }
 
-.admin-workflow-stepper {
-  width: min(100%, 430px);
+:host ::ng-deep .p-dialog .p-dialog-content {
+  padding-top: 0.25rem;
 }
 
-.main-card {
-  overflow: hidden;
+:host ::ng-deep .vehicle-search .p-inputtext {
+  padding-left: 2.5rem;
 }
 
-.section-title {
-  font-size: 1.2rem;
-  font-weight: 700;
+:host ::ng-deep .fill-rate--high .p-progressbar-value {
+  background: #0e9f6e;
 }
 
-.toolbar-clean {
-  border: 0;
-  padding: 0;
-  background: transparent;
+:host ::ng-deep .fill-rate--medium .p-progressbar-value {
+  background: #c27803;
 }
 
-.toolbar-copy {
-  display: grid;
-  gap: 0.25rem;
-}
-
-.toolbar-label {
-  font-size: 0.95rem;
-  font-weight: 700;
-}
-
-.toolbar-hint {
-  color: var(--text-muted);
-  font-size: 0.9rem;
-}
-
-.toolbar-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 1rem;
-  align-items: center;
-}
-
-.quick-filters {
-  flex: 1 1 32rem;
-}
-
-.search-shell {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.65rem;
-  min-width: 18rem;
-  padding: 0.2rem 0.95rem;
-  border: 1px solid var(--border-soft);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.9);
-}
-
-.search-shell i {
-  color: var(--text-muted);
-}
-
-.search-shell input {
-  flex: 1;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.search-shell input:enabled:focus {
-  box-shadow: none;
-}
-
-.admin-vehicle-table {
-  overflow: hidden;
-  border-radius: 18px;
-}
-
-.action-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.55rem;
-}
-
-.action-btn {
-  min-width: 5.75rem;
-}
-
-.dialog-form {
-  display: grid;
-  gap: 1rem;
-}
-
-:host ::ng-deep .vehicle-dialog .p-dialog-header {
-  padding-bottom: 0;
-}
-
-:host ::ng-deep .vehicle-dialog .p-dialog-content,
-:host ::ng-deep .vehicle-dialog .p-dialog-footer {
-  background: linear-gradient(180deg, rgba(248, 251, 255, 0.98), rgba(255, 255, 255, 1));
-}
-
-@media (max-width: 960px) {
-  .admin-wrapper {
-    padding-bottom: 1rem;
-  }
-
-  .admin-workflow-stepper {
-    width: 100%;
-  }
-
-  .toolbar-actions {
-    justify-content: stretch;
-  }
-
-  .quick-filters,
-  .search-shell {
-    width: 100%;
-  }
-}
-
-@media (max-width: 640px) {
-  .action-btn {
-    flex: 1 1 calc(50% - 0.55rem);
-    min-width: 0;
-  }
+:host ::ng-deep .fill-rate--low .p-progressbar-value {
+  background: #e02424;
 }

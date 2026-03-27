@@ -1,0 +1,10 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
+:host ::ng-deep .p-badge {
+  min-width: 1.35rem;
+  height: 1.35rem;
+  line-height: 1.35rem;
+}

@@ -1,25 +1,79 @@
-<div class="p-6">
+<p-toast></p-toast>
 
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="admin-page-shell">
+  <p-card>
+    <div class="flex flex-wrap items-center gap-3">
+      <p-datepicker [ngModel]="dateRange()" (ngModelChange)="dateRange.set($event)" selectionMode="range" placeholder="Select date range"></p-datepicker>
+      <p-select [options]="groupOptions" [ngModel]="groupBy()" (ngModelChange)="groupBy.set($event)" optionLabel="label" optionValue="value" placeholder="Group by" class="w-44"></p-select>
+      <button pButton type="button" label="Export PDF" icon="pi pi-file-pdf" outlined severity="danger" (click)="export('PDF')"></button>
+      <button pButton type="button" label="Export Excel" icon="pi pi-file-excel" outlined severity="success" (click)="export('Excel')"></button>
+    </div>
+  </p-card>
 
+  <section class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+    @for (kpi of kpis(); track kpi.label) {
+      <p-card>
+        <p class="admin-section-label mb-2">{{ kpi.label }}</p>
+        <p class="m-0 text-3xl font-bold text-gray-900">{{ kpi.value }}</p>
+      </p-card>
+    }
+  </section>
+
+  <p-card>
+    <div class="mb-4 flex items-center justify-between">
+      <p class="admin-section-label m-0">Bookings Timeline</p>
+      <p-selectButton [options]="timelineOptions" [ngModel]="timelineMode()" (ngModelChange)="timelineMode.set($event)" optionLabel="label" optionValue="value"></p-selectButton>
+    </div>
+    <div class="h-72">
+      <p-chart type="line" [data]="timelineData()" [options]="timelineOptionsChart"></p-chart>
+    </div>
+  </p-card>
+
+  <section class="grid grid-cols-1 gap-6 lg:grid-cols-2">
     <p-card>
-      <ng-template pTemplate="title">
-        Revenue Summary
-      </ng-template>
-
-      <p>Total Potential: ₹{{ totalRevenue() }}</p>
-      <p>Active Revenue: ₹{{ activeRevenue() }}</p>
-      <p>Inactive Loss: ₹{{ inactiveLoss() }}</p>
+      <p class="admin-section-label mb-4">Vehicle Utilisation</p>
+      <div class="h-72">
+      <p-chart type="bar" [data]="utilisationData()" [options]="{ indexAxis: 'y', maintainAspectRatio: false, plugins: { legend: { display: false } } }"></p-chart>
+      </div>
     </p-card>
 
     <p-card>
-      <ng-template pTemplate="title">
-        Revenue Distribution
-      </ng-template>
-
-      <p-chart type="pie" [data]="revenueChart()"></p-chart>
+      <p class="admin-section-label mb-4">Booking Purpose Breakdown</p>
+      <div class="h-72">
+      <p-chart type="pie" [data]="purposeData()" [options]="{ maintainAspectRatio: false }"></p-chart>
+      </div>
     </p-card>
+  </section>
 
-  </div>
-
+  <p-card>
+    <p-table [value]="revenueRows()" responsiveLayout="scroll">
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Month</th>
+          <th>Total Bookings</th>
+          <th>Completed</th>
+          <th>Cancelled</th>
+          <th>Revenue</th>
+          <th>Avg per Booking</th>
+          <th>Growth %</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-row>
+        <tr>
+          <td>{{ row.month }}</td>
+          <td>{{ row.totalBookings }}</td>
+          <td class="text-green-600">{{ row.completed }}</td>
+          <td class="text-red-600">{{ row.cancelled }}</td>
+          <td>{{ row.revenue | currency:'INR':'symbol':'1.0-0' }}</td>
+          <td>{{ row.avg | currency:'INR':'symbol':'1.0-0' }}</td>
+          <td>
+            <span [class.text-green-600]="row.growth >= 0" [class.text-red-600]="row.growth < 0">
+              <i class="pi" [class.pi-arrow-up]="row.growth >= 0" [class.pi-arrow-down]="row.growth < 0"></i>
+              {{ row.growth }}%
+            </span>
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </p-card>
 </div>

@@ -1,17 +1,196 @@
-<div class="p-6">
+<div class="admin-page-shell">
+  <div class="flex flex-wrap gap-3">
+    @for (tab of tabItems; track tab.label; let i = $index) {
+      <button
+        pButton
+        type="button"
+        [outlined]="activeTab() !== i"
+        [severity]="activeTab() === i ? 'primary' : 'secondary'"
+        (click)="setTab(i)">
+        <span>{{ tab.label }}</span>
+        <p-tag [value]="tabCount(tab.status)" [severity]="tab.badge" styleClass="ml-2"></p-tag>
+      </button>
+    }
+  </div>
 
   <p-card>
-    <ng-template pTemplate="title">
-      Dealer Performance Overview
-    </ng-template>
-
-    <p>Total Dealers: {{ dealerCount() }}</p>
-    <p>Total Admins: {{ adminCount() }}</p>
-
-    <p class="mt-4 text-gray-500">
-      Future enhancement: link vehicles to dealers to track revenue per dealer.
-    </p>
-
+    <div class="flex flex-wrap items-center gap-3">
+      <p-datepicker
+        [ngModel]="dateRange()"
+        (ngModelChange)="dateRange.set($event); applyFilters()"
+        selectionMode="range"
+        placeholder="Date range">
+      </p-datepicker>
+      <p-select
+        [options]="vehicleOptions()"
+        [ngModel]="selectedVehicle()"
+        (ngModelChange)="selectedVehicle.set($event); applyFilters()"
+        placeholder="All Vehicles"
+        optionLabel="label"
+        optionValue="value"
+        class="w-52">
+      </p-select>
+      <p-select
+        [options]="priorities"
+        [ngModel]="selectedPriority()"
+        (ngModelChange)="selectedPriority.set($event); applyFilters()"
+        placeholder="All Priorities"
+        optionLabel="label"
+        optionValue="value"
+        class="w-44">
+      </p-select>
+      <input
+        pInputText
+        [ngModel]="search()"
+        (ngModelChange)="search.set($event); applyFilters()"
+        placeholder="Search by booking ID or user"
+        class="w-72" />
+      <button pButton type="button" label="Clear Filters" text (click)="clearFilters()"></button>
+    </div>
   </p-card>
 
+  <p-card>
+    <p-table
+      [value]="filteredBookings()"
+      dataKey="id"
+      [rowExpandMode]="'single'"
+      [expandedRowKeys]="expandedRows()"
+      responsiveLayout="scroll">
+      <ng-template pTemplate="header">
+        <tr>
+          <th style="width: 3rem"></th>
+          <th>Booking ID</th>
+          <th>Vehicle</th>
+          <th>User</th>
+          <th>Dates</th>
+          <th>Pickup</th>
+          <th>Status</th>
+          <th>Priority</th>
+          <th>Assigned To</th>
+          <th>Cost</th>
+          <th>Actions</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-booking let-expanded="expanded">
+        <tr>
+          <td>
+            <button
+              pButton
+              type="button"
+              [pRowToggler]="booking"
+              [icon]="expanded ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"
+              text>
+            </button>
+          </td>
+          <td class="font-mono text-sm text-blue-700">#{{ booking.id }}</td>
+          <td>
+            <div class="flex items-center gap-3">
+              <p-avatar [label]="booking.vehicleType.charAt(0)"></p-avatar>
+              <span class="font-medium text-gray-900">{{ booking.vehicle }}</span>
+            </div>
+          </td>
+          <td>
+            <div class="flex items-center gap-3">
+              <p-avatar [label]="booking.userName.charAt(0)" shape="circle"></p-avatar>
+              <div>
+                <p class="m-0 font-medium text-gray-900">{{ booking.userName }}</p>
+                <p class="m-0 text-xs text-gray-400">{{ booking.phone }}</p>
+              </div>
+            </div>
+          </td>
+          <td>
+            <div class="min-w-[170px] rounded-xl bg-slate-50 px-3 py-2">
+              <div class="flex items-center justify-between text-xs uppercase tracking-wide text-gray-400">
+                <span>Start</span>
+                <span>End</span>
+              </div>
+              <div class="mt-1 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                <div class="text-sm font-medium text-gray-900">{{ booking.startDate | date:'mediumDate' }}</div>
+                <i class="pi pi-arrow-right text-xs text-gray-400"></i>
+                <div class="text-sm font-medium text-gray-900">{{ booking.endDate | date:'mediumDate' }}</div>
+              </div>
+              <p-tag [value]="booking.days + ' days'" severity="info" styleClass="mt-2"></p-tag>
+            </div>
+          </td>
+          <td>
+            <span class="cursor-help text-gray-700" [pTooltip]="booking.pickup">
+              <i class="pi pi-map-marker mr-1 text-red-500"></i>{{ booking.pickup }}
+            </span>
+          </td>
+          <td><p-tag [value]="booking.status" [severity]="statusSeverity(booking.status)"></p-tag></td>
+          <td><p-tag [value]="booking.priority" [severity]="prioritySeverity(booking.priority)"></p-tag></td>
+          <td>
+            <span [class.text-red-600]="booking.assignedTo === 'Unassigned'">{{ booking.assignedTo }}</span>
+          </td>
+          <td>{{ booking.cost | currency:'INR':'symbol':'1.0-0' }}</td>
+          <td>
+            <p-splitButton label="View Detail" icon="pi pi-eye" [model]="booking.splitActions"></p-splitButton>
+          </td>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="rowexpansion" let-booking>
+        <tr>
+          <td colspan="11">
+            <div class="grid gap-6 rounded-2xl bg-gray-50 p-4 lg:grid-cols-2">
+              <p-card>
+                <p class="admin-section-label mb-4">Status History</p>
+                <p-timeline [value]="booking.history">
+                  <ng-template pTemplate="marker">
+                    <span class="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-white">
+                      <i class="pi pi-check text-xs"></i>
+                    </span>
+                  </ng-template>
+                  <ng-template pTemplate="content" let-event>
+                    <div>
+                      <p class="m-0 font-semibold text-gray-900">{{ event.status }}</p>
+                      <p class="m-0 text-sm text-gray-500">{{ event.actor }} | {{ event.time }}</p>
+                    </div>
+                  </ng-template>
+                </p-timeline>
+              </p-card>
+
+              <p-card>
+                <p class="admin-section-label mb-4">Booking Metadata</p>
+                <div class="space-y-3">
+                  <div class="rounded-xl border border-border p-3">
+                    <p class="m-0 text-sm font-semibold text-gray-900">Pickup / Dropoff</p>
+                    <p class="my-1 text-sm text-gray-600">{{ booking.pickup }}</p>
+                    <a href="#" class="text-sm font-medium text-blue-600">Open map link</a>
+                  </div>
+                  <div class="rounded-xl border border-border p-3">
+                    <p class="m-0 text-sm font-semibold text-gray-900">Purpose</p>
+                    <p class="m-0 text-sm text-gray-600">{{ booking.purpose }}</p>
+                  </div>
+                  <div class="rounded-xl border border-border p-3">
+                    <p class="m-0 text-sm font-semibold text-gray-900">Cost Breakdown</p>
+                    @for (item of booking.breakdown; track item.label) {
+                      <div class="mt-2 flex items-center justify-between text-sm">
+                        <span class="text-gray-600">{{ item.label }}</span>
+                        <span class="font-medium text-gray-900">{{ item.value | currency:'INR':'symbol':'1.0-0' }}</span>
+                      </div>
+                    }
+                  </div>
+                </div>
+              </p-card>
+            </div>
+
+            <div class="mt-4">
+              <p-card>
+                <p class="admin-section-label mb-3">Call Center Notes</p>
+                <p-inplace>
+                  <ng-template pTemplate="display">
+                    <p class="m-0 text-sm text-gray-600">{{ notes[booking.id] }}</p>
+                  </ng-template>
+                  <ng-template pTemplate="content">
+                    <textarea pTextarea rows="3" class="w-full" [(ngModel)]="notes[booking.id]"></textarea>
+                  </ng-template>
+                </p-inplace>
+              </p-card>
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </p-card>
 </div>

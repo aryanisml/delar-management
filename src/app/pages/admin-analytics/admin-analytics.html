@@ -1,65 +1,41 @@
-<div class="analytics-wrapper">
+<div class="admin-page-shell">
+  <section class="grid grid-cols-1 gap-4 md:grid-cols-3">
+    @for (metric of topMetrics(); track metric.label) {
+      <p-card>
+        <p class="admin-section-label mb-2">{{ metric.label }}</p>
+        <p class="m-0 text-3xl font-bold text-gray-900">{{ metric.value }}</p>
+      </p-card>
+    }
+  </section>
 
-  <!-- ================= KPI STRIP ================= -->
-
-  <div class="kpi-grid">
-
-    <p-card class="kpi-card">
-      <div class="kpi-title">Total Vehicles</div>
-      <div class="kpi-value">{{ totalVehicles() }}</div>
-    </p-card>
-
-    <p-card class="kpi-card success">
-      <div class="kpi-title">Active Vehicles</div>
-      <div class="kpi-value">{{ activeCount() }}</div>
-      <div class="kpi-sub">{{ activePercentage() }}% Active</div>
-    </p-card>
-
-    <p-card class="kpi-card warning">
-      <div class="kpi-title">Low Stock</div>
-      <div class="kpi-value">{{ lowStockCount() }}</div>
-    </p-card>
-
-    <p-card class="kpi-card revenue">
-      <div class="kpi-title">Est. Monthly Revenue</div>
-      <div class="kpi-value">₹{{ monthlyRevenue() }}</div>
-      <div class="kpi-sub">Daily: ₹{{ estimatedRevenue() }}</div>
-    </p-card>
-
-  </div>
-
-  <!-- ================= CHART SECTION ================= -->
-
-  <div class="charts-grid">
-
-    <p-card>
-      <ng-template pTemplate="title">
-        Vehicle Status Distribution
-      </ng-template>
-
-      <div class="doughnut-wrapper">
-        <p-chart
-          type="doughnut"
-          [data]="chartData()"
-          [options]="chartOptions()">
-        </p-chart>
+  <section class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+    <p-card styleClass="lg:col-span-2">
+      <p class="admin-section-label mb-4">Demand vs Conversion</p>
+      <div class="h-80">
+        <p-chart type="line" [data]="trendChart()" [options]="{ maintainAspectRatio: false }"></p-chart>
       </div>
     </p-card>
 
     <p-card>
-      <ng-template pTemplate="title">
-        Stock Distribution
-      </ng-template>
-
-      <div class="bar-wrapper">
-        <p-chart
-          type="bar"
-          [data]="stockChart()"
-          [options]="stockOptions()">
-        </p-chart>
+      <p class="admin-section-label mb-4">Fleet Status</p>
+      <div class="h-80">
+        <p-chart type="doughnut" [data]="statusChart()" [options]="{ maintainAspectRatio: false }"></p-chart>
       </div>
     </p-card>
+  </section>
 
-  </div>
-
+  <p-card>
+    <p class="admin-section-label mb-4">Purpose Conversion Mix</p>
+    <div class="grid gap-5 md:grid-cols-2">
+      @for (item of purposeBreakdown(); track item.label) {
+        <div>
+          <div class="mb-2 flex items-center justify-between">
+            <span class="text-sm font-medium text-gray-700">{{ item.label }}</span>
+            <span class="text-sm font-semibold text-gray-900">{{ item.pct }}%</span>
+          </div>
+          <p-progressBar [value]="item.pct" [showValue]="false"></p-progressBar>
+        </div>
+      }
+    </div>
+  </p-card>
 </div>

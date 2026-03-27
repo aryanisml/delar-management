@@ -1,0 +1,62 @@
+<div class="profile-container max-w-screen-xl mx-auto">
+  <h1 class="text-3xl font-bold text-gray-800 mb-6">Account Settings</h1>
+
+  <div class="grid">
+    <div class="col-12 md:col-8">
+      <p-card header="Profile Information" subheader="Update your account details and email address">
+        <div class="p-fluid grid mt-3">
+          <div class="field col-12 md:col-6">
+            <label for="username" class="font-semibold block mb-2">Display Name</label>
+            <input pInputText id="username" [value]="userName()" readonly class="p-inputtext-sm bg-gray-50" />
+          </div>
+          <div class="field col-12 md:col-6">
+            <label for="email" class="font-semibold block mb-2">Email Address</label>
+            <input pInputText id="email" [value]="userInfo().email" readonly class="p-inputtext-sm bg-gray-50" />
+          </div>
+          <div class="field col-12">
+            <label for="bio" class="font-semibold block mb-2">Account ID</label>
+            <div class="p-inputgroup">
+              <span class="p-inputgroup-addon"><i class="pi pi-key"></i></span>
+              <input pInputText [value]="userInfo().id" readonly />
+            </div>
+          </div>
+        </div>
+      </p-card>
+
+      <div class="mt-4">
+        <p-card header="Security">
+          <div class="flex align-items-center justify-content-between">
+            <div>
+              <p class="font-semibold m-0">Password</p>
+              <small class="text-500">Change your password to keep your account secure</small>
+            </div>
+            <button pButton label="Update Password" icon="pi pi-lock" class="p-button-outlined p-button-sm"></button>
+          </div>
+        </p-card>
+      </div>
+    </div>
+
+    <div class="col-12 md:col-4">
+      <p-card header="Member Status">
+        <div class="text-center py-4">
+          <div class="w-20 h-20 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-3xl mx-auto mb-3 shadow-inner">
+            {{ userLetter() }}
+          </div>
+          <p-tag [value]="role() | uppercase" [severity]="role() === 'admin' ? 'danger' : 'success'"></p-tag>
+          <p class="mt-3 text-sm text-gray-500">Active since March 2026</p>
+        </div>
+        <hr class="border-gray-100" />
+        <div class="mt-4 space-y-3">
+          <div class="flex justify-content-between text-sm">
+            <span class="text-500">System Permissions:</span>
+            <span class="font-semibold">Full Access</span>
+          </div>
+          <div class="flex justify-content-between text-sm">
+            <span class="text-500">Region:</span>
+            <span class="font-semibold">North India</span>
+          </div>
+        </div>
+      </p-card>
+    </div>
+  </div>
+</div>

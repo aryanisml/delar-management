@@ -1,116 +1,63 @@
-import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Component, inject, signal } from '@angular/core';
 import { CardModule } from 'primeng/card';
 import { ChartModule } from 'primeng/chart';
+import { ProgressBarModule } from 'primeng/progressbar';
+import { buildBookings, normalizeVehicle } from '../../admin-ui.models';
 import { SupabaseService } from '../../services/supabase';
 
 @Component({
   selector: 'app-admin-analytics',
   standalone: true,
-  imports: [CommonModule, CardModule, ChartModule],
+  imports: [CommonModule, CardModule, ChartModule, ProgressBarModule],
   templateUrl: './admin-analytics.html',
-  styleUrl: './admin-analytics.scss'
+  styleUrl: './admin-analytics.scss',
 })
 export class AdminAnalytics {
-
   private supabase = inject(SupabaseService);
 
-  vehicles = signal<any[]>([]);
-
-  chartData = signal<any>(null);
-  chartOptions = signal<any>(null);
-
-  stockChart = signal<any>(null);
-  stockOptions = signal<any>(null);
-
-  totalVehicles = signal<number>(0);
-  activeCount = signal<number>(0);
-  inactiveCount = signal<number>(0);
-  archivedCount = signal<number>(0);
-
-  estimatedRevenue = signal<number>(0);
-  monthlyRevenue = signal<number>(0);
-  lowStockCount = signal<number>(0);
-  activePercentage = signal<number>(0);
+  readonly topMetrics = signal<any[]>([]);
+  readonly trendChart = signal<any>(null);
+  readonly statusChart = signal<any>(null);
+  readonly purposeBreakdown = signal<any[]>([]);
 
   async ngOnInit() {
-    await this.loadAnalytics();
-  }
+    const { data: vehiclesRaw } = await this.supabase.getVehicles();
+    const { data: bookingRows } = await this.supabase.getBookings();
+    const vehicles = (vehiclesRaw ?? []).map((vehicle, index) => normalizeVehicle(vehicle, index));
+    const bookings = buildBookings(vehicles, bookingRows ?? []);
 
-  async loadAnalytics() {
+    this.topMetrics.set([
+      { label: 'Live Fleet', value: vehicles.filter((item) => item.status === 'Available').length },
+      { label: 'Bookings This Week', value: bookings.length },
+      { label: 'Average Revenue / Booking', value: `Rs ${Math.round(bookings.reduce((sum, item) => sum + item.cost, 0) / Math.max(1, bookings.length)).toLocaleString('en-IN')}` },
+    ]);
 
-    const { data } = await this.supabase.getVehicles();
-    const vehicles = data ?? [];
-    this.vehicles.set(vehicles);
+    this.trendChart.set({
+      labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+      datasets: [
+        { label: 'Searches', data: [54, 62, 58, 74, 88, 82, 95], borderColor: '#1A56DB', backgroundColor: 'rgba(26, 86, 219, 0.12)', fill: true, tension: 0.4 },
+        { label: 'Conversions', data: [18, 24, 22, 30, 33, 31, 38], borderColor: '#0E9F6E', backgroundColor: 'rgba(14, 159, 110, 0.1)', fill: true, tension: 0.4 },
+      ],
+    });
 
-    const active = vehicles.filter(v => (v as any)['status'] === 'active').length;
-    const inactive = vehicles.filter(v => (v as any)['status'] === 'inactive').length;
-    const deleted = vehicles.filter(v => (v as any)['status'] === 'deleted').length;
-
-    this.totalVehicles.set(vehicles.length);
-    this.activeCount.set(active);
-    this.inactiveCount.set(inactive);
-    this.archivedCount.set(deleted);
-
-    this.activePercentage.set(
-      vehicles.length ? Math.round((active / vehicles.length) * 100) : 0
-    );
-
-    // Doughnut Chart (Smaller + Styled)
-    this.chartData.set({
-      labels: ['Active', 'Inactive', 'Archived'],
+    this.statusChart.set({
+      labels: ['Available', 'Maintenance', 'Inactive'],
       datasets: [{
-        data: [active, inactive, deleted],
-        backgroundColor: ['#22c55e', '#f59e0b', '#9ca3af'],
-        borderWidth: 2
-      }]
+        data: [
+          vehicles.filter((item) => item.status === 'Available').length,
+          vehicles.filter((item) => item.status === 'Maintenance').length || 0,
+          vehicles.filter((item) => item.status === 'Inactive').length || 0,
+        ],
+        backgroundColor: ['#0E9F6E', '#E02424', '#9CA3AF'],
+      }],
     });
 
-    this.chartOptions.set({
-      plugins: {
-        legend: {
-          position: 'bottom'
-        }
-      },
-      cutout: '65%'
-    });
-
-    // Stock Bar Chart
-    this.stockChart.set({
-      labels: vehicles.map(v => (v as any)['model']),
-      datasets: [{
-        label: 'Stock',
-        data: vehicles.map(v => (v as any)['stock']),
-        backgroundColor: '#3b82f6',
-        borderRadius: 6
-      }]
-    });
-
-    this.stockOptions.set({
-      plugins: {
-        legend: {
-          display: false
-        }
-      },
-      scales: {
-        y: {
-          beginAtZero: true
-        }
-      }
-    });
-
-    const revenue = vehicles
-      .filter(v => (v as any)['status'] === 'active')
-      .reduce((sum, v) => sum + Number((v as any)['daily_rate'] ?? 0), 0);
-
-    this.estimatedRevenue.set(revenue);
-    this.monthlyRevenue.set(revenue * 30);
-
-    this.lowStockCount.set(
-      vehicles.filter(v =>
-        (v as any)['status'] === 'active' &&
-        (v as any)['stock'] < 3
-      ).length
+    this.purposeBreakdown.set(
+      ['Corporate', 'Personal', 'Transfer', 'Event'].map((label) => ({
+        label,
+        pct: Math.round((bookings.filter((item) => item.purpose === label).length / Math.max(1, bookings.length)) * 100),
+      }))
     );
   }
 }

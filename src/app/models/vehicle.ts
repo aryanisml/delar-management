@@ -1,9 +1,15 @@
 export interface Vehicle {
-  id: string;
-  brand?: string; // normalized lowercase property
-  Brand?: string; // possible uppercase DB column
-  make?: string;
-  model?: string;
-  created_at?: string;
-  [key: string]: any;
+  id: string
+  vin: string
+  brand: string
+  Brand?: string
+  make: string
+  model: string
+  stock: number
+  status: string
+  daily_rate: number
+  location: string
+  created_at?: string
+  available?: number
+  booked?: boolean
 }
