@@ -1,4 +1,4 @@
-import { CommonModule, CurrencyPipe } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ConfirmationService, MessageService } from 'primeng/api';
@@ -25,6 +25,7 @@ import { TagModule } from 'primeng/tag';
 import { TextareaModule } from 'primeng/textarea';
 import { ToastModule } from 'primeng/toast';
 import { ToolbarModule } from 'primeng/toolbar';
+import { TooltipModule } from 'primeng/tooltip';
 import { SupabaseService } from '../../services/supabase';
 import { Vehicle } from '../../models/vehicle';
 import { normalizeVehicle, tagSeverityForStatus } from '../../admin-ui.models';
@@ -58,6 +59,7 @@ import { normalizeVehicle, tagSeverityForStatus } from '../../admin-ui.models';
     TextareaModule,
     ToastModule,
     ToolbarModule,
+    TooltipModule,
   ],
   templateUrl: './admin-dashboard.html',
   styleUrl: './admin-dashboard.scss',
@@ -72,7 +74,6 @@ export class AdminDashboard {
   readonly allVehicles = signal<any[]>([]);
   readonly visibleVehicles = signal<any[]>([]);
   readonly totalRecords = signal(0);
-  readonly selectedVehicles = signal<any[]>([]);
   readonly dialogVisible = signal(false);
   readonly editMode = signal(false);
   readonly saving = signal(false);
@@ -83,14 +84,16 @@ export class AdminDashboard {
   readonly statusFilter = signal<string | null>(null);
   readonly fuelFilter = signal<string | null>(null);
   readonly selectedVehicleId = signal<string | null>(null);
+  readonly previewVisible = signal(false);
+  readonly previewVehicle = signal<any | null>(null);
   readonly vehicleForm = signal<any>(this.createEmptyForm());
 
   readonly vehicleTypes = ['SUV', 'Sedan', 'Truck', 'Van', 'Bus'].map((label) => ({ label, value: label }));
   readonly statusOptions = ['Available', 'Booked', 'Maintenance', 'InService', 'Inactive'].map((label) => ({ label, value: label }));
   readonly fuelTypes = ['Petrol', 'Diesel', 'Electric', 'Hybrid', 'CNG'].map((label) => ({ label, value: label }));
   readonly viewOptions = [
-    { icon: 'pi pi-list', value: 'table' },
-    { icon: 'pi pi-th-large', value: 'grid' },
+    { icon: 'table view', value: 'table' },
+    { icon: 'grid view', value: 'grid' },
   ];
 
   readonly filteredVehicles = computed(() =>
@@ -108,6 +111,18 @@ export class AdminDashboard {
       return matchesSearch && matchesType && matchesStatus && matchesFuel;
     })
   );
+
+  readonly fleetSummary = computed(() => {
+    const vehicles = this.filteredVehicles();
+    return [
+      { label: 'Fleet Total', value: vehicles.length, tone: 'blue' },
+      { label: 'Available', value: vehicles.filter((vehicle) => vehicle.status === 'Available').length, tone: 'green' },
+      { label: 'Maintenance', value: vehicles.filter((vehicle) => vehicle.status === 'Maintenance').length, tone: 'amber' },
+      { label: 'Inactive', value: vehicles.filter((vehicle) => vehicle.status === 'Inactive').length, tone: 'slate' },
+    ];
+  });
+
+  readonly spotlightVehicle = computed(() => this.previewVehicle() || this.filteredVehicles()[0] || null);
 
   async ngOnInit() {
     await this.loadVehicles();
@@ -156,6 +171,14 @@ export class AdminDashboard {
     this.loadVehiclePage({ first: 0, rows: this.viewMode() === 'grid' ? 12 : 10 });
   }
 
+  clearFilters() {
+    this.searchTerm.set('');
+    this.typeFilter.set(null);
+    this.statusFilter.set(null);
+    this.fuelFilter.set(null);
+    this.applyFilters();
+  }
+
   openNew() {
     this.editMode.set(false);
     this.selectedVehicleId.set(null);
@@ -187,6 +210,11 @@ export class AdminDashboard {
     });
     this.submitted.set(false);
     this.dialogVisible.set(true);
+  }
+
+  openPreview(vehicle: any) {
+    this.previewVehicle.set(vehicle);
+    this.previewVisible.set(true);
   }
 
   isInvalid(field: string) {
@@ -291,33 +319,58 @@ export class AdminDashboard {
     });
   }
 
-  confirmBulkDelete() {
-    const selected = this.selectedVehicles();
-    if (!selected.length) {
-      return;
-    }
-
-    this.confirmationService.confirm({
-      message: `Delete ${selected.length} selected vehicles? This cannot be undone.`,
-      header: 'Confirm Delete',
-      icon: 'pi pi-exclamation-triangle',
-      acceptButtonStyleClass: 'p-button-danger',
-      rejectButtonStyleClass: 'p-button-text',
-      accept: async () => {
-        for (const vehicle of selected) {
-          await this.supabase.updateVehicle(vehicle.id, { status: 'deleted' });
-        }
-        this.selectedVehicles.set([]);
-        this.messageService.add({ severity: 'success', summary: 'Saved', detail: 'Selected vehicles archived successfully' });
-        await this.loadVehicles();
-        this.applyFilters();
-      },
-    });
-  }
-
   copyChassis(value: string) {
     navigator.clipboard.writeText(value);
     this.messageService.add({ severity: 'success', summary: 'Copied', detail: 'Chassis number copied' });
+  }
+
+  exportCsv() {
+    const rows = this.filteredVehicles().map((vehicle) => ({
+      make: vehicle.make,
+      model: vehicle.model,
+      year: vehicle.year,
+      registrationNo: vehicle.registrationNo,
+      chassisNumber: vehicle.chassisNumber,
+      type: vehicle.type,
+      fuel: vehicle.fuel,
+      capacity: vehicle.capacity,
+      mileage: vehicle.mileage,
+      status: vehicle.status,
+      stock: vehicle.stock,
+      dailyRate: vehicle.dailyRate,
+      location: vehicle.location,
+    }));
+
+    const headers = Object.keys(rows[0] ?? {
+      make: '',
+      model: '',
+      year: '',
+      registrationNo: '',
+      chassisNumber: '',
+      type: '',
+      fuel: '',
+      capacity: '',
+      mileage: '',
+      status: '',
+      stock: '',
+      dailyRate: '',
+      location: '',
+    });
+    const csv = [
+      headers.join(','),
+      ...rows.map((row) =>
+        headers.map((header) => `"${String(row[header as keyof typeof row] ?? '').replace(/"/g, '""')}"`).join(',')
+      ),
+    ].join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'vehicles-export.csv';
+    link.click();
+    URL.revokeObjectURL(url);
+    this.messageService.add({ severity: 'success', summary: 'Export ready', detail: 'Vehicle CSV downloaded.' });
   }
 
   updateImageUrl(event: any) {

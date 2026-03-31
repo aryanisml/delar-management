@@ -1,24 +1,30 @@
 import { Injectable } from '@angular/core';
 import { createClient } from '@supabase/supabase-js';
 import { environment } from '../../environments/environment';
+import { Booking } from '../models/booking';
 import { Vehicle } from '../models/vehicle';
 
+type BulkBookingInput = {
+  id: string;
+  dealer_id: string;
+  total_vehicles: number;
+  notes?: string;
+  status?: string;
+};
+
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class SupabaseService {
   private readonly vehiclesTable = 'vehicle';
 
-  supabase = createClient(
-    environment.supabaseUrl,
-    environment.supabaseKey
-  );
+  supabase = createClient(environment.supabaseUrl, environment.supabaseKey);
 
   async signInWithGoogle() {
     const redirectUrl = `${window.location.origin}/auth/callback`;
     return await this.supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: redirectUrl }
+      options: { redirectTo: redirectUrl },
     });
   }
 
@@ -40,12 +46,18 @@ export class SupabaseService {
     await this.supabase.auth.signOut();
   }
 
+  async updateUserMetadata(data: Record<string, any>) {
+    return await this.supabase.auth.updateUser({ data });
+  }
+
+  async resetPasswordForEmail(email: string) {
+    return await this.supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/login`,
+    });
+  }
+
   async getUserRole(userId: string) {
-    const { data, error } = await this.supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', userId)
-      .single();
+    const { data, error } = await this.supabase.from('user_roles').select('role').eq('user_id', userId).single();
 
     if (error) {
       console.error('Error fetching role:', error);
@@ -56,18 +68,15 @@ export class SupabaseService {
   }
 
   async getAllUserRoles() {
-    const { data, error } = await this.supabase
-      .from('user_roles')
-      .select('*');
+    return await this.supabase.from('user_roles').select('*');
+  }
 
-    return { data, error };
+  async getAllUsers() {
+    return await this.supabase.from('user_roles').select('*').order('created_at', { ascending: false });
   }
 
   async updateUserRole(userId: string, role: string) {
-    return await this.supabase
-      .from('user_roles')
-      .update({ role })
-      .eq('user_id', userId);
+    return await this.supabase.from('user_roles').update({ role }).eq('user_id', userId);
   }
 
   async getVehicles(): Promise<{ data: Vehicle[] | null; error: any | null }> {
@@ -75,10 +84,7 @@ export class SupabaseService {
       let data: any[] | null = null;
       let error: any = null;
 
-      const orderedResult = await this.supabase
-        .from(this.vehiclesTable)
-        .select('*')
-        .order('created_at', { ascending: false });
+      const orderedResult = await this.supabase.from(this.vehiclesTable).select('*').order('created_at', { ascending: false });
 
       data = orderedResult.data ?? null;
       error = orderedResult.error ?? null;
@@ -86,9 +92,7 @@ export class SupabaseService {
       if (error) {
         const message = String(error.message || '');
         if (error.code === '42703' || /does not exist/i.test(message)) {
-          const fallbackResult = await this.supabase
-            .from(this.vehiclesTable)
-            .select('*');
+          const fallbackResult = await this.supabase.from(this.vehiclesTable).select('*');
           data = fallbackResult.data ?? null;
           error = fallbackResult.error ?? null;
         }
@@ -96,8 +100,20 @@ export class SupabaseService {
 
       const normalized = (data ?? []).map((row: any) => ({
         ...row,
-        brand: row.brand ?? row.Brand,
-        booked: Boolean(row.booked)
+        brand: row.brand ?? row.Brand ?? row.make ?? '',
+        make: row.make ?? row.brand ?? row.Brand ?? '',
+        model: row.model ?? '',
+        stock: Number(row.stock ?? 0),
+        daily_rate: Number(row.daily_rate ?? row.dailyRate ?? 0),
+        type: row.type ?? null,
+        fuel: row.fuel ?? null,
+        capacity: row.capacity ? Number(row.capacity) : null,
+        mileage: Number(row.mileage ?? 0),
+        year: row.year ? Number(row.year) : null,
+        chassis_no: row.chassis_no ?? row.chassisNumber ?? null,
+        registration_no: row.registration_no ?? row.registrationNo ?? null,
+        image_url: row.image_url ?? row.imageUrl ?? null,
+        booked: Boolean(row.booked),
       }));
 
       return { data: normalized as Vehicle[], error };
@@ -108,12 +124,7 @@ export class SupabaseService {
   }
 
   async getBookings() {
-    const { data, error } = await this.supabase
-      .from('bookings')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    return { data, error };
+    return await this.supabase.from('bookings').select('*').order('created_at', { ascending: false });
   }
 
   async addVehicle(vehicle: any) {
@@ -121,25 +132,15 @@ export class SupabaseService {
   }
 
   async updateVehicle(id: string, vehicle: any) {
-    return await this.supabase
-      .from(this.vehiclesTable)
-      .update(vehicle)
-      .eq('id', id);
+    return await this.supabase.from(this.vehiclesTable).update(vehicle).eq('id', id);
   }
 
   async deleteVehicle(id: string) {
-    return await this.supabase
-      .from(this.vehiclesTable)
-      .delete()
-      .eq('id', id);
+    return await this.supabase.from(this.vehiclesTable).delete().eq('id', id);
   }
 
-  async createBooking(booking: any) {
-    const { data, error } = await this.supabase
-      .from('bookings')
-      .insert([booking]);
-
-    return { data, error };
+  async createBooking(booking: Partial<Booking>) {
+    return await this.supabase.from('bookings').insert([booking]);
   }
 
   async getMyBookings(userId: string) {
@@ -148,20 +149,31 @@ export class SupabaseService {
       .select(`
         id,
         vehicle_id,
+        user_id,
         pickup_location,
         drop_location,
         start_date,
         end_date,
         purpose,
+        quantity,
+        bulk_booking_id,
+        approved_by,
+        approved_at,
+        rejection_reason,
+        dealer_notes,
         status,
         created_at,
+        updated_at,
         vehicle (
           id,
           brand,
           make,
           model,
           location,
-          daily_rate
+          daily_rate,
+          image_url,
+          type,
+          status
         )
       `)
       .eq('user_id', userId)
@@ -169,29 +181,123 @@ export class SupabaseService {
   }
 
   async getBookingsByVehicle(vehicleId: string) {
+    return await this.supabase.from('bookings').select('*').eq('vehicle_id', vehicleId);
+  }
+
+  async getMyBulkBookings(userId: string) {
     return await this.supabase
-      .from('bookings')
-      .select('*')
-      .eq('vehicle_id', vehicleId);
+      .from('bulk_bookings')
+      .select(`
+        *,
+        bookings (
+          id,
+          vehicle_id,
+          user_id,
+          pickup_location,
+          drop_location,
+          start_date,
+          end_date,
+          purpose,
+          quantity,
+          status,
+          rejection_reason,
+          created_at,
+          vehicle (
+            id,
+            brand,
+            make,
+            model,
+            location,
+            daily_rate,
+            image_url
+          )
+        )
+      `)
+      .eq('dealer_id', userId)
+      .order('created_at', { ascending: false });
   }
 
   async updateBookingStatus(bookingId: string, newStatus: string) {
+    return await this.supabase.from('bookings').update({ status: newStatus }).eq('id', bookingId);
+  }
+
+  async approveBooking(bookingId: string) {
+    const user = await this.getCurrentUser();
     return await this.supabase
       .from('bookings')
-      .update({ status: newStatus })
+      .update({ status: 'approved', approved_by: user?.id, approved_at: new Date().toISOString() })
       .eq('id', bookingId);
   }
 
-  async logAudit(action: string) {
+  async rejectBooking(bookingId: string, reason: string) {
+    return await this.supabase
+      .from('bookings')
+      .update({ status: 'rejected', rejection_reason: reason })
+      .eq('id', bookingId);
+  }
+
+  async insertBulkBooking(data: BulkBookingInput) {
+    return await this.supabase.from('bulk_bookings').insert([{ ...data, status: data.status ?? 'pending' }]);
+  }
+
+  async getBulkBookings() {
+    return await this.supabase.from('bulk_bookings').select('*, bookings(*)').order('created_at', { ascending: false });
+  }
+
+  async insertNotification(userId: string, title: string, message: string, bookingId?: string) {
+    return await this.supabase.from('notifications').insert([
+      {
+        user_id: userId,
+        title,
+        message,
+        booking_id: bookingId,
+      },
+    ]);
+  }
+
+  async getMyNotifications() {
     const user = await this.getCurrentUser();
-    if (!user) return;
+    if (!user) {
+      return { data: [], error: null };
+    }
+
+    return await this.supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
+  }
+
+  async markNotificationsRead(userId: string) {
+    return await this.supabase.from('notifications').update({ is_read: true }).eq('user_id', userId).eq('is_read', false);
+  }
+
+  async getAuditLogs() {
+    return await this.supabase.from('audit_logs').select('*').order('created_at', { ascending: false });
+  }
+
+  async getDealerProfile(userId: string) {
+    return await this.supabase.from('dealers').select('*').eq('user_id', userId).maybeSingle();
+  }
+
+  async upsertDealerProfile(payload: Record<string, any>) {
+    const existing = await this.getDealerProfile(payload['user_id']);
+    if (existing.data?.id) {
+      return await this.supabase.from('dealers').update(payload).eq('id', existing.data.id);
+    }
+
+    return await this.supabase.from('dealers').insert([payload]);
+  }
+
+  async logAudit(action: string, entityId?: string) {
+    const user = await this.getCurrentUser();
+    if (!user) {
+      return;
+    }
 
     await this.supabase.from('audit_logs').insert([
       {
         action,
         user_id: user.id,
-        created_at: new Date()
-      }
+        entity_id: entityId ?? null,
+        created_at: new Date().toISOString(),
+      },
     ]);
   }
 }

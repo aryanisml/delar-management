@@ -56,7 +56,8 @@ class="p-button-text"
 pButton
 label="Submit Booking"
 icon="pi pi-check"
-(click)="submit()"> </button>
+ [disabled]="isInvalid()"
+ (click)="submit()"> </button>
 
 </div>
 

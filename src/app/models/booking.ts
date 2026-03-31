@@ -9,9 +9,14 @@ export interface Booking {
   start_date: string;
   end_date: string;
   purpose: string;
+  quantity?: number;
+  bulk_booking_id?: string;
+  approved_by?: string;
+  approved_at?: string;
+  rejection_reason?: string;
+  dealer_notes?: string;
   status?: 'pending' | 'approved' | 'rejected' | 'cancelled' | 'completed';
   created_at?: string;
-  
-  // Use your existing Vehicle interface for the joined data
-  vehicle?: Partial<Vehicle>; 
+  updated_at?: string;
+  vehicle?: Partial<Vehicle>;
 }

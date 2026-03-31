@@ -1,48 +1,78 @@
-<header class="sticky top-0 z-30 h-16 border-b border-border bg-white/95 backdrop-blur">
-  <div class="flex h-full items-center justify-between gap-4 px-4 lg:px-6">
-    <div class="flex min-w-0 items-center gap-3">
-      <button pButton type="button" icon="pi pi-bars" text class="lg:hidden" (click)="menuToggle.emit()"></button>
-      <div class="min-w-0">
-        <h1 class="m-0 text-xl font-semibold text-gray-800 truncate">{{ title }}</h1>
-        <p-breadcrumb [model]="breadcrumbItems" [home]="{ icon: 'pi pi-home', routerLink: '/admin/dashboard' }"></p-breadcrumb>
+<header class="admin-topbar">
+  <div class="admin-topbar__inner">
+    <div class="admin-topbar__lead">
+      <button
+        pButton
+        type="button"
+        icon="pi pi-bars"
+        text
+        class="admin-topbar__menu-btn"
+        (click)="menuToggle.emit()"
+        pTooltip="Toggle menu"
+        tooltipPosition="bottom">
+      </button>
+
+      <div class="admin-topbar__title-wrap">
+        <div class="admin-topbar__eyebrow">Operations Workspace</div>
+        <div class="admin-topbar__title-row">
+          <h1 class="admin-topbar__title">{{ title }}</h1>
+          <div class="admin-topbar__crumbs">
+            <p-breadcrumb [model]="breadcrumbItems" [home]="homeItem()"></p-breadcrumb>
+          </div>
+        </div>
       </div>
     </div>
 
-    <div class="flex items-center gap-3">
-      <span class="admin-topbar-search relative hidden md:block">
-        <i class="pi pi-search absolute left-3 top-1/2 z-10 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+    <div class="admin-topbar__actions">
+      <label class="admin-topbar__search">
+        <i class="pi pi-search"></i>
         <input
           pInputText
           [ngModel]="searchValue"
           (ngModelChange)="searchChange.emit($event)"
-          placeholder="Search vehicles or bookings"
-          class="w-72 rounded-xl" />
-      </span>
+          placeholder="Search vehicles or bookings" />
+      </label>
 
-      <div class="relative">
-        <button pButton type="button" text icon="pi pi-bell" class="relative !text-gray-600" (click)="notificationsPanel.toggle($event)"></button>
-        @if (notificationCount) {
-          <p-badge [value]="badgeValue(notificationCount)" severity="danger" class="absolute right-0 top-0"></p-badge>
-        }
-        <p-popover #notificationsPanel [style]="{ width: '20rem' }">
-          <div class="space-y-3">
-            <div class="flex items-center justify-between">
-              <p class="m-0 text-sm font-semibold text-gray-900">Recent notifications</p>
-              <button pButton type="button" label="Mark all read" text size="small" (click)="markAllRead.emit()"></button>
-            </div>
-            @for (notification of notifications; track notification.title + notification.time) {
-              <div class="rounded-xl border border-border p-3">
-                <p class="m-0 text-sm font-semibold text-gray-900">{{ notification.title }}</p>
-                <p class="m-1 text-sm text-gray-600">{{ notification.detail }}</p>
-                <p class="m-0 text-xs text-gray-400">{{ notification.time }}</p>
+      <div class="admin-topbar__icon-group">
+        <div class="relative">
+        <button
+          type="button"
+          pButton
+          text
+          icon="pi pi-bell"
+          class="admin-topbar__icon-btn"
+            (click)="notificationsPanel.toggle($event)"
+            pTooltip="Notifications"
+            tooltipPosition="bottom">
+          </button>
+          @if (notificationCount) {
+            <p-badge [value]="badgeValue(notificationCount)" severity="danger" class="absolute right-0 top-0"></p-badge>
+          }
+          <p-popover #notificationsPanel [style]="{ width: '20rem' }">
+            <div class="space-y-3">
+              <div class="flex items-center justify-between">
+                <p class="m-0 text-sm font-semibold text-gray-900">Recent notifications</p>
+                <button pButton type="button" label="Mark all read" text size="small" (click)="markAllRead.emit()"></button>
               </div>
-            }
-          </div>
-        </p-popover>
-      </div>
+              @for (notification of notifications; track notification.title + notification.time) {
+                <div class="rounded-xl border border-border p-3">
+                  <p class="m-0 text-sm font-semibold text-gray-900">{{ notification.title }}</p>
+                  <p class="m-1 text-sm text-gray-600">{{ notification.detail }}</p>
+                  <p class="m-0 text-xs text-gray-400">{{ notification.time }}</p>
+                </div>
+              }
+            </div>
+          </p-popover>
+        </div>
 
-      <div>
-        <p-avatar [label]="userInitials" shape="circle" styleClass="cursor-pointer bg-blue-600 text-white" (click)="userMenu.toggle($event)"></p-avatar>
+        <button
+          type="button"
+          class="admin-topbar__profile"
+          (click)="userMenu.toggle($event)"
+          pTooltip="Open profile menu"
+          tooltipPosition="bottom">
+          <p-avatar [label]="userInitials" shape="circle" styleClass="bg-blue-600 text-white"></p-avatar>
+        </button>
         <p-menu #userMenu [popup]="true" [model]="userMenuItems"></p-menu>
       </div>
     </div>

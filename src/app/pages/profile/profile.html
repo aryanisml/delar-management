@@ -1,62 +1,79 @@
-<div class="profile-container max-w-screen-xl mx-auto">
-  <h1 class="text-3xl font-bold text-gray-800 mb-6">Account Settings</h1>
+<p-toast></p-toast>
 
-  <div class="grid">
-    <div class="col-12 md:col-8">
-      <p-card header="Profile Information" subheader="Update your account details and email address">
-        <div class="p-fluid grid mt-3">
-          <div class="field col-12 md:col-6">
-            <label for="username" class="font-semibold block mb-2">Display Name</label>
-            <input pInputText id="username" [value]="userName()" readonly class="p-inputtext-sm bg-gray-50" />
-          </div>
-          <div class="field col-12 md:col-6">
-            <label for="email" class="font-semibold block mb-2">Email Address</label>
-            <input pInputText id="email" [value]="userInfo().email" readonly class="p-inputtext-sm bg-gray-50" />
-          </div>
-          <div class="field col-12">
-            <label for="bio" class="font-semibold block mb-2">Account ID</label>
-            <div class="p-inputgroup">
-              <span class="p-inputgroup-addon"><i class="pi pi-key"></i></span>
-              <input pInputText [value]="userInfo().id" readonly />
-            </div>
-          </div>
-        </div>
-      </p-card>
-
-      <div class="mt-4">
-        <p-card header="Security">
-          <div class="flex align-items-center justify-content-between">
-            <div>
-              <p class="font-semibold m-0">Password</p>
-              <small class="text-500">Change your password to keep your account secure</small>
-            </div>
-            <button pButton label="Update Password" icon="pi pi-lock" class="p-button-outlined p-button-sm"></button>
-          </div>
-        </p-card>
-      </div>
+<div class="admin-page-shell">
+  <div class="flex flex-wrap items-start justify-between gap-4">
+    <div>
+      <h2 class="admin-page-title m-0">Profile</h2>
+      <p class="admin-page-subtitle mt-1 mb-0">Manage your account details and security settings.</p>
     </div>
-
-    <div class="col-12 md:col-4">
-      <p-card header="Member Status">
-        <div class="text-center py-4">
-          <div class="w-20 h-20 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-3xl mx-auto mb-3 shadow-inner">
-            {{ userLetter() }}
-          </div>
-          <p-tag [value]="role() | uppercase" [severity]="role() === 'admin' ? 'danger' : 'success'"></p-tag>
-          <p class="mt-3 text-sm text-gray-500">Active since March 2026</p>
-        </div>
-        <hr class="border-gray-100" />
-        <div class="mt-4 space-y-3">
-          <div class="flex justify-content-between text-sm">
-            <span class="text-500">System Permissions:</span>
-            <span class="font-semibold">Full Access</span>
-          </div>
-          <div class="flex justify-content-between text-sm">
-            <span class="text-500">Region:</span>
-            <span class="font-semibold">North India</span>
-          </div>
-        </div>
-      </p-card>
-    </div>
+    <button pButton type="button" label="Update Profile" icon="pi pi-save" [loading]="saving()" (click)="updateProfile()"></button>
   </div>
+
+  <section class="grid grid-cols-1 gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
+    <p-card>
+      <div class="text-center">
+        <div class="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-blue-100 text-4xl font-bold text-blue-600">
+          {{ userLetter() }}
+        </div>
+        <p class="m-0 mt-4 text-2xl font-semibold text-gray-900">{{ userName() }}</p>
+        <p-tag [value]="role() | uppercase" [severity]="role() === 'admin' ? 'danger' : 'success'" styleClass="mt-3"></p-tag>
+      </div>
+
+      <div class="mt-6 space-y-4">
+        <div>
+          <p class="m-0 text-xs uppercase tracking-wide text-gray-400">Email</p>
+          <p class="m-0 mt-1 font-medium text-gray-900">{{ userInfo().email }}</p>
+        </div>
+        <div>
+          <p class="m-0 text-xs uppercase tracking-wide text-gray-400">Role</p>
+          <p class="m-0 mt-1 font-medium text-gray-900">{{ role() | titlecase }}</p>
+        </div>
+        <div>
+          <p class="m-0 text-xs uppercase tracking-wide text-gray-400">Member Since</p>
+          <p class="m-0 mt-1 font-medium text-gray-900">{{ userInfo().created_at | date:'mediumDate' }}</p>
+        </div>
+      </div>
+    </p-card>
+
+    <div class="space-y-6">
+      <p-card>
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <label class="mb-2 block text-sm font-medium text-gray-700">Display Name</label>
+            <input
+              pInputText
+              [ngModel]="profileForm().full_name"
+              (ngModelChange)="profileForm.set({ ...profileForm(), full_name: $event })"
+              class="w-full" />
+          </div>
+          <div>
+            <label class="mb-2 block text-sm font-medium text-gray-700">Phone</label>
+            <input
+              pInputText
+              [ngModel]="profileForm().phone"
+              (ngModelChange)="profileForm.set({ ...profileForm(), phone: $event })"
+              class="w-full" />
+          </div>
+          <div class="md:col-span-2">
+            <label class="mb-2 block text-sm font-medium text-gray-700">City</label>
+            <input
+              pInputText
+              [ngModel]="profileForm().city"
+              (ngModelChange)="profileForm.set({ ...profileForm(), city: $event })"
+              class="w-full" />
+          </div>
+        </div>
+      </p-card>
+
+      <p-card>
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p class="m-0 text-lg font-semibold text-gray-900">Change Password</p>
+            <p class="m-0 mt-1 text-sm text-gray-500">Send a secure password reset link to your email address.</p>
+          </div>
+          <button pButton type="button" label="Send Reset Link" icon="pi pi-lock" outlined (click)="changePassword()"></button>
+        </div>
+      </p-card>
+    </div>
+  </section>
 </div>

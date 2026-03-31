@@ -10,6 +10,7 @@ import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { MenuModule } from 'primeng/menu';
 import { PopoverModule } from 'primeng/popover';
+import { TooltipModule } from 'primeng/tooltip';
 
 @Component({
   selector: 'app-admin-topbar',
@@ -25,12 +26,14 @@ import { PopoverModule } from 'primeng/popover';
     InputTextModule,
     MenuModule,
     PopoverModule,
+    TooltipModule,
   ],
   templateUrl: './admin-topbar.html',
   styleUrl: './admin-topbar.scss',
 })
 export class AdminTopbar {
   @Input() title = 'Dashboard';
+  @Input() homeRoute = '/admin/dashboard';
   @Input() breadcrumbItems: MenuItem[] = [];
   @Input() searchValue = '';
   @Input() notificationCount = 0;
@@ -43,5 +46,9 @@ export class AdminTopbar {
 
   badgeValue(count: number) {
     return `${count}`;
+  }
+
+  homeItem() {
+    return { icon: 'pi pi-home', routerLink: this.homeRoute };
   }
 }

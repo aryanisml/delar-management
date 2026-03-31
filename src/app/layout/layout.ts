@@ -11,7 +11,7 @@ import { buildBookings, normalizeVehicle } from '../admin-ui.models';
 import { AdminSidebar } from './admin-sidebar';
 import { AdminTopbar } from './admin-topbar';
 
-type DealerMenuItem = { label: string; icon: string; route: string };
+type DealerMenuItem = { section: string; label: string; icon: string; route: string };
 
 @Component({
   selector: 'app-layout',
@@ -33,6 +33,7 @@ export class Layout {
   userLetter = computed(() => this.userName().charAt(0).toUpperCase() || 'U');
   isAdmin = computed(() => this.role() === 'admin');
   mobileSidebarOpen = signal(false);
+  desktopSidebarCollapsed = signal(false);
   menuOpen = signal(false);
   pageTitle = signal('Dashboard');
   pageSearch = signal('');
@@ -40,6 +41,7 @@ export class Layout {
   vehiclesCount = signal(0);
   pendingBookingsCount = signal(0);
   breadcrumbItems = signal<MenuItem[]>([]);
+  homeRoute = computed(() => (this.isAdmin() ? '/admin/dashboard' : '/dealer/dashboard'));
   dealerMenuItems = signal<DealerMenuItem[]>([]);
   currentYear = new Date().getFullYear();
   notifications = signal([
@@ -73,23 +75,34 @@ export class Layout {
       );
 
       this.dealerMenuItems.set([
-        { label: 'Dashboard', icon: 'pi pi-th-large', route: '/dealer' },
-        { label: 'My Bookings', icon: 'pi pi-calendar', route: '/my-bookings' },
-        { label: 'Profile', icon: 'pi pi-user', route: '/profile' },
+        { section: 'MAIN MENU', label: 'Dashboard', icon: 'pi pi-home', route: '/dealer' },
+        { section: 'MANAGEMENT', label: 'Book Vehicles', icon: 'pi pi-calendar-plus', route: '/dealer/bookings' },
+        { section: 'MANAGEMENT', label: 'My Bookings', icon: 'pi pi-calendar', route: '/dealer/my-bookings' },
+        { section: 'MANAGEMENT', label: 'Fleet Inventory', icon: 'pi pi-car', route: '/dealer/inventory' },
+        { section: 'ANALYTICS', label: 'Analytics', icon: 'pi pi-chart-line', route: '/dealer/analytics' },
+        { section: 'SYSTEM', label: 'Profile', icon: 'pi pi-user', route: '/profile' },
       ]);
 
-      if (role === 'admin') {
-        const { data: vehicles } = await this.supabase.getVehicles();
-        const { data: bookings } = await this.supabase.getBookings();
-        const normalizedVehicles = (vehicles ?? []).map((vehicle, index) => normalizeVehicle(vehicle, index));
-        this.vehiclesCount.set(normalizedVehicles.length);
-        this.pendingBookingsCount.set(
-          buildBookings(normalizedVehicles, bookings ?? []).filter((booking) => booking.status === 'Pending').length
-        );
+      const { data: vehicles } = await this.supabase.getVehicles();
+      const { data: bookings } = await this.supabase.getBookings();
+      const normalizedVehicles = (vehicles ?? []).map((vehicle, index) => normalizeVehicle(vehicle, index));
+      this.vehiclesCount.set(normalizedVehicles.length);
+      this.pendingBookingsCount.set(
+        buildBookings(normalizedVehicles, bookings ?? []).filter((booking) => booking.status === 'Pending').length
+      );
 
-        this.syncRouteMeta();
-        this.router.events.pipe(filter((event) => event instanceof NavigationEnd)).subscribe(() => this.syncRouteMeta());
-      }
+      const { data: notifications } = await this.supabase.getMyNotifications();
+      this.notifications.set(
+        (notifications ?? []).slice(0, 5).map((item: any) => ({
+          title: item.title,
+          detail: item.message,
+          time: item.created_at ? new Date(item.created_at).toLocaleString() : 'Just now',
+        }))
+      );
+      this.notificationCount.set((notifications ?? []).filter((item: any) => !item.is_read).length);
+
+      this.syncRouteMeta();
+      this.router.events.pipe(filter((event) => event instanceof NavigationEnd)).subscribe(() => this.syncRouteMeta());
     } finally {
       this.initialized.set(true);
     }
@@ -106,6 +119,11 @@ export class Layout {
   }
 
   toggleSidebar() {
+    if (window.innerWidth >= 1024) {
+      this.desktopSidebarCollapsed.set(!this.desktopSidebarCollapsed());
+      return;
+    }
+
     this.mobileSidebarOpen.set(!this.mobileSidebarOpen());
   }
 
@@ -130,6 +148,9 @@ export class Layout {
 
   markNotificationsRead() {
     this.notificationCount.set(0);
+    if (this.userInfo().id) {
+      void this.supabase.markNotificationsRead(this.userInfo().id);
+    }
     this.messageService.add({
       severity: 'success',
       summary: 'Notifications cleared',
@@ -146,6 +167,13 @@ export class Layout {
       '/admin/reports': 'Reports',
       '/admin/analytics': 'Analytics',
       '/admin/audit': 'Audit Log',
+      '/dealer': 'Dashboard',
+      '/dealer/dashboard': 'Dashboard',
+      '/dealer/bookings': 'Book Vehicles',
+      '/dealer/my-bookings': 'My Bookings',
+      '/dealer/inventory': 'Fleet Inventory',
+      '/dealer/analytics': 'Analytics',
+      '/profile': 'Profile',
     };
 
     const currentPath = this.router.url.split('?')[0];

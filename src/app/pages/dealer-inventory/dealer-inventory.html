@@ -1,13 +1,124 @@
-<section class="dealer-page dashboard-shell">
-  <p-card class="dashboard-panel">
-    <ng-template pTemplate="title">Inventory</ng-template>
-    <p class="page-copy">
-      Use this page to manage vehicle availability, pricing and listing quality. The primary action
-      stays visually strongest so dealers can update fleet data quickly.
-    </p>
-    <div class="dashboard-button-row">
-      <button pButton label="Add Vehicle" icon="pi pi-plus" class="dashboard-btn dashboard-btn--hero"></button>
-      <button pButton label="Bulk Update" icon="pi pi-file-edit" class="dashboard-btn dashboard-btn--soft"></button>
+<p-toast></p-toast>
+
+<div class="admin-page-shell">
+  <div class="flex flex-wrap items-start justify-between gap-4">
+    <div>
+      <h2 class="admin-page-title m-0">Fleet Inventory</h2>
+      <p class="admin-page-subtitle mt-1 mb-0">Explore the full vehicle fleet and jump into booking from any active listing.</p>
     </div>
-  </p-card>
-</section>
+    <button pButton type="button" label="Export" icon="pi pi-download" outlined (click)="exportCsv()"></button>
+  </div>
+
+  <p-toolbar styleClass="mb-4 border border-gray-200 rounded-xl bg-white px-4 py-3">
+    <ng-template pTemplate="start">
+      <div class="flex flex-wrap items-center gap-3">
+        <input
+          pInputText
+          [ngModel]="search()"
+          (ngModelChange)="search.set($event)"
+          placeholder="Search vehicle, registration, or location..."
+          class="w-80" />
+        <p-select
+          [options]="typeOptions"
+          [ngModel]="typeFilter()"
+          (ngModelChange)="typeFilter.set($event)"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="All Types"
+          class="w-40">
+        </p-select>
+        <p-select
+          [options]="statusOptions"
+          [ngModel]="statusFilter()"
+          (ngModelChange)="statusFilter.set($event)"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="All Statuses"
+          class="w-44">
+        </p-select>
+      </div>
+    </ng-template>
+    <ng-template pTemplate="end">
+      <p-selectButton
+        [options]="viewOptions"
+        [ngModel]="viewMode()"
+        (ngModelChange)="viewMode.set($event)"
+        optionLabel="icon"
+        optionValue="value">
+        <ng-template let-item pTemplate>
+          <i [class]="item.icon"></i>
+        </ng-template>
+      </p-selectButton>
+    </ng-template>
+  </p-toolbar>
+
+  @if (viewMode() === 'table') {
+    <p-card>
+      <p-table [value]="filteredVehicles()" [loading]="loading()" responsiveLayout="scroll">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Vehicle</th>
+            <th>Type</th>
+            <th>Capacity</th>
+            <th>Fuel</th>
+            <th>Daily Rate</th>
+            <th>Location</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-vehicle>
+          <tr>
+            <td>
+              <div class="flex items-center gap-3">
+                <p-image [src]="vehicle.imageUrl" imageClass="h-12 w-12 rounded-xl object-cover"></p-image>
+                <div>
+                  <p class="m-0 font-medium text-gray-900">{{ vehicle.make }} {{ vehicle.model }}</p>
+                  <p class="m-0 text-xs text-gray-400">{{ vehicle.registrationNo || vehicle.chassisNumber }}</p>
+                </div>
+              </div>
+            </td>
+            <td>{{ vehicle.type || '-' }}</td>
+            <td>{{ vehicle.capacity || '-' }}</td>
+            <td>{{ vehicle.fuel || '-' }}</td>
+            <td>{{ vehicle.dailyRate | currency:'INR':'symbol':'1.0-0' }}</td>
+            <td>{{ vehicle.location }}</td>
+            <td><p-tag [value]="vehicle.status" [severity]="statusSeverity(vehicle.status)"></p-tag></td>
+            <td>
+              <button pButton type="button" icon="pi pi-calendar-plus" label="Book This" text (click)="bookVehicle(vehicle.id)"></button>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </p-card>
+  } @else {
+    <p-dataView [value]="filteredVehicles()" layout="grid" [paginator]="true" [rows]="9">
+      <ng-template pTemplate="grid" let-items>
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          @for (vehicle of items; track vehicle.id) {
+            <p-card>
+              <img [src]="vehicle.imageUrl" [alt]="vehicle.make" class="h-44 w-full rounded-xl object-cover" />
+              <div class="mt-4 flex items-start justify-between gap-3">
+                <div>
+                  <p class="m-0 text-lg font-semibold text-gray-900">{{ vehicle.make }} {{ vehicle.model }}</p>
+                  <p class="m-0 text-sm text-gray-400">{{ vehicle.location }}</p>
+                </div>
+                <p-tag [value]="vehicle.status" [severity]="statusSeverity(vehicle.status)"></p-tag>
+              </div>
+              <div class="mt-4 grid grid-cols-2 gap-2 text-sm text-gray-500">
+                <span>Type: {{ vehicle.type || '-' }}</span>
+                <span>Seats: {{ vehicle.capacity || '-' }}</span>
+                <span>Fuel: {{ vehicle.fuel || '-' }}</span>
+                <span>Stock: {{ vehicle.stock }}</span>
+              </div>
+              <div class="mt-4 flex items-center justify-between">
+                <span class="text-lg font-semibold text-gray-900">{{ vehicle.dailyRate | currency:'INR':'symbol':'1.0-0' }}/day</span>
+                <button pButton type="button" label="Book This" icon="pi pi-calendar-plus" (click)="bookVehicle(vehicle.id)"></button>
+              </div>
+            </p-card>
+          }
+        </div>
+      </ng-template>
+    </p-dataView>
+  }
+</div>

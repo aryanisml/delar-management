@@ -1,20 +1,22 @@
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { MenuItem } from 'primeng/api';
+import { ConfirmationService, MessageService } from 'primeng/api';
 import { AvatarModule } from 'primeng/avatar';
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
+import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { DatePickerModule } from 'primeng/datepicker';
+import { DialogModule } from 'primeng/dialog';
 import { FloatLabelModule } from 'primeng/floatlabel';
 import { InplaceModule } from 'primeng/inplace';
 import { InputTextModule } from 'primeng/inputtext';
 import { SelectModule } from 'primeng/select';
-import { SplitButtonModule } from 'primeng/splitbutton';
 import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
 import { TextareaModule } from 'primeng/textarea';
 import { TimelineModule } from 'primeng/timeline';
+import { ToastModule } from 'primeng/toast';
 import { TooltipModule } from 'primeng/tooltip';
 import { buildBookings, normalizeVehicle, tagSeverityForPriority, tagSeverityForStatus } from '../../admin-ui.models';
 import { SupabaseService } from '../../services/supabase';
@@ -28,24 +30,30 @@ import { SupabaseService } from '../../services/supabase';
     AvatarModule,
     ButtonModule,
     CardModule,
+    ConfirmDialogModule,
     DatePickerModule,
+    DialogModule,
     FloatLabelModule,
     InplaceModule,
     InputTextModule,
     SelectModule,
-    SplitButtonModule,
     TableModule,
     TagModule,
     TextareaModule,
     TimelineModule,
+    ToastModule,
     TooltipModule,
     CurrencyPipe,
     DatePipe,
   ],
   templateUrl: './admin-dealer-performance.html',
+  styleUrl: './admin-dealer-performance.scss',
+  providers: [ConfirmationService, MessageService],
 })
 export class AdminDealerPerformance {
   private supabase = inject(SupabaseService);
+  private confirmationService = inject(ConfirmationService);
+  private messageService = inject(MessageService);
 
   readonly activeTab = signal(0);
   readonly bookings = signal<any[]>([]);
@@ -55,6 +63,9 @@ export class AdminDealerPerformance {
   readonly selectedPriority = signal<string | null>(null);
   readonly search = signal('');
   readonly expandedRows = signal<Record<string, boolean>>({});
+  readonly rejectDialogVisible = signal(false);
+  readonly rejectDialogBooking = signal<any | null>(null);
+  readonly rejectReason = signal('');
 
   readonly tabItems = [
     { label: 'All', status: null, badge: 'secondary' },
@@ -75,18 +86,12 @@ export class AdminDealerPerformance {
 
     const bookings = buildBookings(vehicles, bookingRows ?? []).map((booking, index) => ({
       ...booking,
-      phone: `+91 98${String(76543210 + index).slice(0, 8)}`,
       days: Math.max(1, Math.ceil((new Date(booking.endDate).getTime() - new Date(booking.startDate).getTime()) / 86400000)),
       history: [
         { status: 'Created', time: 'Today | 09:30 AM', actor: 'System' },
         { status: booking.status === 'Pending' ? 'Pending' : 'Confirmed', time: 'Today | 11:00 AM', actor: 'Operations Team' },
         { status: booking.assignedTo === 'Unassigned' ? 'Awaiting Assignment' : 'Assigned', time: 'Today | 01:00 PM', actor: booking.assignedTo || 'Queue' },
       ],
-      splitActions: [
-        { label: 'Assign', icon: 'pi pi-send' },
-        { label: 'Cancel', icon: 'pi pi-times' },
-        { label: 'Export Receipt', icon: 'pi pi-download' },
-      ] as MenuItem[],
       breakdown: [
         { label: 'Rental', value: booking.cost * 0.72 },
         { label: 'Insurance', value: booking.cost * 0.18 },
@@ -147,5 +152,80 @@ export class AdminDealerPerformance {
 
   tabCount(status: string | null) {
     return `${this.bookings().filter((booking) => !status || booking.status === status).length}`;
+  }
+
+  isExpanded(bookingId: string) {
+    return Boolean(this.expandedRows()[bookingId]);
+  }
+
+  toggleExpandedRow(bookingId: string) {
+    this.expandedRows.update((current) => {
+      if (current[bookingId]) {
+        return {};
+      }
+
+      return { [bookingId]: true };
+    });
+  }
+
+  canApproveOrReject(status: string) {
+    return status === 'Pending';
+  }
+
+  openMapLink(location: string) {
+    const query = encodeURIComponent(location);
+    window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank', 'noopener,noreferrer');
+  }
+
+  async approveBooking(booking: any) {
+    if (!booking.rawId || !booking.userId) {
+      return;
+    }
+
+    this.confirmationService.confirm({
+      message: `Approve booking ${booking.id} for ${booking.vehicle}?`,
+      header: 'Approve Booking',
+      icon: 'pi pi-check-circle',
+      acceptButtonStyleClass: 'p-button-success',
+      rejectButtonStyleClass: 'p-button-text',
+      accept: async () => {
+        const { error } = await this.supabase.updateBookingStatus(booking.rawId, 'approved');
+        if (error) {
+          this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to approve booking' });
+        } else {
+          this.messageService.add({ severity: 'success', summary: 'Approved', detail: `Booking ${booking.id} approved` });
+          await this.supabase.logAudit(`Booking Approved: ${booking.id}`);
+        }
+        await this.ngOnInit();
+      },
+    });
+  }
+
+  async rejectBooking(booking: any) {
+    this.rejectDialogBooking.set(booking);
+    this.rejectDialogVisible.set(true);
+  }
+
+  async confirmReject() {
+    const booking = this.rejectDialogBooking();
+    const reason = this.rejectReason();
+    if (!booking?.rawId) {
+      return;
+    }
+
+    if (!reason.trim()) {
+      this.messageService.add({ severity: 'warn', summary: 'Required', detail: 'Please enter a rejection reason' });
+      return;
+    }
+
+    const { error } = await this.supabase.updateBookingStatus(booking.rawId, 'rejected');
+    if (!error) {
+      this.messageService.add({ severity: 'info', summary: 'Rejected', detail: `Booking ${booking.id} rejected` });
+      await this.supabase.logAudit(`Booking Rejected: ${booking.id} — ${reason}`);
+      this.rejectDialogVisible.set(false);
+      this.rejectReason.set('');
+      this.rejectDialogBooking.set(null);
+      await this.ngOnInit();
+    }
   }
 }

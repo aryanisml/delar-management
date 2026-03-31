@@ -25,6 +25,7 @@ export class AdminSidebar {
   @Input() userName = 'Admin User';
   @Input() pendingBookingsCount = 0;
   @Input() vehicleCount = 0;
+  @Input() items: SidebarItem[] | null = null;
   @Output() linkClick = new EventEmitter<void>();
   @Output() logout = new EventEmitter<void>();
 
@@ -41,6 +42,14 @@ export class AdminSidebar {
     { section: 'SYSTEM', label: 'Settings', icon: 'pi pi-cog' },
     { section: 'SYSTEM', label: 'Audit Log', icon: 'pi pi-list', route: '/admin/audit' },
   ];
+
+  sidebarItems() {
+    return this.items?.length ? this.items : this.nav;
+  }
+
+  sections() {
+    return [...new Set(this.sidebarItems().map((item) => item.section))];
+  }
 
   getBadge(item: SidebarItem) {
     if (item.label === 'Vehicles') {

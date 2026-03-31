@@ -1,191 +1,131 @@
 :host {
-    display: block;
-    min-height: 100vh;
-    background: #f5f7fb;
-    padding: 1.5rem;
+  display: block;
 }
 
-.dashboard {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
+:host ::ng-deep .dealer-dashboard-shell .p-card .p-card-body {
+  padding: 1.25rem;
+}
+
+:host ::ng-deep .dealer-dashboard-shell .p-card .p-card-header {
+  padding: 1.25rem 1.25rem 0;
+}
+
+:host ::ng-deep .dealer-dashboard-shell .p-toolbar {
+  padding: 0;
+}
+
+:host ::ng-deep .dealer-dashboard-shell .vehicle-search .p-inputtext {
+  padding-left: 2.5rem;
+  width: 100%;
+}
+
+:host ::ng-deep .dealer-dashboard-shell .dealer-profile-card,
+:host ::ng-deep .dealer-dashboard-shell .dealer-chart-card,
+:host ::ng-deep .dealer-dashboard-shell .dealer-section-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 1.5rem;
+  box-shadow: 0 20px 45px -32px rgba(15, 23, 42, 0.28);
+  overflow: hidden;
+}
+
+:host ::ng-deep .dealer-dashboard-shell .dealer-chart-card .p-card-content,
+:host ::ng-deep .dealer-dashboard-shell .dealer-section-card .p-card-content {
+  padding-top: 0.5rem;
+}
+
+:host ::ng-deep .dealer-dashboard-shell .chart-panel canvas {
+  max-height: 260px;
+}
+
+.dealer-dashboard-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
 }
 
 .dashboard-top-section {
-    display: flex;
-    flex-wrap: wrap;
-    flex-direction: row;
-    gap: 1.5rem;
-    align-items: flex-start;
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(320px, 0.9fr);
+  gap: 1.5rem;
+  align-items: stretch;
 }
 
 .kpi-wrapper {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 1.5rem;
-    margin-bottom: 2rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
 }
 
-::ng-deep .kpi-card {
-    .p-card {
-        background: #ffffff;
-        border-radius: 12px;
-        border: 1px solid #e2e8f0;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        overflow: hidden;
-        height: 100%;
-
-        &:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-            border-color: #3b82f6;
-        }
-
-        .p-card-body {
-            padding: 1.5rem;
-        }
-    }
-
-    .stat-content {
-        display: flex;
-        align-items: center;
-        gap: 1.25rem;
-
-        i {
-            padding: 1rem;
-            border-radius: 10px;
-            background: #f8fafc;
-        }
-    }
-
-    .stat-title {
-        color: #64748b;
-        font-size: 0.875rem;
-        font-weight: 500;
-        text-transform: uppercase;
-        letter-spacing: 0.025em;
-        margin-bottom: 0.25rem;
-        display: block;
-    }
-
-    .stat-value {
-        color: #1e293b;
-        font-size: 2rem;
-        font-weight: 800;
-        line-height: 1;
-        display: block;
-    }
-}
-
-.chart-container {
-    background: white;
-    padding: 1.5rem;
-    border-radius: 12px;
-    border: 1px solid #e2e8f0;
-    max-height: 400px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-
-.content {
-    width: 100%;
+.chart-panel {
+  min-height: 260px;
 }
 
 .table-wrap {
-    min-height: 300px;
-    padding: 0.5rem;
-    background: white;
-    border-radius: 8px;
-}
-
-::ng-deep {
-    .p-datatable .p-datatable-thead > tr > th {
-        background: #f8fafc;
-        color: #111827;
-        font-weight: 600;
-        border-bottom: 1px solid #e5e7eb;
-    }
-
-    .p-datatable-striped .p-datatable-tbody > tr:nth-child(even) {
-        background: #fbfdff;
-    }
-
-    .p-datatable-hover .p-datatable-tbody > tr:hover {
-        background: #f1f5f9;
-    }
-
-    .custom-pill .p-tag {
-        border-radius: 20px;
-        padding: 0.25rem 0.75rem;
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
+  min-height: 260px;
+  border: 1px solid #e5e7eb;
+  border-radius: 1rem;
+  background: #ffffff;
+  overflow: hidden;
 }
 
 .center-spinner {
-    display: block;
-    margin: 40px auto;
+  display: block;
+  margin: 3rem auto;
 }
 
 .empty {
-    padding: 32px;
-    text-align: center;
-    color: #6b7280;
-}
-
-@media (max-width: 1100px) {
-    .dashboard-top-section {
-        flex-direction: column;
-    }
-
-    .chart-card {
-        width: 100%;
-    }
-}
-
-.shadow {
-  margin-bottom: 2rem;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  color: #6b7280;
+  font-size: 0.95rem;
 }
 
 .avatar-circle {
-  width: 50px;
-  height: 50px;
-  background-color: #3B82F6;
-  color: white;
-  border-radius: 50%;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 9999px;
   display: flex;
   align-items: center;
   justify-content: center;
+  background: linear-gradient(135deg, #1a56db 0%, #2563eb 100%);
+  color: #ffffff;
   font-size: 1.5rem;
-  font-weight: bold;
+  font-weight: 700;
+  box-shadow: 0 14px 30px -20px rgba(26, 86, 219, 0.9);
 }
 
-.profile-header p-card {
-  border-left: 5px solid #3B82F6;
+.dealer-meta-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid #dbeafe;
+  border-radius: 9999px;
+  background: #eff6ff;
+  padding: 0.45rem 0.85rem;
 }
 
-.sidebar-profile {
-    padding: 1.5rem;
-    border-bottom: 1px solid #e2e8f0;
-    margin-bottom: 1rem;
+.dealer-profile-stat {
+  min-width: 10rem;
+  border-left: 1px solid #e5e7eb;
+  padding-left: 1.25rem;
+}
 
-    .profile-info {
-        display: flex;
-        flex-direction: column;
+@media (max-width: 1100px) {
+  .dashboard-top-section {
+    grid-template-columns: 1fr;
+  }
 
-        .user-name {
-            font-weight: 600;
-            color: #1e293b;
-            font-size: 0.95rem;
-        }
+  .kpi-wrapper {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+}
 
-        .user-role {
-            font-size: 0.75rem;
-            color: #94a3b8;
-        }
-    }
+@media (max-width: 768px) {
+  .dealer-profile-stat {
+    min-width: 100%;
+    border-left: 0;
+    border-top: 1px solid #e5e7eb;
+    padding-left: 0;
+    padding-top: 1rem;
+  }
 }
