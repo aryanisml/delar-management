@@ -1,5 +1,10 @@
 <div class="admin-page-shell">
-  <section class="grid grid-cols-1 gap-4 md:grid-cols-3">
+  <div>
+    <h2 class="admin-page-title m-0">Analytics</h2>
+    <p class="admin-page-subtitle mt-1 mb-0">Monitor revenue, utilisation, booking flow, and top-performing vehicles.</p>
+  </div>
+
+  <section class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
     @for (metric of topMetrics(); track metric.label) {
       <p-card>
         <p class="admin-section-label mb-2">{{ metric.label }}</p>
@@ -8,34 +13,43 @@
     }
   </section>
 
-  <section class="grid grid-cols-1 gap-6 lg:grid-cols-3">
-    <p-card styleClass="lg:col-span-2">
-      <p class="admin-section-label mb-4">Demand vs Conversion</p>
+  <section class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+    <p-card>
+      <p class="admin-section-label mb-4">Booking Volume by Month</p>
       <div class="h-80">
-        <p-chart type="line" [data]="trendChart()" [options]="{ maintainAspectRatio: false }"></p-chart>
+        <p-chart type="bar" [data]="bookingVolumeChart()" [options]="{ maintainAspectRatio: false, plugins: { legend: { display: false } } }"></p-chart>
       </div>
     </p-card>
 
     <p-card>
-      <p class="admin-section-label mb-4">Fleet Status</p>
+      <p class="admin-section-label mb-4">Revenue by Vehicle Type</p>
       <div class="h-80">
-        <p-chart type="doughnut" [data]="statusChart()" [options]="{ maintainAspectRatio: false }"></p-chart>
+        <p-chart type="doughnut" [data]="revenueByTypeChart()" [options]="{ maintainAspectRatio: false }"></p-chart>
       </div>
     </p-card>
   </section>
 
-  <p-card>
-    <p class="admin-section-label mb-4">Purpose Conversion Mix</p>
-    <div class="grid gap-5 md:grid-cols-2">
-      @for (item of purposeBreakdown(); track item.label) {
-        <div>
-          <div class="mb-2 flex items-center justify-between">
-            <span class="text-sm font-medium text-gray-700">{{ item.label }}</span>
-            <span class="text-sm font-semibold text-gray-900">{{ item.pct }}%</span>
+  <section class="grid grid-cols-1 gap-6 lg:grid-cols-[1.3fr_minmax(0,0.7fr)]">
+    <p-card>
+      <p class="admin-section-label mb-4">Bookings by Status</p>
+      <div class="h-80">
+        <p-chart type="bar" [data]="bookingsByStatusChart()" [options]="{ indexAxis: 'y', maintainAspectRatio: false, plugins: { legend: { display: false } } }"></p-chart>
+      </div>
+    </p-card>
+
+    <p-card>
+      <p class="admin-section-label mb-4">Top 5 Most-Booked Vehicles</p>
+      <div class="space-y-4">
+        @for (vehicle of topVehicleRows(); track vehicle.label) {
+          <div>
+            <div class="mb-2 flex items-center justify-between">
+              <span class="text-sm font-medium text-gray-700">{{ vehicle.label }}</span>
+              <span class="text-sm font-semibold text-gray-900">{{ vehicle.count }}</span>
+            </div>
+            <p-progressBar [value]="(vehicle.count / topVehicleMax()) * 100" [showValue]="false"></p-progressBar>
           </div>
-          <p-progressBar [value]="item.pct" [showValue]="false"></p-progressBar>
-        </div>
-      }
-    </div>
-  </p-card>
+        }
+      </div>
+    </p-card>
+  </section>
 </div>

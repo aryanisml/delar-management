@@ -43,12 +43,12 @@ export const routes: Routes = [
         children: [
           { path: '', component: DealerDashboard, data: { title: 'Dashboard' } },
           { path: 'dashboard', component: DealerDashboard, data: { title: 'Dashboard' } },
+          { path: 'my-bookings', component: MyBookingsComponent, data: { title: 'My Bookings' } },
           { path: 'inventory', component: DealerInventory, data: { title: 'Inventory' } },
           { path: 'analytics', component: DealerAnalytics, data: { title: 'Analytics' } },
           { path: 'bookings', component: DealerBookings, data: { title: 'Bookings' } },
         ],
       },
-      { path: 'my-bookings', component: MyBookingsComponent, data: { title: 'My Bookings' } },
       { path: 'profile', component: ProfileComponent, data: { title: 'Profile' } },
       { path: '', redirectTo: 'admin/dashboard', pathMatch: 'full' },
     ],

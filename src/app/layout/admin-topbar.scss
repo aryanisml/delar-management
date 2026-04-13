@@ -2,7 +2,188 @@
   display: block;
 }
 
-:host ::ng-deep .admin-topbar-search .p-inputtext {
-  padding-left: 2.75rem !important;
-  line-height: 1.25rem;
+.admin-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  border-bottom: 1px solid #dde6f0;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(14px);
+}
+
+.admin-topbar__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1rem 1.05rem;
+}
+
+.admin-topbar__lead {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  min-width: 0;
+}
+
+.admin-topbar__menu-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.9rem;
+  height: 2.9rem;
+  border-radius: 1rem;
+  border: 1px solid #dbe4f0;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  color: #334155;
+  box-shadow: 0 16px 34px -26px rgba(15, 23, 42, 0.35);
+  flex-shrink: 0;
+}
+
+.admin-topbar__title-wrap {
+  min-width: 0;
+}
+
+.admin-topbar__eyebrow {
+  margin-bottom: 0.25rem;
+  font-size: 0.69rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.admin-topbar__title-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.admin-topbar__title {
+  margin: 0;
+  font-size: 1.85rem;
+  line-height: 1;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.admin-topbar__crumbs {
+  min-width: 0;
+}
+
+.admin-topbar__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.9rem;
+  min-width: 0;
+}
+
+.admin-topbar__search {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-width: 17rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid #dbe4f0;
+  border-radius: 1rem;
+  background: #f8fbff;
+}
+
+.admin-topbar__search i {
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.admin-topbar__search input {
+  width: 100%;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: #0f172a;
+}
+
+.admin-topbar__icon-group {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.admin-topbar__icon-btn,
+.admin-topbar__profile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.9rem;
+  height: 2.9rem;
+  border: 1px solid #dbe4f0;
+  border-radius: 1rem;
+  background: #fff;
+  color: #475569;
+  box-shadow: 0 16px 34px -28px rgba(15, 23, 42, 0.32);
+}
+
+.admin-topbar__profile {
+  padding: 0;
+  cursor: pointer;
+}
+
+:host ::ng-deep .admin-topbar__crumbs .p-breadcrumb {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+:host ::ng-deep .admin-topbar__crumbs .p-breadcrumb-list {
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+:host ::ng-deep .admin-topbar__crumbs .p-breadcrumb-item-link {
+  border-radius: 9999px;
+  padding: 0.38rem 0.72rem;
+  background: #f8fbff;
+  color: #64748b;
+  border: 1px solid #dbe4f0;
+}
+
+:host ::ng-deep .admin-topbar__crumbs .p-breadcrumb-item:last-child .p-breadcrumb-item-link {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+
+:host ::ng-deep .admin-topbar__search .p-inputtext {
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+@media (max-width: 1024px) {
+  .admin-topbar__inner {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-topbar__actions {
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-topbar__title {
+    font-size: 1.45rem;
+  }
+
+  .admin-topbar__search {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .admin-topbar__actions {
+    flex-wrap: wrap;
+  }
 }

@@ -7,6 +7,7 @@ import { InputTextModule } from 'primeng/inputtext';
 import { DatePickerModule } from 'primeng/datepicker';
 import { ButtonModule } from 'primeng/button';
 import { FormsModule } from '@angular/forms';
+import { TextareaModule } from 'primeng/textarea';
 
 @Component({
   selector: 'app-booking-dialog',
@@ -16,7 +17,8 @@ import { FormsModule } from '@angular/forms';
     InputTextModule,
     DatePickerModule,
     ButtonModule,
-    FormsModule
+    FormsModule,
+    TextareaModule
 
   ],
   templateUrl: './booking-dialog.component.html',
@@ -49,8 +51,15 @@ export class BookingDialogComponent {
     this.endDate = null;
     this.purpose = '';
   }
+
+  isInvalid() {
+    return !this.pickupLocation || !this.dropLocation || !this.startDate || !this.endDate || !this.purpose;
+  }
   
   submit() {
+    if (this.isInvalid()) {
+      return;
+    }
 
     const bookingData = {
   vehicle_id: this.vehicle.id,

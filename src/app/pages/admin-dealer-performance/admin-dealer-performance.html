@@ -1,9 +1,18 @@
+<p-toast></p-toast>
+<p-confirmDialog></p-confirmDialog>
+
 <div class="admin-page-shell">
+  <div>
+    <h2 class="admin-page-title m-0">Bookings</h2>
+    <p class="admin-page-subtitle mt-1 mb-0">Review, approve or reject fleet booking requests</p>
+  </div>
+
   <div class="flex flex-wrap gap-3">
     @for (tab of tabItems; track tab.label; let i = $index) {
       <button
         pButton
         type="button"
+        size="small"
         [outlined]="activeTab() !== i"
         [severity]="activeTab() === i ? 'primary' : 'secondary'"
         (click)="setTab(i)">
@@ -13,7 +22,7 @@
     }
   </div>
 
-  <p-card>
+  <p-card styleClass="mb-4 border border-gray-200 rounded-xl bg-white px-4 py-3">
     <div class="flex flex-wrap items-center gap-3">
       <p-datepicker
         [ngModel]="dateRange()"
@@ -44,12 +53,22 @@
         [ngModel]="search()"
         (ngModelChange)="search.set($event); applyFilters()"
         placeholder="Search by booking ID or user"
-        class="w-72" />
-      <button pButton type="button" label="Clear Filters" text (click)="clearFilters()"></button>
+        class="w-64" />
+      <button
+        pButton
+        type="button"
+        text
+        severity="secondary"
+        icon="pi pi-filter-slash"
+        label="Clear"
+        pTooltip="Clear all filters"
+        tooltipPosition="top"
+        (click)="clearFilters()">
+      </button>
     </div>
   </p-card>
 
-  <p-card>
+  <p-card styleClass="booking-table-card">
     <p-table
       [value]="filteredBookings()"
       dataKey="id"
@@ -58,47 +77,47 @@
       responsiveLayout="scroll">
       <ng-template pTemplate="header">
         <tr>
-          <th style="width: 3rem"></th>
-          <th>Booking ID</th>
-          <th>Vehicle</th>
-          <th>User</th>
-          <th>Dates</th>
-          <th>Pickup</th>
-          <th>Status</th>
-          <th>Priority</th>
-          <th>Assigned To</th>
-          <th>Cost</th>
-          <th>Actions</th>
+          <th style="width: 40px"></th>
+          <th style="width: 90px">Booking ID</th>
+          <th style="width: 160px">Vehicle</th>
+          <th style="width: 140px">User</th>
+          <th style="width: 180px">Dates</th>
+          <th style="width: 130px">Pickup</th>
+          <th style="width: 110px">Status</th>
+          <th style="width: 100px">Priority</th>
+          <th style="width: 100px">Actions</th>
         </tr>
       </ng-template>
-      <ng-template pTemplate="body" let-booking let-expanded="expanded">
+
+      <ng-template pTemplate="body" let-booking>
         <tr>
-          <td>
+          <td class="text-sm">
             <button
               pButton
               type="button"
-              [pRowToggler]="booking"
-              [icon]="expanded ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"
-              text>
+              [icon]="isExpanded(booking.id) ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"
+              text
+              pTooltip="View booking details"
+              tooltipPosition="left"
+              (click)="toggleExpandedRow(booking.id)">
             </button>
           </td>
-          <td class="font-mono text-sm text-blue-700">#{{ booking.id }}</td>
-          <td>
+          <td class="text-sm font-mono text-blue-700">#{{ booking.id }}</td>
+          <td class="text-sm">
             <div class="flex items-center gap-3">
-              <p-avatar [label]="booking.vehicleType.charAt(0)"></p-avatar>
+              <p-avatar [label]="booking.vehicleType.charAt(0)" styleClass="bg-slate-100 text-slate-700"></p-avatar>
               <span class="font-medium text-gray-900">{{ booking.vehicle }}</span>
             </div>
           </td>
-          <td>
+          <td class="text-sm">
             <div class="flex items-center gap-3">
-              <p-avatar [label]="booking.userName.charAt(0)" shape="circle"></p-avatar>
+              <p-avatar [label]="booking.userName.charAt(0)" shape="circle" styleClass="bg-slate-100 text-slate-700"></p-avatar>
               <div>
                 <p class="m-0 font-medium text-gray-900">{{ booking.userName }}</p>
-                <p class="m-0 text-xs text-gray-400">{{ booking.phone }}</p>
               </div>
             </div>
           </td>
-          <td>
+          <td class="text-sm">
             <div class="min-w-[170px] rounded-xl bg-slate-50 px-3 py-2">
               <div class="flex items-center justify-between text-xs uppercase tracking-wide text-gray-400">
                 <span>Start</span>
@@ -112,26 +131,55 @@
               <p-tag [value]="booking.days + ' days'" severity="info" styleClass="mt-2"></p-tag>
             </div>
           </td>
-          <td>
-            <span class="cursor-help text-gray-700" [pTooltip]="booking.pickup">
-              <i class="pi pi-map-marker mr-1 text-red-500"></i>{{ booking.pickup }}
+          <td class="text-sm">
+            <span class="block max-w-[130px] truncate text-gray-700" [pTooltip]="booking.pickup" tooltipPosition="top">
+              {{ booking.pickup }}
             </span>
           </td>
-          <td><p-tag [value]="booking.status" [severity]="statusSeverity(booking.status)"></p-tag></td>
-          <td><p-tag [value]="booking.priority" [severity]="prioritySeverity(booking.priority)"></p-tag></td>
-          <td>
-            <span [class.text-red-600]="booking.assignedTo === 'Unassigned'">{{ booking.assignedTo }}</span>
-          </td>
-          <td>{{ booking.cost | currency:'INR':'symbol':'1.0-0' }}</td>
-          <td>
-            <p-splitButton label="View Detail" icon="pi pi-eye" [model]="booking.splitActions"></p-splitButton>
+          <td class="text-sm"><p-tag [value]="booking.status" [severity]="statusSeverity(booking.status)"></p-tag></td>
+          <td class="text-sm"><p-tag [value]="booking.priority" [severity]="prioritySeverity(booking.priority)"></p-tag></td>
+          <td class="text-sm">
+            <div class="booking-action-row">
+              <button
+                pButton
+                type="button"
+                icon="pi pi-eye"
+                text
+                severity="info"
+                pTooltip="View booking details"
+                tooltipPosition="left"
+                (click)="toggleExpandedRow(booking.id)">
+              </button>
+              <button
+                pButton
+                type="button"
+                icon="pi pi-check"
+                text
+                severity="success"
+                [disabled]="booking.status !== 'Pending'"
+                pTooltip="Approve booking"
+                tooltipPosition="left"
+                (click)="approveBooking(booking)">
+              </button>
+              <button
+                pButton
+                type="button"
+                icon="pi pi-times"
+                text
+                severity="danger"
+                [disabled]="booking.status !== 'Pending'"
+                pTooltip="Reject booking"
+                tooltipPosition="left"
+                (click)="rejectBooking(booking)">
+              </button>
+            </div>
           </td>
         </tr>
       </ng-template>
 
       <ng-template pTemplate="rowexpansion" let-booking>
         <tr>
-          <td colspan="11">
+          <td colspan="9">
             <div class="grid gap-6 rounded-2xl bg-gray-50 p-4 lg:grid-cols-2">
               <p-card>
                 <p class="admin-section-label mb-4">Status History</p>
@@ -151,19 +199,23 @@
               </p-card>
 
               <p-card>
-                <p class="admin-section-label mb-4">Booking Metadata</p>
+                <p class="admin-section-label mb-4">Booking Details</p>
                 <div class="space-y-3">
                   <div class="rounded-xl border border-border p-3">
-                    <p class="m-0 text-sm font-semibold text-gray-900">Pickup / Dropoff</p>
+                    <p class="m-0 text-sm font-semibold text-gray-900">Pickup / Drop-off</p>
                     <p class="my-1 text-sm text-gray-600">{{ booking.pickup }}</p>
-                    <a href="#" class="text-sm font-medium text-blue-600">Open map link</a>
                   </div>
                   <div class="rounded-xl border border-border p-3">
                     <p class="m-0 text-sm font-semibold text-gray-900">Purpose</p>
                     <p class="m-0 text-sm text-gray-600">{{ booking.purpose }}</p>
                   </div>
                   <div class="rounded-xl border border-border p-3">
-                    <p class="m-0 text-sm font-semibold text-gray-900">Cost Breakdown</p>
+                    <p class="m-0 text-sm font-semibold text-gray-900">Assigned To</p>
+                    <p class="m-0 text-sm text-gray-600">{{ booking.assignedTo }}</p>
+                  </div>
+                  <div class="rounded-xl border border-border p-3">
+                    <p class="m-0 text-sm font-semibold text-gray-900">Cost with Breakdown</p>
+                    <p class="m-0 text-sm font-medium text-gray-900">{{ booking.cost | currency:'INR':'symbol':'1.0-0' }}</p>
                     @for (item of booking.breakdown; track item.label) {
                       <div class="mt-2 flex items-center justify-between text-sm">
                         <span class="text-gray-600">{{ item.label }}</span>
@@ -171,6 +223,12 @@
                       </div>
                     }
                   </div>
+                  @if (booking.status === 'Cancelled') {
+                    <div class="rounded-xl border border-red-200 bg-red-50 p-3">
+                      <p class="m-0 text-sm font-semibold text-red-700">Rejection Reason</p>
+                      <p class="m-0 mt-1 text-sm text-red-600">{{ booking.notes }}</p>
+                    </div>
+                  }
                 </div>
               </p-card>
             </div>
@@ -194,3 +252,28 @@
     </p-table>
   </p-card>
 </div>
+
+<p-dialog
+  header="Reject Booking"
+  [visible]="rejectDialogVisible()"
+  (visibleChange)="rejectDialogVisible.set($event)"
+  [modal]="true"
+  [draggable]="false"
+  [style]="{ width: '420px' }">
+  <div class="space-y-4">
+    <p class="m-0 text-sm text-gray-500">Enter the reason for rejecting booking {{ rejectDialogBooking()?.id }}.</p>
+    <textarea
+      pTextarea
+      rows="4"
+      class="w-full"
+      [ngModel]="rejectReason()"
+      (ngModelChange)="rejectReason.set($event)"
+      placeholder="Enter rejection reason">
+    </textarea>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <button pButton type="button" label="Cancel" text (click)="rejectDialogVisible.set(false)"></button>
+    <button pButton type="button" label="Reject Booking" severity="danger" (click)="confirmReject()"></button>
+  </ng-template>
+</p-dialog>

@@ -10,10 +10,10 @@
   </div>
 
   <nav class="flex-1 py-2">
-    @for (section of ['MAIN MENU', 'MANAGEMENT', 'CALL CENTER', 'ANALYTICS', 'SYSTEM']; track section) {
+    @for (section of sections(); track section) {
       <div>
         <p class="px-4 pt-5 pb-2 text-xs font-semibold uppercase tracking-widest text-gray-400">{{ section }}</p>
-        @for (item of nav; track item.label) {
+        @for (item of sidebarItems(); track item.label) {
           @if (item.section === section) {
             <a
               [routerLink]="item.route || null"

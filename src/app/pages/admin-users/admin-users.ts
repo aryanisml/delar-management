@@ -7,6 +7,8 @@ import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { DrawerModule } from 'primeng/drawer';
+import { InputTextModule } from 'primeng/inputtext';
+import { SelectModule } from 'primeng/select';
 import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
 import { ToastModule } from 'primeng/toast';
@@ -29,6 +31,8 @@ import { SupabaseService } from '../../services/supabase';
     ToastModule,
     ToggleSwitchModule,
     DrawerModule,
+    InputTextModule,
+    SelectModule,
     DatePipe,
   ],
   templateUrl: './admin-users.html',
@@ -46,12 +50,20 @@ export class AdminUsers {
   readonly profileVisible = signal(false);
   readonly selectedUser = signal<any | null>(null);
   readonly profileTab = signal<'details' | 'history' | 'activity'>('details');
+  readonly search = signal('');
+  readonly roleFilter = signal<string | null>(null);
+  readonly statusFilter = signal<string | null>(null);
 
   readonly tabs = [
     { label: 'All', role: null },
     { label: 'Admins', role: 'admin' },
     { label: 'Call Center', role: 'callcenter' },
     { label: 'Normal Users', role: 'user' },
+  ];
+  readonly roleOptions = ['admin', 'callcenter', 'user'].map((value) => ({ label: value, value }));
+  readonly statusOptions = [
+    { label: 'Active', value: 'active' },
+    { label: 'Inactive', value: 'inactive' },
   ];
 
   async ngOnInit() {
@@ -116,7 +128,19 @@ export class AdminUsers {
 
   applyTabFilter() {
     const role = this.tabs[this.activeTab()].role;
-    this.filteredUsers.set(this.users().filter((user) => !role || user.role === role));
+    const query = this.search().trim().toLowerCase();
+    this.filteredUsers.set(
+      this.users().filter((user) => {
+        const matchesTab = !role || user.role === role;
+        const matchesRole = !this.roleFilter() || user.role === this.roleFilter();
+        const matchesStatus =
+          !this.statusFilter() || (this.statusFilter() === 'active' ? user.active : !user.active);
+        const matchesSearch =
+          !query || user.name.toLowerCase().includes(query) || user.email.toLowerCase().includes(query);
+
+        return matchesTab && matchesRole && matchesStatus && matchesSearch;
+      })
+    );
   }
 
   roleSeverity(role: string) {

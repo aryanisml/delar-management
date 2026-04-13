@@ -1,8 +1,8 @@
-<div class="admin-page-shell">
+<div class="admin-page-shell overview-page">
   @if (isLoading()) {
     <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
       @for (item of [1, 2, 3, 4, 5, 6]; track item) {
-        <div class="rounded-2xl border border-border bg-white p-6">
+        <div class="rounded-3xl border border-border bg-white p-6">
           <p-skeleton height="0.85rem" width="50%" styleClass="mb-3"></p-skeleton>
           <p-skeleton height="2.25rem" width="40%" styleClass="mb-2"></p-skeleton>
           <p-skeleton height="0.75rem" width="70%"></p-skeleton>
@@ -10,92 +10,112 @@
       }
     </div>
   } @else {
-    <section class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
-      @for (card of statCards(); track card.title) {
-        <p-card [styleClass]="card.dark ? 'dashboard-dark-card' : card.borderClass + ' hover:shadow-md transition-all duration-200'">
-          @if (!card.dark) {
-            <div class="flex items-start justify-between gap-4">
+    <section class="overview-kpi-board">
+      <div class="overview-kpi-grid">
+        @for (card of statCards().slice(0, 4); track card.title) {
+          <p-card styleClass="overview-stat-card overview-stat-card--light">
+            <div class="overview-stat-card__header">
               <div>
-                <p class="mb-1 text-xs font-semibold uppercase tracking-widest text-gray-400">{{ card.title }}</p>
-                <p class="text-3xl font-bold text-gray-900 m-0">{{ card.value }}</p>
-                <p class="mt-2 flex items-center gap-1 text-sm" [ngClass]="card.trendClass">
-                  <i class="pi pi-arrow-up text-xs"></i>
-                  {{ card.trend }}
-                </p>
+                <p class="overview-stat-card__title">{{ card.title }}</p>
+                <p class="overview-stat-card__value">{{ card.value }}</p>
               </div>
-              <div class="flex h-12 w-12 items-center justify-center rounded-xl" [ngClass]="card.iconShell">
-                <i [class]="card.icon + ' text-xl'"></i>
+              <div class="overview-stat-card__icon" [ngClass]="card.iconShell">
+                <i [class]="card.icon + ' text-lg'"></i>
               </div>
             </div>
-          } @else {
-            <div class="rounded-2xl bg-gray-800 text-white">
-              <div class="flex items-start justify-between">
-                <div>
-                  <p class="mb-2 text-xs font-semibold uppercase tracking-widest text-gray-300">{{ card.title }}</p>
-                  <p class="m-0 text-4xl font-bold text-white">{{ card.value }}</p>
-                </div>
-                <i [class]="card.icon + ' text-xl text-gray-300'"></i>
+
+            <div class="overview-stat-card__footer">
+              <span class="overview-stat-card__trend-icon" [ngClass]="card.trendClass">
+                <i class="pi pi-arrow-up text-xs"></i>
+              </span>
+              <span class="overview-stat-card__trend-copy" [ngClass]="card.trendClass">{{ card.trend }}</span>
+            </div>
+          </p-card>
+        }
+      </div>
+
+      <div class="overview-alert-stack">
+        @for (card of statCards().slice(4); track card.title) {
+          <p-card styleClass="overview-stat-card overview-stat-card--dark">
+            <div class="overview-stat-card__header overview-stat-card__header--dark">
+              <div>
+                <p class="overview-stat-card__title overview-stat-card__title--dark">{{ card.title }}</p>
+                <p class="overview-stat-card__value overview-stat-card__value--dark">{{ card.value }}</p>
               </div>
-              <div class="mt-6 flex gap-2">
-                <span class="h-2 w-2 rounded-full bg-white"></span>
-                <span class="h-2 w-2 rounded-full bg-gray-600"></span>
-                <span class="h-2 w-2 rounded-full bg-gray-600"></span>
+              <div class="overview-stat-card__dark-icon">
+                <i [class]="card.icon + ' text-base'"></i>
               </div>
             </div>
-          }
-        </p-card>
-      }
+
+            <div class="overview-alert-dots">
+              <span class="is-active"></span>
+              <span></span>
+              <span></span>
+            </div>
+          </p-card>
+        }
+      </div>
     </section>
 
-    <section class="grid grid-cols-1 gap-6 lg:grid-cols-5">
-      <p-card styleClass="lg:col-span-3">
-        <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
+    <section class="overview-analytics-layout">
+      <p-card styleClass="overview-panel overview-panel--trend">
+        <div class="overview-panel__header">
           <div>
             <p class="admin-section-label mb-2">Bookings Performance</p>
-            <p class="m-0 text-3xl font-bold text-gray-900">{{ totalTrendMetric() | currency:'INR':'symbol':'1.0-0' }}</p>
+            <p class="m-0 text-4xl font-bold text-slate-950">{{ totalTrendMetric() | currency:'INR':'symbol':'1.0-0' }}</p>
           </div>
-          <div class="flex items-center gap-3">
+          <div class="overview-panel__actions">
             <p-selectButton [options]="periodOptions" [(ngModel)]="period"></p-selectButton>
             <button pButton type="button" icon="pi pi-download" outlined (click)="downloadChart()"></button>
           </div>
         </div>
-        <div class="h-80">
+
+        <div class="overview-chart-shell">
           <p-chart #bookingsTrendChart type="line" [data]="trendChartData()" [options]="trendChartOptions()"></p-chart>
         </div>
       </p-card>
 
-      <p-card styleClass="lg:col-span-2">
-        <p class="admin-section-label mb-2">Vehicle Status Distribution</p>
-        <div class="relative mx-auto h-72 w-full max-w-xs">
-          <p-chart type="doughnut" [data]="statusChartData()" [options]="statusChartOptions()" height="260"></p-chart>
-          <div class="absolute inset-0 flex flex-col items-center justify-center">
-            <p class="m-0 text-xs uppercase tracking-widest text-gray-400">Total Vehicles</p>
-            <p class="m-0 text-3xl font-bold text-gray-900">{{ stats().total }}</p>
+      <p-card styleClass="overview-panel overview-panel--status">
+        <div class="overview-panel__header overview-panel__header--stacked">
+          <div>
+            <p class="admin-section-label mb-2">Vehicle Status Distribution</p>
+            <p class="m-0 text-sm text-slate-500">Same fleet numbers, shown in a tighter operational split.</p>
           </div>
         </div>
-        <div class="mt-6 space-y-3">
-          @for (legend of statusLegend(); track legend.label) {
-            <div class="flex items-center justify-between rounded-xl border border-border px-3 py-2">
-              <div class="flex items-center gap-2">
-                <span class="h-2.5 w-2.5 rounded-full" [style.background]="legend.color"></span>
-                <span class="text-sm text-gray-700">{{ legend.label }}</span>
-              </div>
-              <span class="text-sm font-semibold text-gray-900">{{ legend.value }} · {{ legend.percent }}%</span>
+
+        <div class="status-panel-layout">
+          <div class="status-chart-shell">
+            <p-chart type="doughnut" [data]="statusChartData()" [options]="statusChartOptions()" height="260"></p-chart>
+            <div class="status-chart-shell__center">
+              <p class="m-0 text-xs uppercase tracking-widest text-gray-400">Total Vehicles</p>
+              <p class="m-0 text-4xl font-bold text-slate-950">{{ stats().total }}</p>
             </div>
-          }
+          </div>
+
+          <div class="status-legend-list">
+            @for (legend of statusLegend(); track legend.label) {
+              <div class="status-legend-item">
+                <div class="status-legend-item__left">
+                  <span class="status-legend-item__dot" [style.background]="legend.color"></span>
+                  <span class="status-legend-item__label">{{ legend.label }}</span>
+                </div>
+                <span class="status-legend-item__value">{{ legend.value }} | {{ legend.percent }}%</span>
+              </div>
+            }
+          </div>
         </div>
       </p-card>
     </section>
 
     <section class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-      <p-card>
+      <p-card styleClass="overview-panel">
         <p class="admin-section-label mb-4">Monthly Revenue Trend</p>
         <div class="h-80">
           <p-chart type="bar" [data]="revenueChartData()" [options]="revenueChartOptions()"></p-chart>
         </div>
       </p-card>
 
-      <p-card>
+      <p-card styleClass="overview-panel">
         <p class="admin-section-label mb-4">Booking Funnel</p>
         @for (stage of pipeline(); track stage.label) {
           <div class="mb-5">
@@ -113,7 +133,7 @@
     </section>
 
     <section class="grid grid-cols-1 gap-6 lg:grid-cols-3">
-      <p-card>
+      <p-card styleClass="overview-panel">
         <div class="mb-4 flex items-center justify-between">
           <div>
             <p class="admin-section-label mb-1">Recent Activity</p>
@@ -141,7 +161,7 @@
         </div>
       </p-card>
 
-      <p-card>
+      <p-card styleClass="overview-panel">
         <p class="admin-section-label mb-4">Today's Bookings Summary</p>
         @if (todayBookings().length) {
           <p-dataView [value]="todayBookings()" layout="list">
@@ -173,7 +193,7 @@
         </div>
       </p-card>
 
-      <p-card>
+      <p-card styleClass="overview-panel">
         <div class="mb-4 flex items-center justify-between">
           <div>
             <p class="admin-section-label mb-1">Actions Needed</p>
@@ -199,7 +219,7 @@
     </section>
 
     <section>
-      <p-card>
+      <p-card styleClass="overview-panel">
         <div class="mb-5 flex items-center justify-between">
           <div>
             <p class="admin-section-label mb-1">Recent Bookings</p>

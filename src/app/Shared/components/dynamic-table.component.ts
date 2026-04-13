@@ -1,4 +1,4 @@
-import { Component, Input, TemplateRef, Output, EventEmitter, signal, computed } from '@angular/core';
+import { Component, EventEmitter, Input, Output, TemplateRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
@@ -24,30 +24,29 @@ export interface TableColumn {
 export class ReusableTableComponent {
   @Input() data: any[] = [];
   @Input() cols: TableColumn[] = [];
-  
-  // This allows the "Book" button to be passed in from the dashboard
+
   @Input() actionTemplate?: TemplateRef<any>;
- 
+
   @Output() onCancel = new EventEmitter<string>();
 
-cancel(id: string) {
-  this.onCancel.emit(id);
-}
+  cancel(id: string) {
+    this.onCancel.emit(id);
+  }
 
-  // ADD THE FUNCTION HERE
   getStatusSeverity(status: string) {
-    // We use .toLowerCase() to ensure it matches even if the database has capital letters
     switch (status?.toLowerCase()) {
-      case 'approved': 
-      case 'available': // You can reuse this for vehicle availability too!
+      case 'approved':
+      case 'available':
         return 'success';
-      case 'pending': 
+      case 'pending':
         return 'warn';
+      case 'completed':
+        return 'secondary';
       case 'rejected':
-      case 'cancelled': 
+      case 'cancelled':
       case 'out of stock':
         return 'danger';
-      default: 
+      default:
         return 'info';
     }
   }

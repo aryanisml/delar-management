@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { CardModule } from 'primeng/card';
 import { ChartModule } from 'primeng/chart';
 import { ProgressBarModule } from 'primeng/progressbar';
@@ -17,9 +17,12 @@ export class AdminAnalytics {
   private supabase = inject(SupabaseService);
 
   readonly topMetrics = signal<any[]>([]);
-  readonly trendChart = signal<any>(null);
-  readonly statusChart = signal<any>(null);
-  readonly purposeBreakdown = signal<any[]>([]);
+  readonly bookingVolumeChart = signal<any>(null);
+  readonly revenueByTypeChart = signal<any>(null);
+  readonly bookingsByStatusChart = signal<any>(null);
+  readonly topVehicleRows = signal<any[]>([]);
+
+  readonly topVehicleMax = computed(() => Math.max(1, ...this.topVehicleRows().map((item) => item.count)));
 
   async ngOnInit() {
     const { data: vehiclesRaw } = await this.supabase.getVehicles();
@@ -27,37 +30,85 @@ export class AdminAnalytics {
     const vehicles = (vehiclesRaw ?? []).map((vehicle, index) => normalizeVehicle(vehicle, index));
     const bookings = buildBookings(vehicles, bookingRows ?? []);
 
+    const revenue = bookings
+      .filter((booking) => booking.status === 'Confirmed' || booking.status === 'Completed' || booking.status === 'InProgress')
+      .reduce((sum, booking) => sum + booking.cost, 0);
+    const avgDuration =
+      bookings.reduce((sum, booking) => sum + Math.max(1, Math.ceil((new Date(booking.endDate).getTime() - new Date(booking.startDate).getTime()) / 86400000)), 0) /
+      Math.max(1, bookings.length);
+    const totalStock = vehicles.reduce((sum, vehicle) => sum + Number(vehicle.stock ?? 0), 0);
+    const bookedUnits = bookings.filter((booking) => ['Confirmed', 'InProgress', 'Pending'].includes(booking.status)).length;
+    const utilisation = Math.round((bookedUnits / Math.max(1, totalStock)) * 100);
+    const topVehicle = [...vehicles]
+      .sort(
+        (a, b) =>
+          bookings.filter((booking) => booking.vehicleId === b.id).length - bookings.filter((booking) => booking.vehicleId === a.id).length
+      )
+      .at(0);
+
     this.topMetrics.set([
-      { label: 'Live Fleet', value: vehicles.filter((item) => item.status === 'Available').length },
-      { label: 'Bookings This Week', value: bookings.length },
-      { label: 'Average Revenue / Booking', value: `Rs ${Math.round(bookings.reduce((sum, item) => sum + item.cost, 0) / Math.max(1, bookings.length)).toLocaleString('en-IN')}` },
+      { label: 'Total Revenue', value: `Rs ${Math.round(revenue).toLocaleString('en-IN')}` },
+      { label: 'Avg Booking Duration', value: `${avgDuration.toFixed(1)} days` },
+      { label: 'Fleet Utilisation', value: `${utilisation}%` },
+      { label: 'Top Vehicle', value: topVehicle ? `${topVehicle.make} ${topVehicle.model}` : 'N/A' },
     ]);
 
-    this.trendChart.set({
-      labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+    const monthLabels = Array.from({ length: 12 }, (_, index) => {
+      const date = new Date();
+      date.setMonth(index);
+      return date.toLocaleString('en-US', { month: 'short' });
+    });
+
+    this.bookingVolumeChart.set({
+      labels: monthLabels,
       datasets: [
-        { label: 'Searches', data: [54, 62, 58, 74, 88, 82, 95], borderColor: '#1A56DB', backgroundColor: 'rgba(26, 86, 219, 0.12)', fill: true, tension: 0.4 },
-        { label: 'Conversions', data: [18, 24, 22, 30, 33, 31, 38], borderColor: '#0E9F6E', backgroundColor: 'rgba(14, 159, 110, 0.1)', fill: true, tension: 0.4 },
+        {
+          label: 'Bookings',
+          data: monthLabels.map((label) =>
+            bookings.filter((booking) => new Date(booking.startDate).toLocaleString('en-US', { month: 'short' }) === label).length
+          ),
+          backgroundColor: '#1A56DB',
+          borderRadius: 8,
+        },
       ],
     });
 
-    this.statusChart.set({
-      labels: ['Available', 'Maintenance', 'Inactive'],
-      datasets: [{
-        data: [
-          vehicles.filter((item) => item.status === 'Available').length,
-          vehicles.filter((item) => item.status === 'Maintenance').length || 0,
-          vehicles.filter((item) => item.status === 'Inactive').length || 0,
-        ],
-        backgroundColor: ['#0E9F6E', '#E02424', '#9CA3AF'],
-      }],
+    const typeLabels = [...new Set(vehicles.map((vehicle) => vehicle.type || 'Other'))];
+    this.revenueByTypeChart.set({
+      labels: typeLabels,
+      datasets: [
+        {
+          data: typeLabels.map((label) =>
+            bookings
+              .filter((booking) => booking.vehicleType === label)
+              .reduce((sum, booking) => sum + booking.cost, 0)
+          ),
+          backgroundColor: ['#1A56DB', '#0E9F6E', '#C27803', '#7E3AF2', '#0694A2'],
+        },
+      ],
     });
 
-    this.purposeBreakdown.set(
-      ['Corporate', 'Personal', 'Transfer', 'Event'].map((label) => ({
-        label,
-        pct: Math.round((bookings.filter((item) => item.purpose === label).length / Math.max(1, bookings.length)) * 100),
-      }))
+    const statuses = ['Pending', 'Confirmed', 'InProgress', 'Completed', 'Cancelled'];
+    this.bookingsByStatusChart.set({
+      labels: statuses,
+      datasets: [
+        {
+          label: 'Bookings',
+          data: statuses.map((status) => bookings.filter((booking) => booking.status === status).length),
+          backgroundColor: ['#C27803', '#0E9F6E', '#1A56DB', '#374151', '#E02424'],
+          borderRadius: 8,
+        },
+      ],
+    });
+
+    this.topVehicleRows.set(
+      vehicles
+        .map((vehicle) => ({
+          label: `${vehicle.make} ${vehicle.model}`,
+          count: bookings.filter((booking) => booking.vehicleId === vehicle.id).length,
+        }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5)
     );
   }
 }

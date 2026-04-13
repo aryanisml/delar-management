@@ -1,51 +1,96 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { SupabaseService } from '../../../services/supabase';
+import { CommonModule, DatePipe } from '@angular/common';
+import { Component, computed, inject, signal } from '@angular/core';
+import { ConfirmationService, MessageService } from 'primeng/api';
+import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
-import { ReusableTableComponent, TableColumn } from '../../../Shared/components/dynamic-table.component';
+import { ConfirmDialogModule } from 'primeng/confirmdialog';
+import { DialogModule } from 'primeng/dialog';
+import { TableModule } from 'primeng/table';
+import { TagModule } from 'primeng/tag';
+import { ToastModule } from 'primeng/toast';
 import { Booking } from '../../../models/booking';
+import { tagSeverityForStatus } from '../../../admin-ui.models';
+import { SupabaseService } from '../../../services/supabase';
 
 @Component({
   selector: 'app-my-bookings',
   standalone: true,
-  imports: [CommonModule, CardModule, ReusableTableComponent], 
-  templateUrl: './my-bookings.component.html'
+  imports: [CommonModule, ButtonModule, CardModule, ConfirmDialogModule, DatePipe, DialogModule, TableModule, TagModule, ToastModule],
+  templateUrl: './my-bookings.component.html',
+  providers: [ConfirmationService, MessageService],
 })
-export class MyBookingsComponent implements OnInit {
+export class MyBookingsComponent {
   private supabase = inject(SupabaseService);
+  private confirmationService = inject(ConfirmationService);
+  private messageService = inject(MessageService);
 
-  bookings = signal<Booking[]>([]);
-  
-  // Define the columns for the bookings table
-  bookingCols: TableColumn[] = [
-    { field: 'vehicle_display', header: 'Vehicle', sortable: true },
-    { field: 'pickup_location', header: 'Pickup' },
-    { field: 'drop_location', header: 'Drop' },
-    { field: 'start_date', header: 'Start Date', sortable: true },
-    { field: 'end_date', header: 'End Date', sortable: true },
-    { field: 'status', header: 'Status' }
-  ];
+  readonly bookings = signal<any[]>([]);
+  readonly bulkBookings = signal<any[]>([]);
+  readonly activeTab = signal<'single' | 'bulk'>('single');
+  readonly detailVisible = signal(false);
+  readonly selectedBooking = signal<any | null>(null);
+
+  readonly groupedBulkRows = computed(() =>
+    this.bulkBookings().map((bulk) => ({
+      ...bulk,
+      itemCount: (bulk.bookings ?? []).reduce((sum: number, booking: Booking) => sum + Number(booking.quantity ?? 1), 0),
+      summary: (bulk.bookings ?? [])
+        .map((booking: any) => `${booking.vehicle?.brand || booking.vehicle?.make || ''} ${booking.vehicle?.model || ''}`.trim())
+        .filter(Boolean)
+        .slice(0, 3)
+        .join(', '),
+    }))
+  );
 
   async ngOnInit() {
+    await this.loadData();
+  }
+
+  async loadData() {
     const user = await this.supabase.getCurrentUser();
-    if (!user) return;
+    if (!user) {
+      return;
+    }
 
-    const { data, error } = await this.supabase.getMyBookings(user.id);
+    const [{ data: bookings }, { data: bulkBookings }] = await Promise.all([
+      this.supabase.getMyBookings(user.id),
+      this.supabase.getMyBulkBookings(user.id),
+    ]);
 
-    if (!error && data) {
-  const rawBookings = data as any[];
+    this.bookings.set(
+      (bookings ?? []).map((booking: any) => ({
+        ...booking,
+        vehicle_display: `${booking.vehicle?.brand || booking.vehicle?.make || ''} ${booking.vehicle?.model || ''}`.trim() || 'Unknown Vehicle',
+      }))
+    );
+    this.bulkBookings.set(bulkBookings ?? []);
+  }
 
-  const transformedData = rawBookings.map(b => {
-    // Check if vehicle is an array or a single object
-    const v = Array.isArray(b.vehicle) ? b.vehicle[0] : b.vehicle;
-    
-    return {
-      ...b,
-      vehicle_display: `${v?.brand || ''} ${v?.model || ''}`.trim() || 'Unknown Vehicle'
-    };
-  });
+  statusSeverity(status: string) {
+    return tagSeverityForStatus(status);
+  }
 
-  this.bookings.set(transformedData);
-}
+  openDetail(row: any) {
+    this.selectedBooking.set(row);
+    this.detailVisible.set(true);
+  }
+
+  cancelBooking(row: any) {
+    this.confirmationService.confirm({
+      message: `Cancel booking ${row.id}?`,
+      header: 'Confirm Cancellation',
+      icon: 'pi pi-exclamation-triangle',
+      rejectButtonStyleClass: 'p-button-text',
+      acceptButtonStyleClass: 'p-button-danger',
+      accept: async () => {
+        const { error } = await this.supabase.updateBookingStatus(row.id, 'cancelled');
+        if (error) {
+          this.messageService.add({ severity: 'error', summary: 'Cancellation failed', detail: error.message || 'Could not cancel booking.' });
+          return;
+        }
+        this.messageService.add({ severity: 'success', summary: 'Booking cancelled', detail: `Booking ${row.id} has been cancelled.` });
+        await this.loadData();
+      },
+    });
   }
 }

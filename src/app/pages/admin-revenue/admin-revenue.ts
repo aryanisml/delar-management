@@ -129,9 +129,35 @@ export class AdminRevenue {
         growth: prevRevenue ? Number((((revenue - prevRevenue) / prevRevenue) * 100).toFixed(1)) : 0,
       };
     }));
+
+    const sorted = [...this.revenueRows()];
+    const thisMonth = sorted.at(-1)?.revenue ?? 0;
+    const lastMonth = sorted.at(-2)?.revenue ?? 0;
+    const yoyGrowth = lastMonth ? Number((((thisMonth - lastMonth) / lastMonth) * 100).toFixed(1)) : 0;
+    this.kpis.set([
+      { label: 'Total Revenue', value: `Rs ${Math.round(totalRevenue).toLocaleString('en-IN')}` },
+      { label: 'This Month', value: `Rs ${Math.round(thisMonth).toLocaleString('en-IN')}` },
+      { label: 'Last Month', value: `Rs ${Math.round(lastMonth).toLocaleString('en-IN')}` },
+      { label: 'YoY Growth', value: `${yoyGrowth}%` },
+    ]);
   }
 
   export(format: string) {
+    if (format === 'CSV') {
+      const rows = this.revenueRows();
+      const headers = Object.keys(rows[0] ?? { month: '', totalBookings: '', completed: '', cancelled: '', revenue: '', avg: '', growth: '' });
+      const csv = [headers.join(','), ...rows.map((row) => headers.map((header) => `"${String(row[header as keyof typeof row] ?? '')}"`).join(','))].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'revenue-report.csv';
+      link.click();
+      URL.revokeObjectURL(url);
+    } else if (format === 'PDF') {
+      window.print();
+    }
+
     this.messageService.add({
       severity: 'success',
       summary: 'Export started',
