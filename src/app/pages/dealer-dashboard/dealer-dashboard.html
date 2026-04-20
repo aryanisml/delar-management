@@ -151,7 +151,7 @@
         <app-reusable-table
           [data]="myBookings()"
           [cols]="bookingTableColumns"
-          [actionTemplate]="cancelBtn">
+          [actionTemplate]="bookingActions">
         </app-reusable-table>
       }
 
@@ -184,6 +184,43 @@
     [disabled]="row.status === 'cancelled' || row.status === 'completed'"
     (click)="cancelBooking(row.id)">
   </button>
+</ng-template>
+
+<ng-template #bookingActions let-row>
+
+  <!-- Cancel button -->
+  <button
+    *ngIf="row.status === 'pending'"
+    pButton
+    type="button"
+    label="Cancel"
+    icon="pi pi-times"
+    class="p-button-danger p-button-sm"
+    (click)="cancelBooking(row.id)">
+  </button>
+
+  <!-- Generate Quote button -->
+  <button
+    *ngIf="row.status === 'approved'"
+    pButton
+    type="button"
+    label="Generate Quote"
+    icon="pi pi-file"
+    class="p-button-success p-button-sm"
+    (click)="openQuotation(row)">
+  </button>
+
+  <!-- Optional: View Quote if already created -->
+  <button
+    *ngIf="row.status === 'approved' && row.quote_id"
+    pButton
+    type="button"
+    label="View Quote"
+    icon="pi pi-eye"
+    class="p-button-help p-button-sm"
+    (click)="openQuotation(row)">
+  </button>
+
 </ng-template>
 
 @if (selectedVehicle()) {

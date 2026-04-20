@@ -16,6 +16,7 @@ import { DealerDashboard } from './pages/dealer-dashboard/dealer-dashboard';
 import { DealerInventory } from './pages/dealer-inventory/dealer-inventory';
 import { Login } from './pages/login/login';
 import { ProfileComponent } from './pages/profile/profile';
+import { QuotationComponent } from './pages/dealer-quotation/quotation.component';
 
 export const routes: Routes = [
   { path: 'login', component: Login },
@@ -39,16 +40,17 @@ export const routes: Routes = [
         ],
       },
       {
-        path: 'dealer',
-        children: [
-          { path: '', component: DealerDashboard, data: { title: 'Dashboard' } },
-          { path: 'dashboard', component: DealerDashboard, data: { title: 'Dashboard' } },
-          { path: 'my-bookings', component: MyBookingsComponent, data: { title: 'My Bookings' } },
-          { path: 'inventory', component: DealerInventory, data: { title: 'Inventory' } },
-          { path: 'analytics', component: DealerAnalytics, data: { title: 'Analytics' } },
-          { path: 'bookings', component: DealerBookings, data: { title: 'Bookings' } },
-        ],
-      },
+  path: 'dealer',
+  children: [
+    { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
+    { path: 'dashboard', component: DealerDashboard },
+    { path: 'my-bookings', component: MyBookingsComponent },
+    { path: 'inventory', component: DealerInventory },
+    { path: 'analytics', component: DealerAnalytics },
+    { path: 'bookings', component: DealerBookings },
+    { path: 'quotation/:bookingId', component: QuotationComponent },
+  ],
+},
       { path: 'profile', component: ProfileComponent, data: { title: 'Profile' } },
       { path: '', redirectTo: 'admin/dashboard', pathMatch: 'full' },
     ],

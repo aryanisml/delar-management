@@ -1,0 +1,53 @@
+<p-toast></p-toast>
+
+<p-card>
+  <h2>Quotation</h2>
+
+  <!-- Customer Details -->
+  <h3>Customer Details</h3>
+
+  <div class="grid">
+    <input pInputText [(ngModel)]="customer.name" placeholder="Full Name *" />
+    <input pInputText [(ngModel)]="customer.mobile" placeholder="+91 Mobile *" />
+    <input pInputText [(ngModel)]="customer.email" placeholder="Email" />
+
+    <input pInputText [(ngModel)]="customer.license" placeholder="DL Number *" />
+    <p-datepicker [(ngModel)]="customer.licenseExpiry"></p-datepicker>
+
+    <p-select
+      [options]="[
+        { label: 'Individual', value: 'individual' },
+        { label: 'Business', value: 'business' }
+      ]"
+      [(ngModel)]="customer.type">
+    </p-select>
+
+    <div *ngIf="customer.type === 'business'">
+      <input pInputText [(ngModel)]="customer.businessName" placeholder="Business Name" />
+      <input pInputText [(ngModel)]="customer.gst" placeholder="GST Number" />
+    </div>
+  </div>
+
+  <!-- Vehicle -->
+  <h3>Vehicle</h3>
+  <p>{{ vehicle?.make }} {{ vehicle?.model }}</p>
+
+  <!-- Pricing -->
+  <h3>Pricing</h3>
+
+  <p>Rate: ₹{{ rate }}/day</p>
+  <p>Days: {{ days }}</p>
+  <p>Base: ₹{{ baseCost | currency:'INR':'symbol':'1.0-2' }}</p>
+  <p>GST (18%): ₹{{ gst | currency:'INR':'symbol':'1.0-2' }}</p>
+  <p>Deposit: ₹{{ securityDeposit | currency:'INR':'symbol':'1.0-2' }}</p>
+  <p>Advance: ₹{{ advance | currency:'INR':'symbol':'1.0-2' }}</p>
+
+  <h2>Total: ₹{{ finalAmount | currency:'INR':'symbol':'1.0-2' }}</h2>
+
+  <!-- Actions -->
+  <div class="actions">
+    <button pButton label="Save Draft" (click)="saveDraft()"></button>
+    <button pButton label="Send Quote" (click)="sendQuote()"></button>
+    <button pButton label="Confirm Booking" class="p-button-success" (click)="confirmBooking()"></button>
+  </div>
+</p-card>

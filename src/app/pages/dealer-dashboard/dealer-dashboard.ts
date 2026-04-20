@@ -117,6 +117,10 @@ export class DealerDashboard {
     },
     cutout: '60%',
   };
+  
+  openQuotation(booking: any) {
+  this.router.navigate(['/dealer/quotation', booking.id]);
+}
 
   tableColumns: TableColumn[] = [
     { field: 'vin', header: 'VIN', sortable: true },

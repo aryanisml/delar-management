@@ -34,13 +34,68 @@
             <td>{{ row.start_date | date:'mediumDate' }} - {{ row.end_date | date:'mediumDate' }}</td>
             <td><p-tag [value]="row.status | uppercase" [severity]="statusSeverity(row.status)"></p-tag></td>
             <td>
-              <div class="flex gap-1">
-                <button pButton type="button" icon="pi pi-eye" text (click)="openDetail(row)"></button>
-                @if (row.status === 'pending') {
-                  <button pButton type="button" icon="pi pi-times" text severity="danger" (click)="cancelBooking(row)"></button>
-                }
-              </div>
-            </td>
+  <div class="flex gap-1">
+
+    <!-- View -->
+    <button
+      pButton
+      type="button"
+      icon="pi pi-eye"
+      text
+      (click)="openDetail(row)">
+    </button>
+
+    <!-- Cancel -->
+    @if (row.status === 'pending') {
+      <button
+        pButton
+        type="button"
+        icon="pi pi-times"
+        text
+        severity="danger"
+        (click)="cancelBooking(row)">
+      </button>
+    }
+
+    <!-- ✅ Generate Quote -->
+      <!--@if (row.status === 'approved' && !row.quote_status) { -->
+     @if (1===1){
+      <button
+        pButton
+        type="button"
+        icon="pi pi-file"
+        text
+        severity="success"
+        (click)="openQuotation(row.id)">
+      </button>
+    }
+
+    <!-- ✅ View Quote -->
+    @if (row.quote_status === 'sent') {
+      <button
+        pButton
+        type="button"
+        icon="pi pi-eye"
+        text
+        severity="info"
+        (click)="openQuotation(row.id)">
+      </button>
+    }
+
+    <!-- ✅ Confirmed -->
+    @if (row.status === 'confirmed') {
+      <button
+        pButton
+        type="button"
+        icon="pi pi-check"
+        text
+        severity="secondary"
+        disabled>
+      </button>
+    }
+
+  </div>
+</td>
           </tr>
         </ng-template>
       </p-table>
