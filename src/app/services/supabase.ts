@@ -127,6 +127,14 @@ export class SupabaseService {
     return await this.supabase.from('bookings').select('*').order('created_at', { ascending: false });
   }
 
+  async getBookingWithVehicle(bookingId: string) {
+    return await this.supabase
+      .from('bookings')
+      .select(`*, vehicle (*)`)
+      .eq('id', bookingId)
+      .single();
+  }
+
   async addVehicle(vehicle: any) {
     return await this.supabase.from(this.vehiclesTable).insert([vehicle]);
   }
@@ -178,6 +186,49 @@ export class SupabaseService {
       `)
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
+  }
+
+  async getQuotationByBooking(bookingId: string) {
+    try {
+      return await this.supabase.from('quotations').select('*').eq('booking_id', bookingId).maybeSingle();
+    } catch (error) {
+      return { data: null, error };
+    }
+  }
+
+  async searchCustomers(query: string) {
+    const term = query.trim();
+    if (term.length < 3) {
+      return { data: [], error: null };
+    }
+
+    try {
+      return await this.supabase
+        .from('customers')
+        .select('*')
+        .or(`mobile.ilike.%${term}%,email.ilike.%${term}%,full_name.ilike.%${term}%`)
+        .limit(6);
+    } catch (error) {
+      return { data: [], error };
+    }
+  }
+
+  async validatePromotion(code: string) {
+    const normalized = code.trim().toUpperCase();
+    if (!normalized) {
+      return { data: null, error: null };
+    }
+
+    try {
+      return await this.supabase
+        .from('promotions')
+        .select('*')
+        .eq('code', normalized)
+        .eq('active', true)
+        .maybeSingle();
+    } catch (error) {
+      return { data: null, error };
+    }
   }
 
   async getBookingsByVehicle(vehicleId: string) {

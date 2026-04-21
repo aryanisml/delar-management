@@ -10,6 +10,7 @@ import { AdminUsers } from './pages/admin-users/admin-users';
 import { authGuard } from './auth-guard';
 import { Layout } from './layout/layout';
 import { MyBookingsComponent } from './pages/booking/my-bookings/my-bookings.component';
+import { CustomerDetailsComponent } from './pages/booking/customer-details/customer-details.component';
 import { DealerAnalytics } from './pages/dealer-analytics/dealer-analytics';
 import { DealerBookings } from './pages/dealer-bookings/dealer-bookings';
 import { DealerDashboard } from './pages/dealer-dashboard/dealer-dashboard';
@@ -48,6 +49,8 @@ export const routes: Routes = [
     { path: 'inventory', component: DealerInventory },
     { path: 'analytics', component: DealerAnalytics },
     { path: 'bookings', component: DealerBookings },
+    { path: 'booking/:bookingId/customer-details', component: CustomerDetailsComponent },
+    { path: 'booking/:bookingId/quotation', component: QuotationComponent },
     { path: 'quotation/:bookingId', component: QuotationComponent },
   ],
 },

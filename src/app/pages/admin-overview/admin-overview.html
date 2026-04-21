@@ -57,16 +57,15 @@
       </div>
     </section>
 
-    <section class="overview-analytics-layout">
-      <p-card styleClass="overview-panel overview-panel--trend">
+    <section>
+      <p-card styleClass="overview-panel overview-panel--trend overview-panel--full-trend">
         <div class="overview-panel__header">
           <div>
             <p class="admin-section-label mb-2">Bookings Performance</p>
-            <p class="m-0 text-4xl font-bold text-slate-950">{{ totalTrendMetric() | currency:'INR':'symbol':'1.0-0' }}</p>
+            <p class="m-0 text-sm text-gray-500">Confirmed and completed booking movement across the selected period.</p>
           </div>
           <div class="overview-panel__actions">
             <p-selectButton [options]="periodOptions" [(ngModel)]="period"></p-selectButton>
-            <button pButton type="button" icon="pi pi-download" outlined (click)="downloadChart()"></button>
           </div>
         </div>
 
@@ -74,66 +73,11 @@
           <p-chart #bookingsTrendChart type="line" [data]="trendChartData()" [options]="trendChartOptions()"></p-chart>
         </div>
       </p-card>
-
-      <p-card styleClass="overview-panel overview-panel--status">
-        <div class="overview-panel__header overview-panel__header--stacked">
-          <div>
-            <p class="admin-section-label mb-2">Vehicle Status Distribution</p>
-            <p class="m-0 text-sm text-slate-500">Same fleet numbers, shown in a tighter operational split.</p>
-          </div>
-        </div>
-
-        <div class="status-panel-layout">
-          <div class="status-chart-shell">
-            <p-chart type="doughnut" [data]="statusChartData()" [options]="statusChartOptions()" height="260"></p-chart>
-            <div class="status-chart-shell__center">
-              <p class="m-0 text-xs uppercase tracking-widest text-gray-400">Total Vehicles</p>
-              <p class="m-0 text-4xl font-bold text-slate-950">{{ stats().total }}</p>
-            </div>
-          </div>
-
-          <div class="status-legend-list">
-            @for (legend of statusLegend(); track legend.label) {
-              <div class="status-legend-item">
-                <div class="status-legend-item__left">
-                  <span class="status-legend-item__dot" [style.background]="legend.color"></span>
-                  <span class="status-legend-item__label">{{ legend.label }}</span>
-                </div>
-                <span class="status-legend-item__value">{{ legend.value }} | {{ legend.percent }}%</span>
-              </div>
-            }
-          </div>
-        </div>
-      </p-card>
     </section>
 
-    <section class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-      <p-card styleClass="overview-panel">
-        <p class="admin-section-label mb-4">Monthly Revenue Trend</p>
-        <div class="h-80">
-          <p-chart type="bar" [data]="revenueChartData()" [options]="revenueChartOptions()"></p-chart>
-        </div>
-      </p-card>
-
-      <p-card styleClass="overview-panel">
-        <p class="admin-section-label mb-4">Booking Funnel</p>
-        @for (stage of pipeline(); track stage.label) {
-          <div class="mb-5">
-            <div class="mb-2 flex items-center justify-between gap-2">
-              <span class="text-sm font-medium text-gray-700">{{ stage.label }}</span>
-              <div class="text-right">
-                <span class="text-sm font-bold text-gray-900">{{ stage.count }}</span>
-                <span class="ml-2 text-xs text-gray-400">{{ stage.pct }}% of total</span>
-              </div>
-            </div>
-            <p-progressBar [value]="stage.pct" [showValue]="false" styleClass="h-2 rounded-full"></p-progressBar>
-          </div>
-        }
-      </p-card>
-    </section>
-
-    <section class="grid grid-cols-1 gap-6 lg:grid-cols-3">
-      <p-card styleClass="overview-panel">
+    <section class="overview-ops-grid">
+      <div class="overview-ops-left">
+        <p-card styleClass="overview-panel overview-panel--activity">
         <div class="mb-4 flex items-center justify-between">
           <div>
             <p class="admin-section-label mb-1">Recent Activity</p>
@@ -142,138 +86,90 @@
               LIVE
             </p>
           </div>
+          <button pButton type="button" label="View All" text size="small" (click)="goTo('/admin/audit')"></button>
         </div>
-        <div class="max-h-[360px] overflow-y-auto pr-2">
-          <p-timeline [value]="activities()">
+
+        <div class="activity-list">
+          <p-timeline [value]="activities().slice(0, 5)">
             <ng-template pTemplate="marker" let-event>
-              <span class="flex h-8 w-8 items-center justify-center rounded-full text-white" [style.background]="event.color">
+              <span class="activity-marker" [ngClass]="activityMarkerClass(event)">
                 <i [class]="event.icon + ' text-sm'"></i>
               </span>
             </ng-template>
             <ng-template pTemplate="content" let-event>
-              <div class="rounded-xl border border-border p-3">
-                <p class="m-0 text-sm font-semibold text-gray-900">{{ event.actor }}</p>
-                <p class="my-1 text-sm text-gray-600">{{ event.action }}</p>
-                <p class="m-0 text-xs text-gray-400">{{ event.time }}</p>
+              <div class="activity-card">
+                <p class="activity-card__actor">{{ event.actor }}</p>
+                <p class="activity-card__copy">{{ event.action }}</p>
+                <p class="activity-card__time">{{ event.time }}</p>
               </div>
             </ng-template>
           </p-timeline>
         </div>
       </p-card>
 
-      <p-card styleClass="overview-panel">
-        <p class="admin-section-label mb-4">Today's Bookings Summary</p>
+        <p-card styleClass="overview-panel overview-panel--mini-bookings">
+        <div class="overview-panel__header overview-panel__header--compact">
+          <div>
+            <p class="admin-section-label mb-1">Today's Bookings</p>
+            <p class="m-0 text-sm text-gray-500">Most recent booking activity for today.</p>
+          </div>
+          <button pButton type="button" label="View All" icon="pi pi-arrow-right" iconPos="right" text (click)="goTo('/admin/bookings')"></button>
+        </div>
+
         @if (todayBookings().length) {
-          <p-dataView [value]="todayBookings()" layout="list">
-            <ng-template pTemplate="list" let-items>
-              <div class="space-y-3">
-                @for (booking of items; track booking.id) {
-                  <div class="flex items-center justify-between rounded-xl border border-border p-3">
-                    <div class="flex items-center gap-3">
-                      <p-avatar [label]="booking.vehicleType.charAt(0)" shape="circle"></p-avatar>
-                      <div>
-                        <p class="m-0 font-medium text-gray-900">{{ booking.vehicle }}</p>
-                        <p class="m-0 text-sm text-gray-400">{{ booking.startDate | date:'shortTime' }} - {{ booking.endDate | date:'shortTime' }}</p>
-                      </div>
-                    </div>
-                    <p-tag [value]="booking.status" [severity]="statusSeverity(booking.status)"></p-tag>
-                  </div>
-                }
-              </div>
+          <p-table [value]="todayBookings().slice(0, 5)" responsiveLayout="scroll" styleClass="mini-bookings-table">
+            <ng-template pTemplate="header">
+              <tr>
+                <th>Booking ID</th>
+                <th>Vehicle</th>
+                <th>Customer</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
             </ng-template>
-          </p-dataView>
+            <ng-template pTemplate="body" let-booking>
+              <tr>
+                <td class="font-mono">#{{ booking.id }}</td>
+                <td>{{ booking.vehicle }}</td>
+                <td>{{ booking.userName }}</td>
+                <td><p-tag [value]="booking.status" [severity]="statusSeverity(booking.status)"></p-tag></td>
+                <td><button pButton type="button" icon="pi pi-eye" text (click)="goTo('/admin/bookings')"></button></td>
+              </tr>
+            </ng-template>
+          </p-table>
         } @else {
-          <div class="flex min-h-56 flex-col items-center justify-center text-center text-gray-400">
-            <i class="pi pi-calendar text-4xl mb-3"></i>
+          <div class="overview-empty-state">
+            <i class="pi pi-calendar"></i>
             <p class="m-0 font-medium">No bookings today</p>
           </div>
         }
-        <div class="mt-4">
-          <button pButton type="button" label="View All Bookings" icon="pi pi-arrow-right" iconPos="right" text (click)="goTo('/admin/bookings')"></button>
-        </div>
       </p-card>
+      </div>
 
-      <p-card styleClass="overview-panel">
+      <p-card styleClass="overview-panel overview-panel--actions">
         <div class="mb-4 flex items-center justify-between">
           <div>
             <p class="admin-section-label mb-1">Actions Needed</p>
             <p class="m-0 text-sm font-semibold text-gray-900">Priority queue</p>
           </div>
-          <p-tag [value]="actionsNeeded().length + ' ITEMS'" severity="danger"></p-tag>
+          <p-tag [value]="actionsNeeded().length + ' items'" severity="danger"></p-tag>
         </div>
-        <div class="space-y-3">
-          @for (item of actionsNeeded(); track item.title) {
-            <div class="rounded-xl border-l-4 p-4" [ngClass]="item.type === 'danger' ? 'border-danger bg-red-50' : 'border-warning bg-amber-50'">
-              <div class="flex items-start gap-3">
-                <i [class]="item.icon + ' mt-1 text-sm ' + (item.type === 'danger' ? 'text-red-600' : 'text-amber-600')"></i>
-                <div class="flex-1">
-                  <p class="m-0 font-semibold text-gray-900">{{ item.title }}</p>
-                  <p class="my-2 text-sm text-gray-600">{{ item.detail }}</p>
-                  <button pButton type="button" label="Resolve" size="small" outlined (click)="goTo(item.route)"></button>
-                </div>
+
+        <div class="priority-list">
+          @for (item of actionsNeeded().slice(0, 4); track item.title) {
+            <div class="priority-item" [ngClass]="priorityItemClass(item)">
+              <i [class]="item.icon"></i>
+              <div class="priority-item__content">
+                <p>{{ item.title }}</p>
+                <span>{{ item.detail }}</span>
               </div>
+              <button pButton type="button" label="Resolve" size="small" outlined (click)="goTo(item.route)"></button>
             </div>
           }
+          @if (actionsNeeded().length > 4) {
+            <button pButton type="button" label="View All" text (click)="goTo('/admin/bookings')"></button>
+          }
         </div>
-      </p-card>
-    </section>
-
-    <section>
-      <p-card styleClass="overview-panel">
-        <div class="mb-5 flex items-center justify-between">
-          <div>
-            <p class="admin-section-label mb-1">Recent Bookings</p>
-            <p class="m-0 text-sm text-gray-500">Latest 10 bookings from the operations queue</p>
-          </div>
-        </div>
-        <p-table [value]="bookings()" [rows]="10" responsiveLayout="scroll">
-          <ng-template pTemplate="header">
-            <tr>
-              <th>Booking ID</th>
-              <th pSortableColumn="vehicle">Vehicle</th>
-              <th pSortableColumn="userName">User</th>
-              <th pSortableColumn="startDate">Start Date</th>
-              <th pSortableColumn="endDate">End Date</th>
-              <th pSortableColumn="status">Status</th>
-              <th>Priority</th>
-              <th>Actions</th>
-            </tr>
-          </ng-template>
-          <ng-template pTemplate="body" let-booking>
-            <tr>
-              <td class="font-mono text-sm text-gray-700">#{{ booking.id }}</td>
-              <td>
-                <div class="flex items-center gap-3">
-                  <p-avatar [label]="booking.vehicleType.charAt(0)"></p-avatar>
-                  <div>
-                    <p class="m-0 font-medium text-gray-900">{{ booking.vehicle }}</p>
-                    <p class="m-0 text-xs text-gray-400">{{ booking.vehicleType }}</p>
-                  </div>
-                </div>
-              </td>
-              <td>
-                <div class="flex items-center gap-3">
-                  <p-avatar [label]="booking.userName.charAt(0)" shape="circle"></p-avatar>
-                  <div>
-                    <p class="m-0 font-medium text-gray-900">{{ booking.userName }}</p>
-                    <p class="m-0 text-xs text-gray-400">{{ booking.userEmail }}</p>
-                  </div>
-                </div>
-              </td>
-              <td>{{ booking.startDate | date:'medium' }}</td>
-              <td>{{ booking.endDate | date:'mediumDate' }}</td>
-              <td><p-tag [value]="booking.status" [severity]="statusSeverity(booking.status)"></p-tag></td>
-              <td><p-tag [value]="booking.priority" [severity]="prioritySeverity(booking.priority)"></p-tag></td>
-              <td>
-                <div class="flex gap-2">
-                  <button pButton type="button" icon="pi pi-eye" text pTooltip="View"></button>
-                  <button pButton type="button" icon="pi pi-pencil" text pTooltip="Edit"></button>
-                  <button pButton type="button" icon="pi pi-times" text severity="danger" pTooltip="Cancel"></button>
-                </div>
-              </td>
-            </tr>
-          </ng-template>
-        </p-table>
       </p-card>
     </section>
   }

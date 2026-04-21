@@ -20,10 +20,10 @@
 }
 
 :host ::ng-deep .dealer-dashboard-shell .dealer-profile-card,
-:host ::ng-deep .dealer-dashboard-shell .dealer-chart-card,
 :host ::ng-deep .dealer-dashboard-shell .dealer-section-card {
-  border: 1px solid #e5e7eb;
-  border-radius: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--card-bg);
   box-shadow: 0 20px 45px -32px rgba(15, 23, 42, 0.28);
   overflow: hidden;
 }
@@ -43,28 +43,21 @@
   gap: 1.5rem;
 }
 
-.dashboard-top-section {
-  display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(320px, 0.9fr);
-  gap: 1.5rem;
-  align-items: stretch;
-}
-
 .kpi-wrapper {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1rem;
 }
 
-.chart-panel {
-  min-height: 260px;
+.kpi-wrapper--full {
+  width: 100%;
 }
 
 .table-wrap {
   min-height: 260px;
-  border: 1px solid #e5e7eb;
-  border-radius: 1rem;
-  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--card-bg);
   overflow: hidden;
 }
 
@@ -87,34 +80,30 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #1a56db 0%, #2563eb 100%);
+  background: var(--brand-primary);
   color: #ffffff;
   font-size: 1.5rem;
   font-weight: 700;
-  box-shadow: 0 14px 30px -20px rgba(26, 86, 219, 0.9);
+  box-shadow: 0 14px 30px -20px rgba(0, 180, 166, 0.9);
 }
 
 .dealer-meta-chip {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  border: 1px solid #dbeafe;
+  border: 1px solid var(--border);
   border-radius: 9999px;
-  background: #eff6ff;
+  background: var(--surface-muted);
   padding: 0.45rem 0.85rem;
 }
 
 .dealer-profile-stat {
   min-width: 10rem;
-  border-left: 1px solid #e5e7eb;
+  border-left: 1px solid var(--border);
   padding-left: 1.25rem;
 }
 
 @media (max-width: 1100px) {
-  .dashboard-top-section {
-    grid-template-columns: 1fr;
-  }
-
   .kpi-wrapper {
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   }
@@ -124,7 +113,7 @@
   .dealer-profile-stat {
     min-width: 100%;
     border-left: 0;
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid var(--border);
     padding-left: 0;
     padding-top: 1rem;
   }

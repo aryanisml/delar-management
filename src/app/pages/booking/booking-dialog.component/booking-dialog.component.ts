@@ -55,7 +55,7 @@ export class BookingDialogComponent {
   isInvalid() {
     return !this.pickupLocation || !this.dropLocation || !this.startDate || !this.endDate || !this.purpose;
   }
-  
+
   submit() {
     if (this.isInvalid()) {
       return;

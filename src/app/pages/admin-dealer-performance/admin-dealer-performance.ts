@@ -150,6 +150,19 @@ export class AdminDealerPerformance {
     return tagSeverityForPriority(priority);
   }
 
+  priorityDotClass(priority: string) {
+    switch (priority.toLowerCase()) {
+      case 'urgent':
+        return 'priority-dot--urgent';
+      case 'high':
+        return 'priority-dot--high';
+      case 'normal':
+        return 'priority-dot--normal';
+      default:
+        return 'priority-dot--low';
+    }
+  }
+
   tabCount(status: string | null) {
     return `${this.bookings().filter((booking) => !status || booking.status === status).length}`;
   }

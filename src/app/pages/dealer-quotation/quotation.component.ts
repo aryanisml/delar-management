@@ -1,16 +1,16 @@
-import { CommonModule } from '@angular/common';
-import { Component, inject } from '@angular/core';
+import { CommonModule, CurrencyPipe } from '@angular/common';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { SupabaseService } from '../../services/supabase';
-
-import { InputTextModule } from 'primeng/inputtext';
+import { MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
-import { DatePickerModule } from 'primeng/datepicker';
-import { SelectModule } from 'primeng/select';
+import { DialogModule } from 'primeng/dialog';
+import { InputTextModule } from 'primeng/inputtext';
+import { TagModule } from 'primeng/tag';
 import { ToastModule } from 'primeng/toast';
-import { MessageService } from 'primeng/api';
+import { BookingFlowService } from '../../services/booking-flow';
+import { SupabaseService } from '../../services/supabase';
 
 @Component({
   selector: 'app-quotation',
@@ -20,213 +20,197 @@ import { MessageService } from 'primeng/api';
   imports: [
     CommonModule,
     FormsModule,
-    InputTextModule,
     ButtonModule,
     CardModule,
-    DatePickerModule,
-    SelectModule,
-    ToastModule
+    CurrencyPipe,
+    DialogModule,
+    InputTextModule,
+    TagModule,
+    ToastModule,
   ],
-  providers: [MessageService]
+  providers: [MessageService],
 })
 export class QuotationComponent {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private supabase = inject(SupabaseService);
   private messageService = inject(MessageService);
-  loading = false;
+  readonly flow = inject(BookingFlowService);
 
-  booking: any;
-  vehicle: any;
+  readonly loading = signal(false);
+  readonly promoCode = signal('');
+  readonly promoMessage = signal('');
+  readonly discount = signal(0);
+  readonly previewVisible = signal(false);
+  readonly termsOpen = signal(false);
+  readonly advisor = signal<{ name: string; id: string }>({ name: 'Rental Advisor', id: 'advisor' });
 
-  // Customer Form
-  customer = {
-    name: '',
-    mobile: '',
-    email: '',
-    license: '',
-    licenseExpiry: '',
-    type: 'individual',
-    businessName: '',
-    gst: ''
-  };
+  readonly booking = this.flow.booking;
+  readonly vehicle = this.flow.vehicle;
+  readonly customer = this.flow.customer;
+  readonly duration = this.flow.duration;
+  readonly durationLabel = this.flow.durationLabel;
 
-  // Pricing
-  rate = 0;
-  days = 0;
-  baseCost = 0;
-  gst = 0;
-  advance = 0;
-  securityDeposit = 0;
-  finalAmount = 0;
+  readonly referenceNumber = computed(() => {
+    const id = this.booking()?.id || this.route.snapshot.paramMap.get('bookingId') || 'DRAFT';
+    return `QT-${String(id).replace(/-/g, '').slice(0, 8).toUpperCase()}`;
+  });
+
+  readonly rate = computed(() => Number(this.vehicle()?.daily_rate ?? this.vehicle()?.dailyRate ?? 0));
+  readonly billableDays = computed(() => this.duration().totalDays);
+  readonly baseCost = computed(() => this.rate() * this.billableDays());
+  readonly securityDeposit = computed(() =>
+    Number(this.vehicle()?.security_deposit ?? this.vehicle()?.securityDeposit ?? this.baseCost())
+  );
+  readonly advance = computed(() => this.baseCost() * 0.5);
+  readonly gst = computed(() => Math.max(0, this.baseCost() - this.discount()) * 0.18);
+  readonly extraMileageRate = computed(() => Number(this.vehicle()?.extra_mileage_rate ?? this.vehicle()?.extraMileageRate ?? 18));
+  readonly fuelPolicy = computed(() => this.vehicle()?.fuel_policy ?? this.vehicle()?.fuelPolicy ?? 'Full-to-Full');
+  readonly isOutstation = computed(() => String(this.booking()?.purpose ?? '').toLowerCase().includes('outstation'));
+  readonly grandTotal = computed(() => Math.max(0, this.baseCost() - this.discount()) + this.gst());
 
   async ngOnInit() {
-    if (this.loading) return;
-  this.loading = true;
-  const id = this.route.snapshot.paramMap.get('bookingId');
+    const id = this.route.snapshot.paramMap.get('bookingId');
+    if (!id) {
+      await this.router.navigate(['/dealer/my-bookings']);
+      return;
+    }
 
-  // 🚨 STOP if no ID (prevents infinite loop)
-  if (!id) {
-    this.router.navigate(['/dealer/my-bookings']);
-    return;
+    this.loading.set(true);
+    const [booking, user] = await Promise.all([this.flow.loadBooking(id), this.supabase.getCurrentUser()]);
+    this.loading.set(false);
+
+    if (!booking) {
+      this.messageService.add({ severity: 'error', summary: 'Booking unavailable', detail: 'Could not load this quotation.' });
+      await this.router.navigate(['/dealer/my-bookings']);
+      return;
+    }
+
+    this.advisor.set({
+      name: (user?.user_metadata as Record<string, string> | undefined)?.['full_name'] || user?.email?.split('@')[0] || 'Rental Advisor',
+      id: user?.id?.slice(0, 8) || 'advisor',
+    });
   }
 
-  const { data, error } = await this.supabase.supabase
-    .from('bookings')
-    .select(`*, vehicle(*)`)
-    .eq('id', id)
-    .single();
-
-  // ✅ Handle refresh / invalid URL
-  if (error || !data) {
-    this.router.navigate(['/dealer/my-bookings']);
-    return;
+  baseFormula() {
+    return `${this.rate().toLocaleString('en-IN')}/day x ${this.billableDays()} = ${this.baseCost().toLocaleString('en-IN')}`;
   }
 
-  this.booking = data;
-  this.vehicle = data.vehicle;
+  async applyPromo() {
+    const code = this.promoCode().trim().toUpperCase();
+    this.promoMessage.set('');
+    this.discount.set(0);
 
-  this.calculatePricing();
-}
+    if (!code) {
+      return;
+    }
 
-  calculatePricing() {
-  if (!this.vehicle || !this.booking) return;
+    const { data, error } = await this.supabase.validatePromotion(code);
+    if (error || !data) {
+      this.promoMessage.set('Promo code is not active or could not be validated.');
+      return;
+    }
 
-  this.rate = this.vehicle.daily_rate || 0;
+    const percent = Number(data.discount_percent ?? data.percent ?? 0);
+    const amount = Number(data.discount_amount ?? data.amount ?? 0);
+    const nextDiscount = percent > 0 ? (this.baseCost() * percent) / 100 : amount;
+    this.discount.set(Math.min(this.baseCost(), Math.max(0, nextDiscount)));
+    this.flow.patchQuotation({ promoCode: code, discount: this.discount() });
+    this.promoMessage.set('Promo code applied.');
+  }
 
-  const start = new Date(this.booking.start_date);
-  const end = new Date(this.booking.end_date);
-
-  this.days = Math.max(
-    1,
-    Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
-  );
-
-  this.baseCost = this.rate * this.days;
-  this.securityDeposit = this.baseCost * 0.2;
-  this.advance = this.baseCost * 0.5;
-  this.gst = this.baseCost * 0.18;
-
-  this.finalAmount = this.baseCost + this.gst;
-}
-
-  validateForm(): boolean {
-    if (!this.customer.name || !this.customer.mobile || !this.customer.license) {
-      this.messageService.add({
-        severity: 'warn',
-        summary: 'Missing Fields',
-        detail: 'Please fill all required fields'
-      });
+  async saveQuotation(status: 'draft' | 'sent' | 'accepted') {
+    if (!this.booking()) {
       return false;
     }
 
-    if (this.customer.mobile.length < 10) {
-      this.messageService.add({
-        severity: 'warn',
-        summary: 'Invalid Mobile',
-        detail: 'Enter valid mobile number'
-      });
+    const customer = this.customer();
+    const payload = {
+      booking_id: this.booking().id,
+      quotation_ref: this.referenceNumber(),
+      advisor_name: this.advisor().name,
+      advisor_id: this.advisor().id,
+      customer_name: customer.fullName,
+      country_code: customer.countryCode,
+      mobile: customer.mobile,
+      email: customer.email,
+      license: customer.licenceNumber,
+      license_expiry: customer.licenceExpiry ? new Date(customer.licenceExpiry).toISOString() : null,
+      customer_type: customer.customerType,
+      business_name: customer.businessName,
+      gst_number: customer.gstNumber,
+      id_proof_type: customer.idProofType,
+      id_proof_file_name: customer.idProofFileName,
+      id_proof_preview: customer.idProofPreview,
+      rate: this.rate(),
+      days: this.billableDays(),
+      duration_label: this.durationLabel(),
+      base_cost: this.baseCost(),
+      gst: this.gst(),
+      advance: this.advance(),
+      security_deposit: this.securityDeposit(),
+      fuel_policy: this.fuelPolicy(),
+      extra_mileage_rate: this.isOutstation() ? this.extraMileageRate() : null,
+      promo_code: this.promoCode().trim().toUpperCase() || null,
+      discount: this.discount(),
+      final_amount: this.grandTotal(),
+      status,
+    };
+
+    const { error } = await this.supabase.supabase.from('quotations').upsert(payload, { onConflict: 'booking_id' });
+    if (error) {
+      this.messageService.add({ severity: 'error', summary: 'Save failed', detail: 'Failed to save quotation.' });
       return false;
     }
 
     return true;
   }
-  
-  async saveQuotation(status: 'draft' | 'sent' | 'accepted') {
-  const payload = {
-    booking_id: this.booking.id,
 
-    customer_name: this.customer.name,
-    mobile: this.customer.mobile,
-    email: this.customer.email,
-    license: this.customer.license,
-    license_expiry: this.customer.licenseExpiry,
-    customer_type: this.customer.type,
-    business_name: this.customer.businessName,
-    gst_number: this.customer.gst,
+  async saveDraft() {
+    if (!(await this.saveQuotation('draft'))) {
+      return;
+    }
 
-    rate: this.rate,
-    days: this.days,
-    base_cost: this.baseCost,
-    gst: this.gst,
-    advance: this.advance,
-    security_deposit: this.securityDeposit,
-    final_amount: this.finalAmount,
-
-    status
-  };
-
-  // 🔁 UPSERT (insert or update)
-  const { error } = await this.supabase.supabase
-    .from('quotations')
-    .upsert(payload, { onConflict: 'booking_id' });
-
-  if (error) {
-    console.error(error);
-    this.messageService.add({
-      severity: 'error',
-      summary: 'Error',
-      detail: 'Failed to save quotation'
-    });
-    return false;
+    await this.supabase.supabase.from('bookings').update({ quote_status: 'draft' }).eq('id', this.booking().id);
+    this.messageService.add({ severity: 'success', summary: 'Saved', detail: 'Quotation saved as draft.' });
   }
 
-  return true;
-}
+  async sendQuote(channel: 'Email' | 'SMS' | 'WhatsApp') {
+    if (!(await this.saveQuotation('sent'))) {
+      return;
+    }
 
-async saveDraft() {
-  if (!this.validateForm()) return;
-
-  const success = await this.saveQuotation('draft');
-  if (!success) return;
-
-  await this.supabase.supabase
-    .from('bookings')
-    .update({ quote_status: 'draft' })
-    .eq('id', this.booking.id);
-
-  this.messageService.add({
-    severity: 'success',
-    summary: 'Saved',
-    detail: 'Quotation saved as draft'
-  });
-}
-  async sendQuote() {
-  if (!this.validateForm()) return;
-
-  const success = await this.saveQuotation('sent');
-  if (!success) return;
-
-  await this.supabase.supabase
-    .from('bookings')
-    .update({ quote_status: 'sent' })
-    .eq('id', this.booking.id);
-
-  this.messageService.add({
-    severity: 'success',
-    summary: 'Sent',
-    detail: 'Quotation sent'
-  });
-}
+    await this.supabase.supabase.from('bookings').update({ quote_status: 'sent' }).eq('id', this.booking().id);
+    this.messageService.add({ severity: 'success', summary: 'Quotation sent', detail: `Sent via ${channel}.` });
+  }
 
   async confirmBooking() {
-  const success = await this.saveQuotation('accepted');
-  if (!success) return;
+    if (!(await this.saveQuotation('accepted'))) {
+      return;
+    }
 
-  await this.supabase.supabase
-    .from('bookings')
-    .update({
-      status: 'confirmed',
-      quote_status: 'accepted'
-    })
-    .eq('id', this.booking.id);
+    await this.supabase.supabase
+      .from('bookings')
+      .update({ status: 'confirmed', quote_status: 'accepted' })
+      .eq('id', this.booking().id);
 
-  this.messageService.add({
-    severity: 'success',
-    summary: 'Confirmed',
-    detail: 'Booking confirmed'
-  });
+    this.messageService.add({
+      severity: 'success',
+      summary: 'Booking confirmed',
+      detail: 'Step 5 payment and confirmation screen is planned for a future sprint.',
+    });
+    await this.router.navigate(['/dealer/my-bookings']);
+  }
 
-  this.router.navigate(['/dealer/my-bookings']);
-}
+  openPreview() {
+    this.previewVisible.set(true);
+  }
+
+  printPreview() {
+    window.print();
+  }
+
+  async backToCustomer() {
+    await this.router.navigate(['/dealer/booking', this.booking().id, 'customer-details']);
+  }
 }

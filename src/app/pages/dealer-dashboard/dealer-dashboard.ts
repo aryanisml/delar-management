@@ -119,7 +119,7 @@ export class DealerDashboard {
   };
   
   openQuotation(booking: any) {
-  this.router.navigate(['/dealer/quotation', booking.id]);
+  this.router.navigate(['/dealer/booking', booking.id, 'customer-details']);
 }
 
   tableColumns: TableColumn[] = [

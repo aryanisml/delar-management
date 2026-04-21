@@ -1,30 +1,37 @@
-<aside class="w-64 h-screen overflow-y-auto bg-sidebar flex flex-col fixed left-0 top-0 z-50 text-white shadow-strong">
-  <div class="flex items-center gap-3 px-6 py-5 border-b border-gray-700">
-    <div class="w-10 h-10 rounded-xl bg-brand-primary/20 flex items-center justify-center">
-      <i class="pi pi-car text-lg text-white"></i>
+<aside class="admin-sidebar">
+  <div class="admin-sidebar__brand">
+    <div class="admin-sidebar__logo">
+      <i class="pi pi-car"></i>
     </div>
     <div>
-      <p class="m-0 text-lg font-bold">VehicleAdmin</p>
-      <p class="m-0 text-xs text-gray-400">Operations Console</p>
+      <p class="admin-sidebar__brand-title">AUTOFLOW</p>
+      <p class="admin-sidebar__brand-subtitle">your vehicles dashboard</p>
     </div>
   </div>
 
-  <nav class="flex-1 py-2">
+  <nav class="admin-sidebar__nav">
     @for (section of sections(); track section) {
-      <div>
-        <p class="px-4 pt-5 pb-2 text-xs font-semibold uppercase tracking-widest text-gray-400">{{ section }}</p>
+      <div class="admin-sidebar__section">
+        <p class="admin-sidebar__section-label">{{ section }}</p>
+
         @for (item of sidebarItems(); track item.label) {
           @if (item.section === section) {
             <a
               [routerLink]="item.route || null"
-              routerLinkActive="bg-blue-600 text-white font-medium shadow-lg"
-              class="flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-all duration-200 cursor-pointer"
-              [class.opacity-60]="!item.route"
+              routerLinkActive="is-active"
+              [routerLinkActiveOptions]="{ exact: item.route === '/admin/dashboard' || item.route === '/dealer/dashboard' || item.route === '/dealer' }"
+              class="admin-sidebar__link"
+              [class.is-disabled]="!item.route"
               (click)="onLinkClick()">
               <i [class]="item.icon"></i>
               <span>{{ item.label }}</span>
+
               @if (getBadge(item)) {
-                <p-badge [value]="getBadge(item)" severity="danger" class="ml-auto"></p-badge>
+                <p-badge [value]="getBadge(item)" severity="info" class="admin-sidebar__badge"></p-badge>
+              }
+
+              @if (item.expandable) {
+                <i class="pi pi-chevron-down admin-sidebar__chevron"></i>
               }
             </a>
           }
@@ -33,14 +40,19 @@
     }
   </nav>
 
-  <div class="mt-auto p-4 border-t border-gray-700">
-    <div class="flex items-center gap-3">
-      <p-avatar [label]="userName.charAt(0)" shape="circle" styleClass="bg-blue-600 text-white"></p-avatar>
-      <div class="min-w-0">
-        <p class="m-0 font-medium truncate">{{ userName }}</p>
-        <p class="m-0 text-sm text-gray-400">{{ roleLabel }}</p>
-      </div>
-      <button pButton type="button" icon="pi pi-sign-out" text severity="secondary" class="ml-auto !text-gray-300 hover:!text-white" (click)="logout.emit()"></button>
+  <button type="button" class="admin-sidebar__new-project" [routerLink]="newBookingRoute" (click)="onLinkClick()">
+    <span class="admin-sidebar__new-icon">
+      <i class="pi pi-plus"></i>
+    </span>
+    <span>New Booking</span>
+  </button>
+
+  <div class="admin-sidebar__user">
+    <p-avatar [label]="userName.charAt(0)" shape="circle" styleClass="admin-sidebar__avatar"></p-avatar>
+    <div class="min-w-0">
+      <p class="admin-sidebar__user-name">{{ userName }}</p>
+      <p class="admin-sidebar__user-role">{{ roleLabel }}</p>
     </div>
+    <button pButton type="button" icon="pi pi-sign-out" text class="admin-sidebar__logout" (click)="logout.emit()"></button>
   </div>
 </aside>

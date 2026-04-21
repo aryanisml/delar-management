@@ -78,7 +78,7 @@ export class MyBookingsComponent {
   }
 
   openQuotation(id: string) {
-  this.router.navigate(['/dealer/quotation', id]);
+  this.router.navigate(['/dealer/booking', id, 'customer-details']);
 }
 
   cancelBooking(row: any) {
