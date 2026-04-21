@@ -8,19 +8,32 @@ export const authGuard: CanActivateFn = async (route, state) => {
 
   const user = await supabase.getCurrentUser();
 
+  // 🔒 Not logged in
   if (!user) {
-    return router.parseUrl('/login');
+    if (state.url !== '/login') {
+      return router.parseUrl('/login');
+    }
+    return true;
   }
 
-  // If accessing root, redirect by role
-  if (state.url === '/' || state.url === '') {
-    const role = await supabase.getUserRole(user.id);
+  // ✅ Get role ONCE
+  const role = await supabase.getUserRole(user.id);
 
-    if (role === 'admin') {
-      return router.parseUrl('/admin/dashboard');
-    }
+  // 🧠 Handle root redirect ONLY once
+  if (state.url === '/') {
+    return role === 'admin'
+      ? router.parseUrl('/admin/dashboard')
+      : router.parseUrl('/dealer/dashboard');
+  }
 
-    return router.parseUrl('/dealer');
+  // 🚫 Dealer cannot access admin
+  if (state.url.startsWith('/admin') && role !== 'admin') {
+    return router.parseUrl('/dealer/dashboard');
+  }
+
+  // 🚫 Admin cannot access dealer
+  if (state.url.startsWith('/dealer') && role !== 'dealer') {
+    return router.parseUrl('/admin/dashboard');
   }
 
   return true;

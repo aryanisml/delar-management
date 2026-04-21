@@ -11,6 +11,7 @@ interface SidebarItem {
   route?: string;
   badge?: string;
   section: string;
+  expandable?: boolean;
 }
 
 @Component({
@@ -22,6 +23,8 @@ interface SidebarItem {
 })
 export class AdminSidebar {
   @Input() roleLabel = 'Administrator';
+  @Input() brandSubtitle = 'Rental Organizer';
+  @Input() newBookingRoute = '/dealer/bookings';
   @Input() userName = 'Admin User';
   @Input() pendingBookingsCount = 0;
   @Input() vehicleCount = 0;
@@ -30,17 +33,14 @@ export class AdminSidebar {
   @Output() logout = new EventEmitter<void>();
 
   readonly nav: SidebarItem[] = [
-    { section: 'MAIN MENU', label: 'Dashboard', icon: 'pi pi-home', route: '/admin/dashboard' },
-    { section: 'MANAGEMENT', label: 'Vehicles', icon: 'pi pi-car', route: '/admin/vehicles' },
-    { section: 'MANAGEMENT', label: 'Bookings', icon: 'pi pi-calendar', route: '/admin/bookings' },
-    { section: 'MANAGEMENT', label: 'Users', icon: 'pi pi-users', route: '/admin/users' },
-    { section: 'MANAGEMENT', label: 'Schedule', icon: 'pi pi-calendar-plus' },
-    { section: 'CALL CENTER', label: 'Assignments', icon: 'pi pi-send' },
-    { section: 'CALL CENTER', label: 'Availability', icon: 'pi pi-check-square' },
-    { section: 'ANALYTICS', label: 'Reports', icon: 'pi pi-chart-bar', route: '/admin/reports' },
-    { section: 'ANALYTICS', label: 'Analytics', icon: 'pi pi-chart-line', route: '/admin/analytics' },
-    { section: 'SYSTEM', label: 'Settings', icon: 'pi pi-cog' },
-    { section: 'SYSTEM', label: 'Audit Log', icon: 'pi pi-list', route: '/admin/audit' },
+    { section: 'DASHBOARD', label: 'Dashboard', icon: 'pi pi-th-large', route: '/admin/dashboard' },
+    { section: 'DASHBOARD', label: 'Vehicles', icon: 'pi pi-car', route: '/admin/vehicles', expandable: true },
+    { section: 'DASHBOARD', label: 'Bookings', icon: 'pi pi-calendar', route: '/admin/bookings' },
+    { section: 'DASHBOARD', label: 'Users', icon: 'pi pi-users', route: '/admin/users' },
+    { section: 'DASHBOARD', label: 'Reports', icon: 'pi pi-chart-bar', route: '/admin/reports' },
+    { section: 'DASHBOARD', label: 'Analytics', icon: 'pi pi-chart-line', route: '/admin/analytics' },
+    { section: 'OTHERS', label: 'Audit Log', icon: 'pi pi-list', route: '/admin/audit' },
+    { section: 'OTHERS', label: 'Settings', icon: 'pi pi-cog', expandable: true },
   ];
 
   sidebarItems() {

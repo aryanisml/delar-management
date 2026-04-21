@@ -1,4 +1,4 @@
-import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, ViewChild, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
@@ -44,8 +44,6 @@ import {
     TagModule,
     TimelineModule,
     TooltipModule,
-    CurrencyPipe,
-    DatePipe,
   ],
   templateUrl: './admin-overview.html',
   styleUrl: './admin-overview.scss',
@@ -118,7 +116,15 @@ export class AdminOverview implements OnDestroy {
 
     this.stats.set(stats);
     this.bookings.set(bookings);
-    this.todayBookings.set(bookings.filter((booking) => new Date(booking.startDate).getDate() === 23).slice(0, 5));
+    const today = new Date();
+    this.todayBookings.set(
+      bookings
+        .filter((booking) => {
+          const start = new Date(booking.startDate);
+          return start.toDateString() === today.toDateString();
+        })
+        .slice(0, 5)
+    );
     this.pipeline.set(this.buildPipeline(bookings));
     this.statCards.set([
       {
@@ -215,8 +221,8 @@ export class AdminOverview implements OnDestroy {
         {
           label: 'Confirmed Bookings',
           data: confirmedSeries,
-          borderColor: '#1A56DB',
-          backgroundColor: 'rgba(26, 86, 219, 0.18)',
+          borderColor: '#00B4A6',
+          backgroundColor: 'rgba(0, 180, 166, 0.16)',
           fill: true,
           tension: 0.4,
           pointRadius: 4,
@@ -225,8 +231,8 @@ export class AdminOverview implements OnDestroy {
         {
           label: 'Completed',
           data: completedSeries,
-          borderColor: '#0E9F6E',
-          backgroundColor: 'rgba(14, 159, 110, 0.16)',
+          borderColor: '#00A886',
+          backgroundColor: 'rgba(0, 168, 134, 0.12)',
           fill: true,
           tension: 0.4,
           pointRadius: 4,
@@ -238,11 +244,21 @@ export class AdminOverview implements OnDestroy {
     this.trendChartOptions.set({
       maintainAspectRatio: false,
       plugins: {
-        legend: { position: 'top', align: 'end', labels: { usePointStyle: true, boxWidth: 8 } },
+        legend: {
+          position: 'top',
+          align: 'end',
+          labels: { usePointStyle: true, boxWidth: 8, color: getComputedStyle(document.body).getPropertyValue('--text-secondary').trim() || '#4B5B66' },
+        },
       },
       scales: {
-        x: { grid: { display: false } },
-        y: { grid: { color: '#F3F4F6', borderDash: [4, 4] } },
+        x: {
+          ticks: { color: getComputedStyle(document.body).getPropertyValue('--text-muted').trim() || '#7A8A95' },
+          grid: { display: false },
+        },
+        y: {
+          ticks: { color: getComputedStyle(document.body).getPropertyValue('--text-muted').trim() || '#7A8A95' },
+          grid: { color: getComputedStyle(document.body).getPropertyValue('--border').trim() || '#E5E7EB', borderDash: [4, 4] },
+        },
       },
     });
 
@@ -298,6 +314,27 @@ export class AdminOverview implements OnDestroy {
 
   prioritySeverity(priority: string) {
     return tagSeverityForPriority(priority);
+  }
+
+  activityMarkerClass(event: { actor: string; action: string }) {
+    const text = `${event.actor} ${event.action}`.toLowerCase();
+    if (text.includes('system') || text.includes('flagged') || text.includes('overdue')) {
+      return 'activity-marker--danger';
+    }
+    if (text.includes('completed')) {
+      return 'activity-marker--success';
+    }
+    return 'activity-marker--info';
+  }
+
+  priorityItemClass(item: { type: string; title: string }) {
+    if (item.type === 'danger') {
+      return 'priority-item--urgent';
+    }
+    if (item.title.toLowerCase().includes('due')) {
+      return 'priority-item--warning';
+    }
+    return 'priority-item--low';
   }
 
   totalTrendMetric() {

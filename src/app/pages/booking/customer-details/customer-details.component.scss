@@ -1,0 +1,251 @@
+.booking-page {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.booking-page__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.booking-page__summary {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 15rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--card-bg);
+  padding: 0.9rem 1rem;
+  color: var(--text-secondary);
+  box-shadow: var(--shadow-soft);
+}
+
+.booking-page__summary strong {
+  color: var(--brand-primary);
+}
+
+.booking-steps {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.booking-step {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--card-bg);
+  padding: 0.75rem;
+  color: var(--text-muted);
+}
+
+.booking-step span {
+  display: inline-flex;
+  width: 1.7rem;
+  height: 1.7rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.booking-step p {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.booking-step.is-active,
+.booking-step.is-done {
+  border-color: color-mix(in srgb, var(--brand-primary) 34%, var(--border));
+  color: var(--text-primary);
+}
+
+.booking-step.is-active span,
+.booking-step.is-done span {
+  background: var(--brand-primary);
+  color: #fff;
+}
+
+.booking-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.75fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+:host ::ng-deep .booking-card {
+  border-radius: 0.75rem;
+  box-shadow: var(--shadow-soft);
+}
+
+.booking-card__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.booking-card__heading h3 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.booking-card__heading p {
+  margin: 0.25rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.45rem;
+  position: relative;
+}
+
+.field label {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.split-input {
+  display: grid;
+  grid-template-columns: 6.5rem minmax(0, 1fr);
+  gap: 0.55rem;
+}
+
+.suggestion-list {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  right: 0;
+  z-index: 10;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--card-bg);
+  box-shadow: var(--shadow-strong);
+}
+
+.suggestion-list button {
+  display: grid;
+  width: 100%;
+  gap: 0.15rem;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  padding: 0.75rem;
+  text-align: left;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.suggestion-list span {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.upload-zone {
+  display: grid;
+  min-height: 15rem;
+  place-items: center;
+  gap: 0.45rem;
+  border: 1px dashed var(--border-strong);
+  border-radius: 0.75rem;
+  background: var(--surface-muted);
+  padding: 1.25rem;
+  text-align: center;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.upload-zone input {
+  display: none;
+}
+
+.upload-zone i {
+  color: var(--brand-primary);
+  font-size: 2rem;
+}
+
+.upload-zone img {
+  width: 100%;
+  max-height: 11rem;
+  border-radius: 0.5rem;
+  object-fit: cover;
+}
+
+.upload-zone span {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.trip-card {
+  display: grid;
+  gap: 0.8rem;
+  margin-top: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+
+.trip-card div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.trip-card span {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.trip-card strong {
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.booking-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+@media (max-width: 1040px) {
+  .booking-grid,
+  .booking-page__header {
+    grid-template-columns: 1fr;
+  }
+
+  .booking-grid {
+    display: grid;
+  }
+}
+
+@media (max-width: 760px) {
+  .booking-steps,
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .booking-page__header {
+    flex-direction: column;
+  }
+}

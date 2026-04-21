@@ -1,0 +1,199 @@
+<p-toast></p-toast>
+
+<div class="quotation-page">
+  <section class="quotation-hero">
+    <div>
+      <p class="admin-section-label mb-2">Step 4</p>
+      <h2>Quotation Summary</h2>
+      <p>Reference {{ referenceNumber() }} · Advisor {{ advisor().name }} / {{ advisor().id }}</p>
+    </div>
+    <div class="quotation-hero__total">
+      <span>Grand Total</span>
+      <strong>{{ grandTotal() | currency:'INR':'symbol':'1.0-0' }}</strong>
+    </div>
+  </section>
+
+  <div class="booking-steps">
+    @for (step of ['Vehicle', 'Trip Details', 'Customer Info', 'Quotation', 'Confirm']; track step; let index = $index) {
+      <div class="booking-step" [class.is-done]="index < 3" [class.is-active]="index === 3">
+        <span>{{ index + 1 }}</span>
+        <p>{{ step }}</p>
+      </div>
+    }
+  </div>
+
+  <section class="quotation-grid">
+    <div class="quotation-main">
+      <p-card styleClass="quote-card">
+        <div class="quote-card__header">
+          <div>
+            <h3>Customer Summary</h3>
+            <p>Read-only details captured in Step 3.</p>
+          </div>
+          <button pButton type="button" label="Edit" icon="pi pi-pencil" outlined (click)="backToCustomer()"></button>
+        </div>
+
+        <div class="summary-grid">
+          <div>
+            <span>Customer</span>
+            <strong>{{ customer().fullName || '-' }}</strong>
+          </div>
+          <div>
+            <span>Mobile</span>
+            <strong>{{ customer().countryCode }} {{ customer().mobile || '-' }}</strong>
+          </div>
+          <div>
+            <span>Email</span>
+            <strong>{{ customer().email || '-' }}</strong>
+          </div>
+          <div>
+            <span>Licence</span>
+            <strong>{{ customer().licenceNumber || '-' }}</strong>
+          </div>
+          <div>
+            <span>Type</span>
+            <strong>{{ customer().customerType | titlecase }}</strong>
+          </div>
+          <div>
+            <span>ID Proof</span>
+            <strong>{{ customer().idProofType }} {{ customer().idProofFileName ? 'attached' : '' }}</strong>
+          </div>
+        </div>
+      </p-card>
+
+      <p-card styleClass="quote-card">
+        <div class="quote-card__header">
+          <div>
+            <h3>Pricing Breakdown</h3>
+            <p>Calculated from vehicle tier and trip duration.</p>
+          </div>
+          <p-tag value="GST Applied" severity="info"></p-tag>
+        </div>
+
+        <div class="pricing-list">
+          <div class="pricing-row">
+            <span>Per Day Rental Rate</span>
+            <strong>{{ rate() | currency:'INR':'symbol':'1.0-0' }}</strong>
+          </div>
+          <div class="pricing-row">
+            <span>Total Duration</span>
+            <strong>{{ durationLabel() }}</strong>
+          </div>
+          <div class="pricing-row">
+            <span>Base Cost <small>{{ baseFormula() }}</small></span>
+            <strong>{{ baseCost() | currency:'INR':'symbol':'1.0-0' }}</strong>
+          </div>
+          <div class="pricing-row">
+            <span>Security Deposit <small>100% refundable</small></span>
+            <strong>{{ securityDeposit() | currency:'INR':'symbol':'1.0-0' }}</strong>
+          </div>
+          <div class="pricing-row">
+            <span>Advance Payment Required <small>50% of base cost</small></span>
+            <strong>{{ advance() | currency:'INR':'symbol':'1.0-0' }}</strong>
+          </div>
+          <div class="pricing-row">
+            <span>Fuel Policy</span>
+            <strong>{{ fuelPolicy() }}</strong>
+          </div>
+          <div class="pricing-row">
+            <span>Applicable Taxes <small>GST 18%</small></span>
+            <strong>{{ gst() | currency:'INR':'symbol':'1.0-0' }}</strong>
+          </div>
+          @if (isOutstation()) {
+            <div class="pricing-row">
+              <span>Extra Mileage Rate</span>
+              <strong>{{ extraMileageRate() | currency:'INR':'symbol':'1.0-0' }}/km</strong>
+            </div>
+          }
+          @if (discount()) {
+            <div class="pricing-row is-discount">
+              <span>Discount</span>
+              <strong>-{{ discount() | currency:'INR':'symbol':'1.0-0' }}</strong>
+            </div>
+          }
+        </div>
+
+        <div class="promo-row">
+          <input pInputText [ngModel]="promoCode()" (ngModelChange)="promoCode.set($event)" placeholder="Discount / Promo Code" />
+          <button pButton type="button" label="Apply" outlined (click)="applyPromo()"></button>
+        </div>
+        @if (promoMessage()) {
+          <p class="promo-message" [class.is-success]="discount()">{{ promoMessage() }}</p>
+        }
+      </p-card>
+
+      <p-card styleClass="quote-card">
+        <button type="button" class="terms-toggle" (click)="termsOpen.set(!termsOpen())">
+          <span>Terms & Conditions</span>
+          <i class="pi" [class.pi-chevron-down]="!termsOpen()" [class.pi-chevron-up]="termsOpen()"></i>
+        </button>
+        @if (termsOpen()) {
+          <div class="terms-body">
+            <p>Security deposit is refundable after final settlement and damage review.</p>
+            <p>Fuel policy, extra mileage, late return, and cleaning charges apply as per booking configuration.</p>
+            <p>Customer must carry original driving licence and ID proof during pickup.</p>
+          </div>
+        }
+      </p-card>
+    </div>
+
+    <aside class="quotation-side">
+      <p-card styleClass="quote-card total-card">
+        <span>Final Quoted Amount</span>
+        <strong>{{ grandTotal() | currency:'INR':'symbol':'1.0-0' }}</strong>
+        <p>Taxes included. Deposit collected separately per policy.</p>
+      </p-card>
+
+      <p-card styleClass="quote-card">
+        <div class="quote-card__header">
+          <div>
+            <h3>Quotation Actions</h3>
+            <p>Preview, send, save, or confirm.</p>
+          </div>
+        </div>
+
+        <div class="action-stack">
+          <button pButton type="button" label="Preview / Print" icon="pi pi-print" outlined (click)="openPreview()"></button>
+          <div class="send-group">
+            <button pButton type="button" label="Email" outlined (click)="sendQuote('Email')"></button>
+            <button pButton type="button" label="SMS" outlined (click)="sendQuote('SMS')"></button>
+            <button pButton type="button" label="WhatsApp" outlined (click)="sendQuote('WhatsApp')"></button>
+          </div>
+          <button pButton type="button" label="Save as Draft" icon="pi pi-save" outlined (click)="saveDraft()"></button>
+          <button pButton type="button" label="Convert to Confirmed Booking" icon="pi pi-check" iconPos="right" (click)="confirmBooking()"></button>
+        </div>
+      </p-card>
+    </aside>
+  </section>
+</div>
+
+<p-dialog
+  header="Printable Quotation"
+  [visible]="previewVisible()"
+  (visibleChange)="previewVisible.set($event)"
+  [modal]="true"
+  [draggable]="false"
+  [style]="{ width: '760px' }">
+  <div class="print-quote">
+    <div class="print-quote__header">
+      <div>
+        <h3>{{ referenceNumber() }}</h3>
+        <p>{{ advisor().name }} · {{ advisor().id }}</p>
+      </div>
+      <strong>{{ grandTotal() | currency:'INR':'symbol':'1.0-0' }}</strong>
+    </div>
+    <div class="summary-grid">
+      <div><span>Customer</span><strong>{{ customer().fullName }}</strong></div>
+      <div><span>Vehicle</span><strong>{{ vehicle()?.make || vehicle()?.brand }} {{ vehicle()?.model }}</strong></div>
+      <div><span>Duration</span><strong>{{ durationLabel() }}</strong></div>
+      <div><span>Base</span><strong>{{ baseCost() | currency:'INR':'symbol':'1.0-0' }}</strong></div>
+      <div><span>GST</span><strong>{{ gst() | currency:'INR':'symbol':'1.0-0' }}</strong></div>
+      <div><span>Advance</span><strong>{{ advance() | currency:'INR':'symbol':'1.0-0' }}</strong></div>
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <button pButton type="button" label="Close" text (click)="previewVisible.set(false)"></button>
+    <button pButton type="button" label="Print" icon="pi pi-print" (click)="printPreview()"></button>
+  </ng-template>
+</p-dialog>

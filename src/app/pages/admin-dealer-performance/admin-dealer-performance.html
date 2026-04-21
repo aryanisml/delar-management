@@ -77,31 +77,19 @@
       responsiveLayout="scroll">
       <ng-template pTemplate="header">
         <tr>
-          <th style="width: 40px"></th>
           <th style="width: 90px">Booking ID</th>
           <th style="width: 160px">Vehicle</th>
           <th style="width: 140px">User</th>
-          <th style="width: 180px">Dates</th>
+          <th style="width: 220px">Dates</th>
           <th style="width: 130px">Pickup</th>
           <th style="width: 110px">Status</th>
-          <th style="width: 100px">Priority</th>
+          <th style="width: 72px">Priority</th>
           <th style="width: 100px">Actions</th>
         </tr>
       </ng-template>
 
       <ng-template pTemplate="body" let-booking>
-        <tr>
-          <td class="text-sm">
-            <button
-              pButton
-              type="button"
-              [icon]="isExpanded(booking.id) ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"
-              text
-              pTooltip="View booking details"
-              tooltipPosition="left"
-              (click)="toggleExpandedRow(booking.id)">
-            </button>
-          </td>
+        <tr class="booking-row" (click)="toggleExpandedRow(booking.id)">
           <td class="text-sm font-mono text-blue-700">#{{ booking.id }}</td>
           <td class="text-sm">
             <div class="flex items-center gap-3">
@@ -118,15 +106,11 @@
             </div>
           </td>
           <td class="text-sm">
-            <div class="min-w-[170px] rounded-xl bg-slate-50 px-3 py-2">
-              <div class="flex items-center justify-between text-xs uppercase tracking-wide text-gray-400">
-                <span>Start</span>
-                <span>End</span>
-              </div>
-              <div class="mt-1 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-                <div class="text-sm font-medium text-gray-900">{{ booking.startDate | date:'mediumDate' }}</div>
+            <div class="booking-date-cell">
+              <div class="booking-date-cell__range">
+                <span>{{ booking.startDate | date:'mediumDate' }}</span>
                 <i class="pi pi-arrow-right text-xs text-gray-400"></i>
-                <div class="text-sm font-medium text-gray-900">{{ booking.endDate | date:'mediumDate' }}</div>
+                <span>{{ booking.endDate | date:'mediumDate' }}</span>
               </div>
               <p-tag [value]="booking.days + ' days'" severity="info" styleClass="mt-2"></p-tag>
             </div>
@@ -137,7 +121,9 @@
             </span>
           </td>
           <td class="text-sm"><p-tag [value]="booking.status" [severity]="statusSeverity(booking.status)"></p-tag></td>
-          <td class="text-sm"><p-tag [value]="booking.priority" [severity]="prioritySeverity(booking.priority)"></p-tag></td>
+          <td class="text-sm">
+            <span class="priority-dot" [ngClass]="priorityDotClass(booking.priority)" [pTooltip]="booking.priority" tooltipPosition="top"></span>
+          </td>
           <td class="text-sm">
             <div class="booking-action-row">
               <button
@@ -148,7 +134,7 @@
                 severity="info"
                 pTooltip="View booking details"
                 tooltipPosition="left"
-                (click)="toggleExpandedRow(booking.id)">
+                (click)="$event.stopPropagation(); toggleExpandedRow(booking.id)">
               </button>
               <button
                 pButton
@@ -159,7 +145,7 @@
                 [disabled]="booking.status !== 'Pending'"
                 pTooltip="Approve booking"
                 tooltipPosition="left"
-                (click)="approveBooking(booking)">
+                (click)="$event.stopPropagation(); approveBooking(booking)">
               </button>
               <button
                 pButton
@@ -170,7 +156,7 @@
                 [disabled]="booking.status !== 'Pending'"
                 pTooltip="Reject booking"
                 tooltipPosition="left"
-                (click)="rejectBooking(booking)">
+                (click)="$event.stopPropagation(); rejectBooking(booking)">
               </button>
             </div>
           </td>
@@ -179,7 +165,7 @@
 
       <ng-template pTemplate="rowexpansion" let-booking>
         <tr>
-          <td colspan="9">
+          <td colspan="8">
             <div class="grid gap-6 rounded-2xl bg-gray-50 p-4 lg:grid-cols-2">
               <p-card>
                 <p class="admin-section-label mb-4">Status History</p>
@@ -208,6 +194,10 @@
                   <div class="rounded-xl border border-border p-3">
                     <p class="m-0 text-sm font-semibold text-gray-900">Purpose</p>
                     <p class="m-0 text-sm text-gray-600">{{ booking.purpose }}</p>
+                  </div>
+                  <div class="rounded-xl border border-border p-3">
+                    <p class="m-0 text-sm font-semibold text-gray-900">Priority</p>
+                    <p class="m-0 text-sm text-gray-600">{{ booking.priority }}</p>
                   </div>
                   <div class="rounded-xl border border-border p-3">
                     <p class="m-0 text-sm font-semibold text-gray-900">Assigned To</p>

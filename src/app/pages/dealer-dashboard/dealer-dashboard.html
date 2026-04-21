@@ -41,41 +41,27 @@
     </div>
   </p-card>
 
-  <div class="dashboard-top-section">
-    <div class="kpi-wrapper">
-      <app-stat-card
-        label="Fleet Size"
-        [value]="fleetSize()"
-        icon="pi pi-car"
-        iconColor="#1A56DB">
-      </app-stat-card>
+  <div class="kpi-wrapper kpi-wrapper--full">
+    <app-stat-card
+      label="Fleet Size"
+      [value]="fleetSize()"
+      icon="pi pi-car"
+      iconColor="#00B4A6">
+    </app-stat-card>
 
-      <app-stat-card
-        label="Available Now"
-        [value]="availableNow()"
-        icon="pi pi-check-circle"
-        iconColor="#0E9F6E">
-      </app-stat-card>
+    <app-stat-card
+      label="Available Now"
+      [value]="availableNow()"
+      icon="pi pi-check-circle"
+      iconColor="#00A886">
+    </app-stat-card>
 
-      <app-stat-card
-        label="Active Bookings"
-        [value]="activeBookingsCount()"
-        icon="pi pi-bookmark"
-        iconColor="#C27803">
-      </app-stat-card>
-    </div>
-
-    <p-card styleClass="dealer-chart-card">
-      <ng-template pTemplate="header">
-        <div>
-          <p class="m-0 text-base font-semibold text-gray-900">Fleet Status Overview</p>
-          <p class="m-0 mt-1 text-sm text-gray-500">Live capacity split based on your current bookings.</p>
-        </div>
-      </ng-template>
-      <div class="chart-panel">
-        <p-chart type="doughnut" [data]="chartData()" [options]="chartOptions"></p-chart>
-      </div>
-    </p-card>
+    <app-stat-card
+      label="Active Bookings"
+      [value]="activeBookingsCount()"
+      icon="pi pi-bookmark"
+      iconColor="#D98912">
+    </app-stat-card>
   </div>
 
   <p-card styleClass="dealer-section-card">
@@ -151,7 +137,7 @@
         <app-reusable-table
           [data]="myBookings()"
           [cols]="bookingTableColumns"
-          [actionTemplate]="cancelBtn">
+          [actionTemplate]="bookingActions">
         </app-reusable-table>
       }
 
@@ -184,6 +170,43 @@
     [disabled]="row.status === 'cancelled' || row.status === 'completed'"
     (click)="cancelBooking(row.id)">
   </button>
+</ng-template>
+
+<ng-template #bookingActions let-row>
+
+  <!-- Cancel button -->
+  <button
+    *ngIf="row.status === 'pending'"
+    pButton
+    type="button"
+    label="Cancel"
+    icon="pi pi-times"
+    class="p-button-danger p-button-sm"
+    (click)="cancelBooking(row.id)">
+  </button>
+
+  <!-- Generate Quote button -->
+  <button
+    *ngIf="row.status === 'approved'"
+    pButton
+    type="button"
+    label="Generate Quote"
+    icon="pi pi-file"
+    class="p-button-success p-button-sm"
+    (click)="openQuotation(row)">
+  </button>
+
+  <!-- Optional: View Quote if already created -->
+  <button
+    *ngIf="row.status === 'approved' && row.quote_id"
+    pButton
+    type="button"
+    label="View Quote"
+    icon="pi pi-eye"
+    class="p-button-help p-button-sm"
+    (click)="openQuotation(row)">
+  </button>
+
 </ng-template>
 
 @if (selectedVehicle()) {

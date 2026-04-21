@@ -7,6 +7,7 @@ import { ButtonModule } from 'primeng/button';
 import { DrawerModule } from 'primeng/drawer';
 import { Auth } from '../services/auth';
 import { SupabaseService } from '../services/supabase';
+import { ThemeService } from '../services/theme';
 import { buildBookings, normalizeVehicle } from '../admin-ui.models';
 import { AdminSidebar } from './admin-sidebar';
 import { AdminTopbar } from './admin-topbar';
@@ -25,6 +26,7 @@ export class Layout {
   private supabase = inject(SupabaseService);
   private router = inject(Router);
   private messageService = inject(MessageService);
+  readonly theme = inject(ThemeService);
 
   initialized = signal(false);
   role = signal<string | null>(null);
@@ -32,6 +34,26 @@ export class Layout {
   userName = signal('User');
   userLetter = computed(() => this.userName().charAt(0).toUpperCase() || 'U');
   isAdmin = computed(() => this.role() === 'admin');
+  portalLabel = computed(() => {
+    const role = String(this.role() || '').toLowerCase();
+    if (role === 'admin' || role === 'superadmin') {
+      return 'Admin Portal';
+    }
+    if (role === 'dealer' || role === 'rental_advisor') {
+      return 'Dealer Portal';
+    }
+    return 'Rental Organizer';
+  });
+  topbarRoleLabel = computed(() => {
+    const role = String(this.role() || '').toLowerCase();
+    if (role === 'admin' || role === 'superadmin') {
+      return 'Fleet Manager';
+    }
+    if (role === 'dealer' || role === 'rental_advisor') {
+      return 'Rental Advisor';
+    }
+    return 'Operations Workspace';
+  });
   mobileSidebarOpen = signal(false);
   desktopSidebarCollapsed = signal(false);
   menuOpen = signal(false);
@@ -75,12 +97,12 @@ export class Layout {
       );
 
       this.dealerMenuItems.set([
-        { section: 'MAIN MENU', label: 'Dashboard', icon: 'pi pi-home', route: '/dealer' },
-        { section: 'MANAGEMENT', label: 'Book Vehicles', icon: 'pi pi-calendar-plus', route: '/dealer/bookings' },
-        { section: 'MANAGEMENT', label: 'My Bookings', icon: 'pi pi-calendar', route: '/dealer/my-bookings' },
-        { section: 'MANAGEMENT', label: 'Fleet Inventory', icon: 'pi pi-car', route: '/dealer/inventory' },
-        { section: 'ANALYTICS', label: 'Analytics', icon: 'pi pi-chart-line', route: '/dealer/analytics' },
-        { section: 'SYSTEM', label: 'Profile', icon: 'pi pi-user', route: '/profile' },
+        { section: 'DASHBOARD', label: 'Dashboard', icon: 'pi pi-th-large', route: '/dealer/dashboard' },
+        { section: 'DASHBOARD', label: 'Book Vehicles', icon: 'pi pi-calendar-plus', route: '/dealer/bookings' },
+        { section: 'DASHBOARD', label: 'My Bookings', icon: 'pi pi-calendar', route: '/dealer/my-bookings' },
+        { section: 'DASHBOARD', label: 'Fleet Inventory', icon: 'pi pi-car', route: '/dealer/inventory' },
+        { section: 'DASHBOARD', label: 'Analytics', icon: 'pi pi-chart-line', route: '/dealer/analytics' },
+        { section: 'OTHERS', label: 'Profile', icon: 'pi pi-user', route: '/profile' },
       ]);
 
       const { data: vehicles } = await this.supabase.getVehicles();
@@ -173,11 +195,12 @@ export class Layout {
       '/dealer/my-bookings': 'My Bookings',
       '/dealer/inventory': 'Fleet Inventory',
       '/dealer/analytics': 'Analytics',
+      '/dealer/booking': 'Booking Flow',
       '/profile': 'Profile',
     };
 
     const currentPath = this.router.url.split('?')[0];
-    this.pageTitle.set(titleMap[currentPath] || 'Dashboard');
+    this.pageTitle.set(titleMap[currentPath] || (currentPath.includes('/quotation') ? 'Quotation' : 'Dashboard'));
 
     const pathParts = currentPath.split('/').filter(Boolean);
     const breadcrumbs = pathParts.slice(1).map((part, index) => ({

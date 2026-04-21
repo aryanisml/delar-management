@@ -1,10 +1,20 @@
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
+import { MessageService } from 'primeng/api';
 import { App } from './app';
+import { Auth } from './services/auth';
+import { SupabaseService } from './services/supabase';
 
 describe('App', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [App],
+      providers: [
+        MessageService,
+        provideRouter([]),
+        { provide: Auth, useValue: { getCurrentUser: async () => null, getUserRole: async () => null } },
+        { provide: SupabaseService, useValue: {} },
+      ],
     }).compileComponents();
   });
 
@@ -14,10 +24,10 @@ describe('App', () => {
     expect(app).toBeTruthy();
   });
 
-  it('should render title', async () => {
+  it('should render the router outlet shell', async () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('h1')?.textContent).toContain('Hello, dealer-management-v1');
+    expect(compiled.querySelector('router-outlet')).toBeTruthy();
   });
 });
