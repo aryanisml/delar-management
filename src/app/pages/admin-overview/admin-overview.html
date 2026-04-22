@@ -65,6 +65,7 @@
             <p class="m-0 text-sm text-gray-500">Confirmed and completed booking movement across the selected period.</p>
           </div>
           <div class="overview-panel__actions">
+            <button pButton type="button" label="Refresh Fleet Status" icon="pi pi-refresh" text (click)="loadDashboard()"></button>
             <p-selectButton [options]="periodOptions" [(ngModel)]="period"></p-selectButton>
           </div>
         </div>

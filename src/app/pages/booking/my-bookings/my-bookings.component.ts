@@ -11,7 +11,6 @@ import { ToastModule } from 'primeng/toast';
 import { Booking } from '../../../models/booking';
 import { tagSeverityForStatus } from '../../../admin-ui.models';
 import { SupabaseService } from '../../../services/supabase';
-import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-my-bookings',
@@ -24,7 +23,6 @@ export class MyBookingsComponent {
   private supabase = inject(SupabaseService);
   private confirmationService = inject(ConfirmationService);
   private messageService = inject(MessageService);
-  private router = inject(Router);
 
   readonly bookings = signal<any[]>([]);
   readonly bulkBookings = signal<any[]>([]);
@@ -76,10 +74,6 @@ export class MyBookingsComponent {
     this.selectedBooking.set(row);
     this.detailVisible.set(true);
   }
-
-  openQuotation(id: string) {
-  this.router.navigate(['/dealer/booking', id, 'customer-details']);
-}
 
   cancelBooking(row: any) {
     this.confirmationService.confirm({

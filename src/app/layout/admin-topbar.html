@@ -71,11 +71,19 @@
               <button pButton type="button" label="Mark all read" text size="small" (click)="markAllRead.emit()"></button>
             </div>
             @for (notification of notifications; track notification.title + notification.time) {
-              <div class="rounded-xl border border-border p-3">
+              <button type="button" class="w-full rounded-xl border border-border p-3 text-left" (click)="notificationClick.emit(notification); notificationsPanel.hide()">
+                <div class="flex items-start gap-2">
+                  <i class="pi text-sm text-blue-600" [ngClass]="notification.type === 'booking_approved' ? 'pi-check-circle' : notification.type === 'booking_rejected' ? 'pi-times-circle' : 'pi-bell'"></i>
+                  <div>
                 <p class="m-0 text-sm font-semibold text-gray-900">{{ notification.title }}</p>
                 <p class="m-1 text-sm text-gray-600">{{ notification.detail }}</p>
                 <p class="m-0 text-xs text-gray-400">{{ notification.time }}</p>
-              </div>
+                  </div>
+                </div>
+              </button>
+            }
+            @if (!notifications.length) {
+              <p class="m-0 text-sm text-gray-500">No unread notifications.</p>
             }
           </div>
         </p-popover>

@@ -117,3 +117,28 @@
   cursor: pointer;
   text-align: left;
 }
+
+.summary-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.summary-list > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  border-radius: 0.75rem;
+  background: var(--surface-muted);
+  padding: 0.75rem 0.9rem;
+}
+
+.summary-list span {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.summary-list strong {
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  word-break: break-word;
+}

@@ -100,8 +100,10 @@ export class AdminOverview implements OnDestroy {
   async loadDashboard() {
     this.isLoading.set(true);
 
+    await this.supabase.releaseExpiredBookings();
     const { data: vehicles } = await this.supabase.getVehicles();
     const { data: bookingRows } = await this.supabase.getBookings();
+    const { data: pendingRequests } = await this.supabase.getPendingBookingRequests();
     const normalizedVehicles = (vehicles ?? []).map((vehicle, index) => normalizeVehicle(vehicle, index));
     const bookings = buildBookings(normalizedVehicles, bookingRows ?? []);
 
@@ -109,13 +111,26 @@ export class AdminOverview implements OnDestroy {
       total: normalizedVehicles.length,
       available: normalizedVehicles.filter((vehicle) => vehicle.status === 'Available').length,
       activeBookings: bookings.filter((booking) => ['Confirmed', 'InProgress'].includes(booking.status)).length,
-      pending: bookings.filter((booking) => booking.status === 'Pending').length,
+      pending: pendingRequests?.length ?? bookings.filter((booking) => booking.status === 'Pending').length,
       maintenance: normalizedVehicles.filter((vehicle) => vehicle.status === 'Maintenance').length,
       cancelledToday: bookings.filter((booking) => booking.status === 'Cancelled').length,
     };
 
     this.stats.set(stats);
     this.bookings.set(bookings);
+    this.actionsNeeded.set(
+      (pendingRequests ?? []).slice(0, 4).map((row: any) => {
+        const quote = row.quotation ?? {};
+        const vehicle = row.vehicle ?? {};
+        return {
+          type: 'danger',
+          icon: 'pi pi-clock',
+          title: quote.quote_reference || quote.quotation_ref || `Booking ${String(row.id).slice(0, 8)}`,
+          detail: `${quote.customer_name || 'Customer'} - ${vehicle.make || vehicle.brand || ''} ${vehicle.model || ''}`,
+          route: '/admin/bookings',
+        };
+      })
+    );
     const today = new Date();
     this.todayBookings.set(
       bookings
@@ -207,13 +222,11 @@ export class AdminOverview implements OnDestroy {
       chauffeur: [88000, 94000, 102000, 118000, 121000, 130000],
       corporate: [64000, 72000, 81000, 93000, 99000, 110000],
     };
-    const statusCounts = [
-      { label: 'Available', value: vehicles.filter((vehicle) => vehicle.status === 'Available').length, color: '#0E9F6E' },
-      { label: 'Booked', value: bookings.filter((booking) => ['Confirmed', 'Pending'].includes(booking.status)).length, color: '#1A56DB' },
-      { label: 'In Service', value: vehicles.filter((vehicle) => vehicle.rawStatus === 'inservice').length || 2, color: '#0694A2' },
-      { label: 'Maintenance', value: vehicles.filter((vehicle) => vehicle.status === 'Maintenance').length || 1, color: '#E02424' },
-      { label: 'Inactive', value: vehicles.filter((vehicle) => vehicle.status === 'Inactive').length || 1, color: '#9CA3AF' },
-    ];
+    const statusCounts = ['Available', 'Booked', 'Maintenance', 'Inactive'].map((label, index) => ({
+      label,
+      value: vehicles.filter((vehicle) => vehicle.status === label).length,
+      color: ['#0E9F6E', '#C27803', '#E02424', '#9CA3AF'][index],
+    }));
 
     this.trendChartData.set({
       labels: monthLabels,

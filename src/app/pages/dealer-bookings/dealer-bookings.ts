@@ -1,32 +1,71 @@
-import { CommonModule, CurrencyPipe } from '@angular/common';
+import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { Router } from '@angular/router';
 import { MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
-import { CheckboxModule } from 'primeng/checkbox';
 import { DatePickerModule } from 'primeng/datepicker';
 import { DialogModule } from 'primeng/dialog';
-import { ImageModule } from 'primeng/image';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { InputTextModule } from 'primeng/inputtext';
+import { MessageModule } from 'primeng/message';
 import { SelectModule } from 'primeng/select';
-import { TableModule } from 'primeng/table';
+import { TagModule } from 'primeng/tag';
 import { TextareaModule } from 'primeng/textarea';
 import { ToastModule } from 'primeng/toast';
-import { ToolbarModule } from 'primeng/toolbar';
-import { normalizeVehicle } from '../../admin-ui.models';
-import { Vehicle } from '../../models/vehicle';
 import { SupabaseService } from '../../services/supabase';
 
-type BookingDraft = {
+type VehicleFilters = {
+  type: string | null;
+  capacity: number | null;
+  transmission: string | null;
+  fuel: string | null;
+  pickup_date: Date | null;
+  end_date: Date | null;
+};
+
+type TripForm = {
+  pickup_date: Date | null;
+  pickup_time: string;
   pickup_location: string;
   drop_location: string;
-  start_date: Date | null;
   end_date: Date | null;
-  purpose: string | null;
-  notes: string;
+  dropoff_time: string;
+  purpose: string;
+  number_of_passengers: number | null;
+  special_instructions: string;
+};
+
+type CustomerChoice = 'existing' | 'update' | 'new';
+
+type CustomerForm = {
+  full_name: string;
+  mobile: string;
+  email: string;
+  license_no: string;
+  license_expiry: Date | null;
+  customer_type: 'individual' | 'business';
+  business_name: string;
+  gst_number: string;
+  id_proof_url: string;
+  id_proof_name: string;
+};
+
+type PricingSummary = {
+  rate: number;
+  days: number;
+  base_cost: number;
+  gst: number;
+  advance: number;
+  security_deposit: number;
+  final_amount: number;
+  extra_mileage_rate: number;
+  included_km_per_day: number;
+  discount_amount: number;
+  promo_code: string | null;
+  fuel_policy: string;
 };
 
 @Component({
@@ -37,18 +76,17 @@ type BookingDraft = {
     FormsModule,
     ButtonModule,
     CardModule,
-    CheckboxModule,
     CurrencyPipe,
+    DatePipe,
     DatePickerModule,
     DialogModule,
-    ImageModule,
     InputNumberModule,
     InputTextModule,
+    MessageModule,
     SelectModule,
-    TableModule,
+    TagModule,
     TextareaModule,
     ToastModule,
-    ToolbarModule,
   ],
   templateUrl: './dealer-bookings.html',
   styleUrl: './dealer-bookings.scss',
@@ -57,207 +95,548 @@ type BookingDraft = {
 export class DealerBookings {
   private supabase = inject(SupabaseService);
   private messageService = inject(MessageService);
-  private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private sanitizer = inject(DomSanitizer);
 
-  readonly loading = signal(true);
-  readonly saving = signal(false);
-  readonly dialogVisible = signal(false);
+  readonly step = signal(1);
+  readonly loadingVehicles = signal(false);
+  readonly generatingQuotation = signal(false);
+  readonly confirmingBooking = signal(false);
+  readonly previewVisible = signal(false);
+  readonly previewUrl = signal<string | null>(null);
+  readonly previewResource = signal<SafeResourceUrl | null>(null);
+  readonly filters = signal<VehicleFilters>({
+    type: null,
+    capacity: null,
+    transmission: null,
+    fuel: null,
+    pickup_date: null,
+    end_date: null,
+  });
   readonly vehicles = signal<any[]>([]);
-  readonly selection = signal<Record<string, number>>({});
-  readonly bookingForm = signal<BookingDraft>({
+  readonly selectedVehicle = signal<any | null>(null);
+  readonly trip = signal<TripForm>({
+    pickup_date: null,
+    pickup_time: '',
     pickup_location: '',
     drop_location: '',
-    start_date: null,
     end_date: null,
-    purpose: null,
-    notes: '',
+    dropoff_time: '',
+    purpose: '',
+    number_of_passengers: null,
+    special_instructions: '',
   });
+  readonly customer = signal<CustomerForm>({
+    full_name: '',
+    mobile: '',
+    email: '',
+    license_no: '',
+    license_expiry: null,
+    customer_type: 'individual',
+    business_name: '',
+    gst_number: '',
+    id_proof_url: '',
+    id_proof_name: '',
+  });
+  readonly existingCustomer = signal<any | null>(null);
+  readonly customerChoice = signal<CustomerChoice>('existing');
+  readonly uploadedIdFallback = signal<string | null>(null);
+  readonly pricing = signal<PricingSummary | null>(null);
+  readonly generatedBooking = signal<any | null>(null);
+  readonly generatedQuotation = signal<any | null>(null);
+  readonly sendState = signal<{ email: boolean; sms: boolean; whatsapp: boolean }>({
+    email: false,
+    sms: false,
+    whatsapp: false,
+  });
+  readonly paymentMode = signal<'UPI' | 'Card' | 'Cash' | null>(null);
 
-  readonly purposeOptions = ['Corporate', 'Event', 'Personal', 'Transfer'].map((label) => ({ label, value: label }));
+  readonly purposeOptions = ['Corporate', 'Airport Transfer', 'Personal', 'Business Visit', 'Event']
+    .map((value) => ({ label: value, value }));
+  readonly customerTypeOptions = [
+    { label: 'Individual', value: 'individual' },
+    { label: 'Business', value: 'business' },
+  ];
+  readonly paymentOptions = ['UPI', 'Card', 'Cash'].map((value) => ({ label: value, value }));
 
-  readonly selectedVehicles = computed(() =>
-    this.vehicles()
-      .filter((vehicle) => (this.selection()[vehicle.id] ?? 0) > 0)
-      .map((vehicle) => ({ ...vehicle, requestedQty: this.selection()[vehicle.id] }))
-  );
-
-  readonly selectedCount = computed(() =>
-    this.selectedVehicles().reduce((sum, vehicle) => sum + (vehicle.requestedQty ?? 0), 0)
-  );
-
-  readonly estimatedDays = computed(() => {
-    const form = this.bookingForm();
-    if (!form.start_date || !form.end_date) {
-      return 1;
+  readonly totalDays = computed(() => this.calculateDays(this.trip().pickup_date, this.trip().end_date));
+  readonly insuranceStatus = computed(() => {
+    const value = this.selectedVehicle()?.insurance_expiry;
+    if (!value) {
+      return null;
     }
 
-    const diff = new Date(form.end_date).getTime() - new Date(form.start_date).getTime();
-    return Math.max(1, Math.ceil(diff / 86400000));
+    const days = Math.ceil((new Date(value).getTime() - new Date().setHours(0, 0, 0, 0)) / 86400000);
+    if (days <= 30) {
+      return { label: 'Insurance expiring soon', severity: 'danger' as const };
+    }
+    return null;
   });
+  readonly licenseStatus = computed(() => {
+    const expiry = this.customer().license_expiry;
+    if (!expiry) {
+      return null;
+    }
 
-  readonly estimatedCost = computed(() =>
-    this.selectedVehicles().reduce(
-      (sum, vehicle) => sum + Number(vehicle.daily_rate ?? 0) * (vehicle.requestedQty ?? 0) * this.estimatedDays(),
-      0
-    )
-  );
+    const diff = Math.ceil((expiry.getTime() - new Date().setHours(0, 0, 0, 0)) / 86400000);
+    if (diff < 0) {
+      return { label: 'Licence expired', severity: 'danger' as const };
+    }
+    if (diff <= 30) {
+      return { label: `Licence expires in ${diff} day(s)`, severity: 'warn' as const };
+    }
+    return { label: 'Licence valid', severity: 'success' as const };
+  });
+  readonly customerDiffs = computed(() => {
+    const existing = this.existingCustomer();
+    const current = this.customer();
+    if (!existing) {
+      return [];
+    }
+
+    const comparisons = [
+      { label: 'Name', existing: existing.full_name ?? '', current: current.full_name ?? '' },
+      { label: 'Email', existing: existing.email ?? '', current: current.email ?? '' },
+      { label: 'Licence No', existing: existing.license_no ?? '', current: current.license_no ?? '' },
+      {
+        label: 'Licence Expiry',
+        existing: existing.license_expiry ?? '',
+        current: current.license_expiry ? this.toDateOnly(current.license_expiry) : '',
+      },
+      { label: 'Customer Type', existing: existing.customer_type ?? '', current: current.customer_type ?? '' },
+      { label: 'Business Name', existing: existing.business_name ?? '', current: current.business_name ?? '' },
+      { label: 'GST', existing: existing.gst_number ?? '', current: current.gst_number ?? '' },
+    ];
+
+    return comparisons.filter((item) => item.current && item.existing !== item.current);
+  });
 
   async ngOnInit() {
     await this.loadVehicles();
-    this.route.queryParamMap.subscribe((params) => {
-      const vehicleId = params.get('vehicleId');
-      if (vehicleId && this.vehicles().some((vehicle) => vehicle.id === vehicleId)) {
-        this.selection.update((current) => ({ ...current, [vehicleId]: Math.max(1, current[vehicleId] ?? 1) }));
-      }
-    });
   }
 
   async loadVehicles() {
-    this.loading.set(true);
-    const { data, error } = await this.supabase.getVehicles();
+    this.loadingVehicles.set(true);
+    const filters = this.filters();
+    const { data, error } = await this.supabase.getWalkInVehicles({
+      type: filters.type,
+      capacity: filters.capacity,
+      transmission: filters.transmission,
+      fuel: filters.fuel,
+      pickup_date: filters.pickup_date ? this.toDateOnly(filters.pickup_date) : null,
+      end_date: filters.end_date ? this.toDateOnly(filters.end_date) : null,
+    });
+    this.loadingVehicles.set(false);
+
     if (error) {
-      this.messageService.add({ severity: 'error', summary: 'Inventory unavailable', detail: error.message || 'Could not load vehicles.' });
-      this.vehicles.set([]);
-      this.loading.set(false);
+      this.messageService.add({ severity: 'error', summary: 'Vehicles unavailable', detail: (error as any)?.message || 'Could not load available vehicles.' });
       return;
     }
 
-    const vehicles = (data ?? [])
-      .map((vehicle, index) => normalizeVehicle(vehicle, index))
-      .filter((vehicle) => vehicle.rawStatus !== 'deleted' && vehicle.status === 'Available' && Number(vehicle.stock ?? 0) > 0);
-
-    this.vehicles.set(vehicles);
-    this.loading.set(false);
+    this.vehicles.set(data ?? []);
+    if (this.selectedVehicle()) {
+      const refreshed = (data ?? []).find((vehicle: any) => vehicle.id === this.selectedVehicle()?.id) ?? null;
+      this.selectedVehicle.set(refreshed);
+    }
   }
 
-  updateSelection(vehicle: Vehicle, checked: boolean) {
-    this.selection.update((current) => {
-      const next = { ...current };
-      if (checked) {
-        next[vehicle.id] = Math.max(1, next[vehicle.id] ?? 1);
-      } else {
-        delete next[vehicle.id];
-      }
-      return next;
+  updateFilters(patch: Partial<VehicleFilters>) {
+    this.filters.update((current) => ({ ...current, ...patch }));
+  }
+
+  updateTrip<K extends keyof TripForm>(key: K, value: TripForm[K]) {
+    this.trip.update((current) => ({ ...current, [key]: value }));
+  }
+
+  updateCustomer<K extends keyof CustomerForm>(key: K, value: CustomerForm[K]) {
+    this.customer.update((current) => ({ ...current, [key]: value }));
+  }
+
+  selectVehicle(vehicle: any) {
+    this.selectedVehicle.set(vehicle);
+    this.step.set(2);
+    this.recalculatePricing();
+  }
+
+  async applyAvailabilityFilters() {
+    await this.loadVehicles();
+  }
+
+  tripInvalid() {
+    const form = this.trip();
+    const pickupDate = form.pickup_date;
+    const endDate = form.end_date;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (!pickupDate || !endDate || !form.pickup_time || !form.dropoff_time || !form.pickup_location || !form.drop_location || !form.purpose) {
+      return true;
+    }
+
+    if (pickupDate < today) {
+      return true;
+    }
+
+    return endDate < pickupDate;
+  }
+
+  continueToCustomer() {
+    if (this.tripInvalid()) {
+      this.messageService.add({ severity: 'warn', summary: 'Trip details incomplete', detail: 'Enter all trip details with valid dates and times.' });
+      return;
+    }
+
+    this.recalculatePricing();
+    this.step.set(3);
+  }
+
+  async lookupCustomer() {
+    const mobile = this.customer().mobile.trim();
+    if (!/^[6-9]\d{9}$/.test(mobile)) {
+      return;
+    }
+
+    const { data, error } = await this.supabase.findCustomerByMobile(mobile);
+    if (error) {
+      this.messageService.add({ severity: 'error', summary: 'Customer lookup failed', detail: error.message || 'Could not look up the customer.' });
+      return;
+    }
+
+    this.existingCustomer.set(data);
+    if (!data) {
+      this.customerChoice.set('new');
+      return;
+    }
+
+    this.customer.update((current) => ({
+      ...current,
+      full_name: current.full_name || data.full_name || '',
+      email: current.email || data.email || '',
+      license_no: current.license_no || data.license_no || '',
+      license_expiry: current.license_expiry || (data.license_expiry ? new Date(data.license_expiry) : null),
+      customer_type: data.customer_type === 'business' ? 'business' : current.customer_type,
+      business_name: current.business_name || data.business_name || '',
+      gst_number: current.gst_number || data.gst_number || '',
+      id_proof_url: current.id_proof_url || data.id_proof_url || '',
+      id_proof_name: current.id_proof_name || (data.id_proof_url ? 'Existing proof on file' : ''),
+    }));
+    this.customerChoice.set('existing');
+  }
+
+  customerInvalid() {
+    const customer = this.customer();
+    if (!customer.full_name || !/^[6-9]\d{9}$/.test(customer.mobile) || !customer.license_no || !customer.license_expiry) {
+      return true;
+    }
+
+    if (customer.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customer.email)) {
+      return true;
+    }
+
+    if (customer.customer_type === 'business' && (!customer.business_name || !customer.gst_number)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  continueToQuotation() {
+    if (this.customerInvalid()) {
+      this.messageService.add({ severity: 'warn', summary: 'Customer details incomplete', detail: 'Please complete the customer form before continuing.' });
+      return;
+    }
+
+    this.recalculatePricing();
+    this.step.set(4);
+  }
+
+  async onIdProofSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    const reference = this.customer().mobile || this.customer().full_name || 'customer';
+    const { data, error } = await this.supabase.uploadCustomerIdProof(file, reference);
+    if (error && !data?.publicUrl && !data?.fallbackDataUrl) {
+      this.messageService.add({ severity: 'error', summary: 'Upload failed', detail: 'Could not upload ID proof.' });
+      return;
+    }
+
+    this.customer.update((current) => ({
+      ...current,
+      id_proof_url: data?.publicUrl || data?.fallbackDataUrl || '',
+      id_proof_name: file.name,
+    }));
+    this.uploadedIdFallback.set(data?.publicUrl ? null : data?.fallbackDataUrl || null);
+  }
+
+  async generateQuotation() {
+    if (!this.selectedVehicle() || !this.pricing()) {
+      return;
+    }
+
+    this.generatingQuotation.set(true);
+    const result = await this.supabase.createWalkInQuotation({
+      vehicle_id: this.selectedVehicle().id,
+      trip: {
+        pickup_date: this.toDateOnly(this.trip().pickup_date),
+        pickup_time: this.trip().pickup_time,
+        pickup_location: this.trip().pickup_location,
+        drop_location: this.trip().drop_location,
+        end_date: this.toDateOnly(this.trip().end_date),
+        dropoff_time: this.trip().dropoff_time,
+        purpose: this.trip().purpose,
+        number_of_passengers: Number(this.trip().number_of_passengers ?? 0),
+        special_instructions: this.trip().special_instructions || null,
+      },
+      customer: {
+        full_name: this.customer().full_name,
+        mobile: this.customer().mobile,
+        email: this.customer().email || null,
+        license_no: this.customer().license_no,
+        license_expiry: this.customer().license_expiry ? this.toDateOnly(this.customer().license_expiry) : null,
+        customer_type: this.customer().customer_type,
+        business_name: this.customer().business_name || null,
+        gst_number: this.customer().gst_number || null,
+        id_proof_url: this.customer().id_proof_url || null,
+      },
+      pricing: this.pricing()!,
+      existing_customer_id: this.existingCustomer()?.id ?? null,
+      existing_customer_choice: this.existingCustomer() ? this.customerChoice() : 'new',
     });
-  }
+    this.generatingQuotation.set(false);
 
-  updateQuantity(vehicle: Vehicle, quantity: number | null | undefined) {
-    const max = Math.max(1, Number(vehicle.stock ?? 1));
-    const nextQuantity = Math.min(max, Math.max(0, Number(quantity ?? 0)));
-    this.selection.update((current) => {
-      const next = { ...current };
-      if (nextQuantity <= 0) {
-        delete next[vehicle.id];
-      } else {
-        next[vehicle.id] = nextQuantity;
+    if (result.error) {
+      const detail = result.error.message || 'Could not generate the quotation.';
+      this.messageService.add({ severity: 'error', summary: 'Quotation failed', detail });
+      if (/no longer available/i.test(detail)) {
+        this.step.set(1);
+        await this.loadVehicles();
       }
-      return next;
-    });
-  }
-
-  isSelected(vehicleId: string) {
-    return (this.selection()[vehicleId] ?? 0) > 0;
-  }
-
-  openSingleBooking() {
-    if (!this.selectedVehicles().length && this.vehicles().length) {
-      const firstVehicle = this.vehicles()[0];
-      this.selection.set({ [firstVehicle.id]: 1 });
-    }
-    this.dialogVisible.set(true);
-  }
-
-  openBulkBooking() {
-    this.dialogVisible.set(true);
-  }
-
-  bookingInvalid() {
-    const form = this.bookingForm();
-    return (
-      !this.selectedVehicles().length ||
-      !form.pickup_location ||
-      !form.drop_location ||
-      !form.start_date ||
-      !form.end_date ||
-      !form.purpose ||
-      new Date(form.end_date) <= new Date(form.start_date)
-    );
-  }
-
-  async submitBookingRequest() {
-    if (this.bookingInvalid()) {
-      this.messageService.add({
-        severity: 'warn',
-        summary: 'Incomplete request',
-        detail: 'Select at least one vehicle and complete all required booking fields.',
-      });
       return;
     }
 
-    const user = await this.supabase.getCurrentUser();
-    if (!user) {
-      this.messageService.add({ severity: 'warn', summary: 'Session expired', detail: 'Please sign in again.' });
-      return;
-    }
-
-    this.saving.set(true);
-    const form = this.bookingForm();
-    const bulkId = crypto.randomUUID();
-
-    for (const vehicle of this.selectedVehicles()) {
-      const { error } = await this.supabase.createBooking({
-        vehicle_id: vehicle.id,
-        user_id: user.id,
-        bulk_booking_id: bulkId,
-        quantity: vehicle.requestedQty,
-        pickup_location: form.pickup_location,
-        drop_location: form.drop_location,
-        start_date: form.start_date?.toISOString(),
-        end_date: form.end_date?.toISOString(),
-        purpose: form.purpose ?? '',
-        dealer_notes: form.notes,
-        status: 'pending',
-      });
-
-      if (error) {
-        this.saving.set(false);
-        this.messageService.add({ severity: 'error', summary: 'Request failed', detail: error.message || 'Could not create booking.' });
-        return;
-      }
-    }
-
-    const { error: bulkError } = await this.supabase.insertBulkBooking({
-      id: bulkId,
-      dealer_id: user.id,
-      total_vehicles: this.selectedCount(),
-      notes: form.notes,
-    });
-
-    this.saving.set(false);
-
-    if (bulkError) {
-      this.messageService.add({ severity: 'error', summary: 'Bulk request failed', detail: bulkError.message || 'Could not save bulk booking.' });
-      return;
-    }
-
-    await this.supabase.logAudit(`Bulk Booking Created: ${bulkId}`, bulkId);
+    this.generatedBooking.set(result.data?.booking ?? null);
+    this.generatedQuotation.set(result.data?.quotation ?? null);
+    this.step.set(5);
     this.messageService.add({
       severity: 'success',
-      summary: 'Request submitted',
-      detail: `${this.selectedCount()} vehicle slots were submitted for approval.`,
+      summary: 'Quotation generated',
+      detail: `Quotation ${result.data?.quotation?.quote_reference || ''} is ready for preview and confirmation.`,
     });
-    this.selection.set({});
-    this.bookingForm.set({
-      pickup_location: '',
-      drop_location: '',
-      start_date: null,
-      end_date: null,
-      purpose: null,
-      notes: '',
+  }
+
+  async previewPdf() {
+    const blob = this.buildPdfBlob();
+    if (!blob) {
+      return;
+    }
+
+    const previousUrl = this.previewUrl();
+    if (previousUrl) {
+      URL.revokeObjectURL(previousUrl);
+    }
+
+    const url = URL.createObjectURL(blob);
+    this.previewUrl.set(url);
+    this.previewResource.set(this.sanitizer.bypassSecurityTrustResourceUrl(url));
+    this.previewVisible.set(true);
+  }
+
+  async sendQuote(channel: 'email' | 'sms' | 'whatsapp') {
+    if (!this.generatedBooking() || !this.generatedQuotation()) {
+      this.messageService.add({ severity: 'warn', summary: 'Generate quotation first', detail: 'Create the quotation before sending it.' });
+      return;
+    }
+
+    const blob = this.buildPdfBlob();
+    if (blob) {
+      const url = URL.createObjectURL(blob);
+      const quoteRef = this.generatedQuotation()?.quote_reference || 'Quotation';
+      const message = encodeURIComponent(
+        `Quotation ${quoteRef} for ${this.customer().full_name}. Pickup ${this.trip().pickup_location}, drop ${this.trip().drop_location}, total ${this.formatCurrency(this.pricing()?.final_amount || 0)}.`
+      );
+
+      if (channel === 'email') {
+        window.open(`mailto:${this.customer().email || ''}?subject=${encodeURIComponent(quoteRef)}&body=${message}`, '_blank');
+      } else if (channel === 'sms') {
+        window.open(`sms:${this.customer().mobile}?body=${message}`, '_blank');
+      } else {
+        window.open(`https://wa.me/91${this.customer().mobile}?text=${message}`, '_blank');
+      }
+
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+    }
+
+    await this.supabase.markQuotationSent(this.generatedBooking().id);
+    this.sendState.update((current) => ({ ...current, [channel]: true }));
+    this.messageService.add({ severity: 'success', summary: 'Quotation shared', detail: `Prepared ${channel.toUpperCase()} handoff for the quotation.` });
+  }
+
+  async confirmBooking() {
+    if (!this.generatedBooking() || !this.generatedQuotation()) {
+      return;
+    }
+
+    this.confirmingBooking.set(true);
+    const preferredChannel = this.sendState().email
+      ? 'email'
+      : this.sendState().whatsapp
+        ? 'whatsapp'
+        : this.sendState().sms
+          ? 'sms'
+          : null;
+    const { error } = await this.supabase.confirmWalkInBooking(this.generatedBooking().id, preferredChannel);
+    this.confirmingBooking.set(false);
+
+    if (error) {
+      this.messageService.add({ severity: 'error', summary: 'Confirmation failed', detail: error.message || 'Could not confirm this booking.' });
+      return;
+    }
+
+    this.messageService.add({
+      severity: 'success',
+      summary: 'Booking confirmed',
+      detail: `Advance payment recorded in workflow${this.paymentMode() ? ` via ${this.paymentMode()}` : ''}. Admin has been notified for approval.`,
     });
-    this.dialogVisible.set(false);
     await this.router.navigateByUrl('/dealer/my-bookings');
+  }
+
+  recalculatePricing() {
+    const vehicle = this.selectedVehicle();
+    if (!vehicle) {
+      this.pricing.set(null);
+      return;
+    }
+
+    const tier = vehicle.tier ?? vehicle.vehicle_tiers ?? {};
+    const rate = Number(tier.daily_rate ?? 0);
+    const days = this.totalDays();
+    const base_cost = rate * days;
+    const discount_amount = 0;
+    const gst = base_cost * this.supabase.gstRate;
+    const final_amount = base_cost + gst - discount_amount;
+
+    this.pricing.set({
+      rate,
+      days,
+      base_cost,
+      gst,
+      advance: base_cost * 0.5,
+      security_deposit: Number(tier.security_deposit ?? 0),
+      final_amount,
+      extra_mileage_rate: Number(tier.extra_mileage_rate ?? 0),
+      included_km_per_day: Number(tier.included_km_per_day ?? 0),
+      discount_amount,
+      promo_code: null,
+      fuel_policy: 'Full-to-Full',
+    });
+  }
+
+  stepDone(target: number) {
+    return this.step() > target;
+  }
+
+  goToStep(target: number) {
+    if (target < this.step()) {
+      this.step.set(target);
+    }
+  }
+
+  private buildPdfBlob() {
+    const pricing = this.pricing();
+    const quotation = this.generatedQuotation();
+    if (!pricing) {
+      return null;
+    }
+
+    const lines = [
+      `Quotation ${quotation?.quote_reference || 'DRAFT'}`,
+      `Customer: ${this.customer().full_name}`,
+      `Mobile: ${this.customer().mobile}`,
+      `Vehicle: ${this.selectedVehicle()?.brand || ''} ${this.selectedVehicle()?.model || ''}`.trim(),
+      `Pickup: ${this.trip().pickup_location} on ${this.toDateOnly(this.trip().pickup_date)}`,
+      `Drop: ${this.trip().drop_location} on ${this.toDateOnly(this.trip().end_date)}`,
+      `Rate per day: ${this.formatCurrency(pricing.rate)}`,
+      `Days: ${pricing.days}`,
+      `Base cost: ${this.formatCurrency(pricing.base_cost)}`,
+      `GST: ${this.formatCurrency(pricing.gst)}`,
+      `Advance: ${this.formatCurrency(pricing.advance)}`,
+      `Security deposit: ${this.formatCurrency(pricing.security_deposit)}`,
+      `Final amount: ${this.formatCurrency(pricing.final_amount)}`,
+      `Extra mileage rate: ${this.formatCurrency(pricing.extra_mileage_rate)} per km`,
+    ];
+
+    const content = [
+      'BT',
+      '/F1 12 Tf',
+      '40 800 Td',
+      ...lines.flatMap((line, index) => [`(${this.escapePdf(line)}) Tj`, index === lines.length - 1 ? '' : 'T*']),
+      'ET',
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    const stream = `<< /Length ${content.length} >>\nstream\n${content}\nendstream`;
+    const objects = [
+      '1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj',
+      '2 0 obj << /Type /Pages /Count 1 /Kids [3 0 R] >> endobj',
+      '3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >> endobj',
+      `4 0 obj ${stream} endobj`,
+      '5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj',
+    ];
+
+    let pdf = '%PDF-1.4\n';
+    const offsets: number[] = [];
+    for (const object of objects) {
+      offsets.push(pdf.length);
+      pdf += `${object}\n`;
+    }
+
+    const xrefOffset = pdf.length;
+    pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+    pdf += offsets.map((offset) => `${String(offset).padStart(10, '0')} 00000 n \n`).join('');
+    pdf += `trailer << /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+
+    return new Blob([pdf], { type: 'application/pdf' });
+  }
+
+  private escapePdf(value: string) {
+    return value.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+  }
+
+  private calculateDays(start: Date | null, end: Date | null) {
+    if (!start || !end) {
+      return 1;
+    }
+
+    const startDate = new Date(start);
+    startDate.setHours(0, 0, 0, 0);
+    const endDate = new Date(end);
+    endDate.setHours(0, 0, 0, 0);
+    const diff = Math.round((endDate.getTime() - startDate.getTime()) / 86400000);
+    return Math.max(1, diff || 1);
+  }
+
+  private toDateOnly(value: Date | null) {
+    if (!value) {
+      return '';
+    }
+
+    const date = new Date(value);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  private formatCurrency(value: number) {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0,
+    }).format(value);
   }
 }

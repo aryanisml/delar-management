@@ -53,7 +53,7 @@ export class DealerInventory {
   readonly viewMode = signal<'table' | 'grid'>('table');
 
   readonly typeOptions = ['SUV', 'Sedan', 'Truck', 'Van', 'Bus'].map((label) => ({ label, value: label }));
-  readonly statusOptions = ['Available', 'Maintenance', 'Inactive'].map((label) => ({ label, value: label }));
+  readonly statusOptions = ['Available', 'Booked', 'Maintenance', 'Inactive'].map((label) => ({ label, value: label }));
   readonly viewOptions = [
     { icon: 'pi pi-list', value: 'table' },
     { icon: 'pi pi-th-large', value: 'grid' },
@@ -108,6 +108,11 @@ export class DealerInventory {
 
   bookVehicle(vehicleId: string) {
     this.router.navigate(['/dealer/bookings'], { queryParams: { vehicleId } });
+  }
+
+  canBook(vehicle: any) {
+    const today = new Date().toISOString().slice(0, 10);
+    return vehicle.vehicleStatus === 'available' && (!vehicle.nextAvailableDate || vehicle.nextAvailableDate <= today);
   }
 
   statusSeverity(status: string) {

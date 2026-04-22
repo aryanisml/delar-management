@@ -15,7 +15,14 @@ export interface Booking {
   approved_at?: string;
   rejection_reason?: string;
   dealer_notes?: string;
-  status?: 'pending' | 'approved' | 'rejected' | 'cancelled' | 'completed';
+  status?: 'pending' | 'confirmed' | 'in_service' | 'rejected' | 'cancelled' | 'completed';
+  quote_status?: 'draft' | 'sent' | 'confirmed' | 'cancelled' | 'rejected';
+  customer_id?: string;
+  pickup_time?: string;
+  dropoff_time?: string;
+  number_of_passengers?: number;
+  special_instructions?: string;
+  total_price?: number;
   created_at?: string;
   updated_at?: string;
   vehicle?: Partial<Vehicle>;

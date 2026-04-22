@@ -30,6 +30,9 @@
           <h3>Customer Information</h3>
           <p>Required fields are checked inline.</p>
         </div>
+        @if (returningCustomer()) {
+          <p-tag value="Returning Customer" severity="success"></p-tag>
+        }
         @if (licenceStatus(); as status) {
           <p-tag [value]="status.label" [severity]="status.severity"></p-tag>
         }
@@ -50,12 +53,12 @@
           </div>
           @if (invalid('mobile')) { <p-message severity="error" [text]="fieldError('mobile')"></p-message> }
 
-          @if (suggestions().length) {
+          @if (suggestionField() === 'mobile' && suggestions().length) {
             <div class="suggestion-list">
               @for (item of suggestions(); track item.id || item.mobile || item.email) {
                 <button type="button" (click)="selectSuggestion(item)">
                   <strong>{{ item.full_name || item.name || 'Returning customer' }}</strong>
-                  <span>{{ item.mobile || item.email }}</span>
+                  <span>{{ item.mobile }} {{ item.email ? '- ' + item.email : '' }}</span>
                 </button>
               }
             </div>
@@ -66,6 +69,17 @@
           <label>Email ID</label>
           <input pInputText [ngModel]="customer().email" (ngModelChange)="update('email', $event)" placeholder="customer@email.com" />
           @if (invalid('email')) { <p-message severity="error" [text]="fieldError('email')"></p-message> }
+
+          @if (suggestionField() === 'email' && suggestions().length) {
+            <div class="suggestion-list">
+              @for (item of suggestions(); track item.id || item.mobile || item.email) {
+                <button type="button" (click)="selectSuggestion(item)">
+                  <strong>{{ item.full_name || item.name || 'Returning customer' }}</strong>
+                  <span>{{ item.mobile }} {{ item.email ? '- ' + item.email : '' }}</span>
+                </button>
+              }
+            </div>
+          }
         </div>
 
         <div class="field">

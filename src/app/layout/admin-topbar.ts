@@ -37,7 +37,7 @@ export class AdminTopbar {
   @Input() breadcrumbItems: MenuItem[] = [];
   @Input() searchValue = '';
   @Input() notificationCount = 0;
-  @Input() notifications: Array<{ title: string; time: string; detail: string }> = [];
+  @Input() notifications: Array<{ id?: string; title: string; time: string; detail: string; type?: string; booking_id?: string }> = [];
   @Input() userInitials = 'A';
   @Input() userName = 'User';
   @Input() roleLabel = 'Workspace';
@@ -46,6 +46,7 @@ export class AdminTopbar {
   @Output() menuToggle = new EventEmitter<void>();
   @Output() searchChange = new EventEmitter<string>();
   @Output() markAllRead = new EventEmitter<void>();
+  @Output() notificationClick = new EventEmitter<any>();
   @Output() themeToggle = new EventEmitter<void>();
 
   badgeValue(count: number) {

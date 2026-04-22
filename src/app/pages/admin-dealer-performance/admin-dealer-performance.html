@@ -2,239 +2,46 @@
 <p-confirmDialog></p-confirmDialog>
 
 <div class="admin-page-shell">
-  <div>
-    <h2 class="admin-page-title m-0">Bookings</h2>
-    <p class="admin-page-subtitle mt-1 mb-0">Review, approve or reject fleet booking requests</p>
-  </div>
-
-  <div class="flex flex-wrap gap-3">
-    @for (tab of tabItems; track tab.label; let i = $index) {
-      <button
-        pButton
-        type="button"
-        size="small"
-        [outlined]="activeTab() !== i"
-        [severity]="activeTab() === i ? 'primary' : 'secondary'"
-        (click)="setTab(i)">
-        <span>{{ tab.label }}</span>
-        <p-tag [value]="tabCount(tab.status)" [severity]="tab.badge" styleClass="ml-2"></p-tag>
-      </button>
-    }
-  </div>
-
-  <p-card styleClass="mb-4 border border-gray-200 rounded-xl bg-white px-4 py-3">
-    <div class="flex flex-wrap items-center gap-3">
-      <p-datepicker
-        [ngModel]="dateRange()"
-        (ngModelChange)="dateRange.set($event); applyFilters()"
-        selectionMode="range"
-        placeholder="Date range">
-      </p-datepicker>
-      <p-select
-        [options]="vehicleOptions()"
-        [ngModel]="selectedVehicle()"
-        (ngModelChange)="selectedVehicle.set($event); applyFilters()"
-        placeholder="All Vehicles"
-        optionLabel="label"
-        optionValue="value"
-        class="w-52">
-      </p-select>
-      <p-select
-        [options]="priorities"
-        [ngModel]="selectedPriority()"
-        (ngModelChange)="selectedPriority.set($event); applyFilters()"
-        placeholder="All Priorities"
-        optionLabel="label"
-        optionValue="value"
-        class="w-44">
-      </p-select>
-      <input
-        pInputText
-        [ngModel]="search()"
-        (ngModelChange)="search.set($event); applyFilters()"
-        placeholder="Search by booking ID or user"
-        class="w-64" />
-      <button
-        pButton
-        type="button"
-        text
-        severity="secondary"
-        icon="pi pi-filter-slash"
-        label="Clear"
-        pTooltip="Clear all filters"
-        tooltipPosition="top"
-        (click)="clearFilters()">
-      </button>
+  <div class="flex flex-wrap items-start justify-between gap-4">
+    <div>
+      <h2 class="admin-page-title m-0">Pending Booking Approvals</h2>
+      <p class="admin-page-subtitle mt-1 mb-0">Every detail view is loaded fresh from Supabase before the admin approves or rejects.</p>
     </div>
-  </p-card>
+    <input pInputText [ngModel]="search()" (ngModelChange)="search.set($event)" placeholder="Search booking, customer, or quote" class="w-full md:w-72" />
+  </div>
 
   <p-card styleClass="booking-table-card">
-    <p-table
-      [value]="filteredBookings()"
-      dataKey="id"
-      [rowExpandMode]="'single'"
-      [expandedRowKeys]="expandedRows()"
-      responsiveLayout="scroll">
+    <p-table [value]="filteredBookings()" [loading]="loading()" responsiveLayout="scroll">
       <ng-template pTemplate="header">
         <tr>
-          <th style="width: 90px">Booking ID</th>
-          <th style="width: 160px">Vehicle</th>
-          <th style="width: 140px">User</th>
-          <th style="width: 220px">Dates</th>
-          <th style="width: 130px">Pickup</th>
-          <th style="width: 110px">Status</th>
-          <th style="width: 72px">Priority</th>
-          <th style="width: 100px">Actions</th>
+          <th>Booking Reference</th>
+          <th>Customer</th>
+          <th>Vehicle</th>
+          <th>Pickup Date</th>
+          <th>Total Price</th>
+          <th>Created At</th>
+          <th>Status</th>
+          <th>Actions</th>
         </tr>
       </ng-template>
 
-      <ng-template pTemplate="body" let-booking>
-        <tr class="booking-row" (click)="toggleExpandedRow(booking.id)">
-          <td class="text-sm font-mono text-blue-700">#{{ booking.id }}</td>
-          <td class="text-sm">
-            <div class="flex items-center gap-3">
-              <p-avatar [label]="booking.vehicleType.charAt(0)" styleClass="bg-slate-100 text-slate-700"></p-avatar>
-              <span class="font-medium text-gray-900">{{ booking.vehicle }}</span>
-            </div>
-          </td>
-          <td class="text-sm">
-            <div class="flex items-center gap-3">
-              <p-avatar [label]="booking.userName.charAt(0)" shape="circle" styleClass="bg-slate-100 text-slate-700"></p-avatar>
-              <div>
-                <p class="m-0 font-medium text-gray-900">{{ booking.userName }}</p>
-              </div>
-            </div>
-          </td>
-          <td class="text-sm">
-            <div class="booking-date-cell">
-              <div class="booking-date-cell__range">
-                <span>{{ booking.startDate | date:'mediumDate' }}</span>
-                <i class="pi pi-arrow-right text-xs text-gray-400"></i>
-                <span>{{ booking.endDate | date:'mediumDate' }}</span>
-              </div>
-              <p-tag [value]="booking.days + ' days'" severity="info" styleClass="mt-2"></p-tag>
-            </div>
-          </td>
-          <td class="text-sm">
-            <span class="block max-w-[130px] truncate text-gray-700" [pTooltip]="booking.pickup" tooltipPosition="top">
-              {{ booking.pickup }}
-            </span>
-          </td>
-          <td class="text-sm"><p-tag [value]="booking.status" [severity]="statusSeverity(booking.status)"></p-tag></td>
-          <td class="text-sm">
-            <span class="priority-dot" [ngClass]="priorityDotClass(booking.priority)" [pTooltip]="booking.priority" tooltipPosition="top"></span>
-          </td>
-          <td class="text-sm">
-            <div class="booking-action-row">
-              <button
-                pButton
-                type="button"
-                icon="pi pi-eye"
-                text
-                severity="info"
-                pTooltip="View booking details"
-                tooltipPosition="left"
-                (click)="$event.stopPropagation(); toggleExpandedRow(booking.id)">
-              </button>
-              <button
-                pButton
-                type="button"
-                icon="pi pi-check"
-                text
-                severity="success"
-                [disabled]="booking.status !== 'Pending'"
-                pTooltip="Approve booking"
-                tooltipPosition="left"
-                (click)="$event.stopPropagation(); approveBooking(booking)">
-              </button>
-              <button
-                pButton
-                type="button"
-                icon="pi pi-times"
-                text
-                severity="danger"
-                [disabled]="booking.status !== 'Pending'"
-                pTooltip="Reject booking"
-                tooltipPosition="left"
-                (click)="$event.stopPropagation(); rejectBooking(booking)">
-              </button>
-            </div>
-          </td>
-        </tr>
-      </ng-template>
-
-      <ng-template pTemplate="rowexpansion" let-booking>
+      <ng-template pTemplate="body" let-row>
         <tr>
-          <td colspan="8">
-            <div class="grid gap-6 rounded-2xl bg-gray-50 p-4 lg:grid-cols-2">
-              <p-card>
-                <p class="admin-section-label mb-4">Status History</p>
-                <p-timeline [value]="booking.history">
-                  <ng-template pTemplate="marker">
-                    <span class="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-white">
-                      <i class="pi pi-check text-xs"></i>
-                    </span>
-                  </ng-template>
-                  <ng-template pTemplate="content" let-event>
-                    <div>
-                      <p class="m-0 font-semibold text-gray-900">{{ event.status }}</p>
-                      <p class="m-0 text-sm text-gray-500">{{ event.actor }} | {{ event.time }}</p>
-                    </div>
-                  </ng-template>
-                </p-timeline>
-              </p-card>
-
-              <p-card>
-                <p class="admin-section-label mb-4">Booking Details</p>
-                <div class="space-y-3">
-                  <div class="rounded-xl border border-border p-3">
-                    <p class="m-0 text-sm font-semibold text-gray-900">Pickup / Drop-off</p>
-                    <p class="my-1 text-sm text-gray-600">{{ booking.pickup }}</p>
-                  </div>
-                  <div class="rounded-xl border border-border p-3">
-                    <p class="m-0 text-sm font-semibold text-gray-900">Purpose</p>
-                    <p class="m-0 text-sm text-gray-600">{{ booking.purpose }}</p>
-                  </div>
-                  <div class="rounded-xl border border-border p-3">
-                    <p class="m-0 text-sm font-semibold text-gray-900">Priority</p>
-                    <p class="m-0 text-sm text-gray-600">{{ booking.priority }}</p>
-                  </div>
-                  <div class="rounded-xl border border-border p-3">
-                    <p class="m-0 text-sm font-semibold text-gray-900">Assigned To</p>
-                    <p class="m-0 text-sm text-gray-600">{{ booking.assignedTo }}</p>
-                  </div>
-                  <div class="rounded-xl border border-border p-3">
-                    <p class="m-0 text-sm font-semibold text-gray-900">Cost with Breakdown</p>
-                    <p class="m-0 text-sm font-medium text-gray-900">{{ booking.cost | currency:'INR':'symbol':'1.0-0' }}</p>
-                    @for (item of booking.breakdown; track item.label) {
-                      <div class="mt-2 flex items-center justify-between text-sm">
-                        <span class="text-gray-600">{{ item.label }}</span>
-                        <span class="font-medium text-gray-900">{{ item.value | currency:'INR':'symbol':'1.0-0' }}</span>
-                      </div>
-                    }
-                  </div>
-                  @if (booking.status === 'Cancelled') {
-                    <div class="rounded-xl border border-red-200 bg-red-50 p-3">
-                      <p class="m-0 text-sm font-semibold text-red-700">Rejection Reason</p>
-                      <p class="m-0 mt-1 text-sm text-red-600">{{ booking.notes }}</p>
-                    </div>
-                  }
-                </div>
-              </p-card>
-            </div>
-
-            <div class="mt-4">
-              <p-card>
-                <p class="admin-section-label mb-3">Call Center Notes</p>
-                <p-inplace>
-                  <ng-template pTemplate="display">
-                    <p class="m-0 text-sm text-gray-600">{{ notes[booking.id] }}</p>
-                  </ng-template>
-                  <ng-template pTemplate="content">
-                    <textarea pTextarea rows="3" class="w-full" [(ngModel)]="notes[booking.id]"></textarea>
-                  </ng-template>
-                </p-inplace>
-              </p-card>
+          <td class="font-mono text-sm text-blue-700">{{ row.id }}</td>
+          <td>
+            <p class="m-0 font-medium text-gray-900">{{ row.customer_name }}</p>
+            <p class="m-0 text-xs text-gray-500">{{ row.mobile }} | {{ row.customer_type }}</p>
+          </td>
+          <td>{{ row.vehicle_name }}</td>
+          <td>{{ row.pickup_date | date:'mediumDate' }}</td>
+          <td>{{ row.total_price | currency:'INR':'symbol':'1.0-0' }}</td>
+          <td>{{ row.created_at | date:'medium' }}</td>
+          <td><p-tag [value]="row.status | titlecase" [severity]="statusSeverity(row.status)"></p-tag></td>
+          <td>
+            <div class="booking-action-row">
+              <button pButton type="button" text icon="pi pi-eye" (click)="viewDetails(row)"></button>
+              <button pButton type="button" text severity="success" icon="pi pi-check" (click)="approveBooking(row)"></button>
+              <button pButton type="button" text severity="danger" icon="pi pi-times" (click)="openRejectDialog(row)"></button>
             </div>
           </td>
         </tr>
@@ -244,6 +51,96 @@
 </div>
 
 <p-dialog
+  header="Booking Details"
+  [visible]="detailVisible()"
+  (visibleChange)="detailVisible.set($event)"
+  [modal]="true"
+  [draggable]="false"
+  [style]="{ width: '980px' }">
+  @if (selectedDetail(); as detail) {
+    <div class="grid gap-4 lg:grid-cols-2">
+      <p-card>
+        <p class="admin-section-label mb-3">Booking</p>
+        <div class="summary-list">
+          <div><span>ID</span><strong>{{ detail.id }}</strong></div>
+          <div><span>Vehicle ID</span><strong>{{ detail.vehicle_id }}</strong></div>
+          <div><span>Customer ID</span><strong>{{ detail.customer_id }}</strong></div>
+          <div><span>Pickup Location</span><strong>{{ detail.pickup_location }}</strong></div>
+          <div><span>Drop Location</span><strong>{{ detail.drop_location }}</strong></div>
+          <div><span>Start Date</span><strong>{{ detail.start_date | date:'mediumDate' }}</strong></div>
+          <div><span>End Date</span><strong>{{ detail.end_date | date:'mediumDate' }}</strong></div>
+          <div><span>Pickup Time</span><strong>{{ detail.pickup_time || '-' }}</strong></div>
+          <div><span>Drop-off Time</span><strong>{{ detail.dropoff_time || '-' }}</strong></div>
+          <div><span>Purpose</span><strong>{{ detail.purpose || '-' }}</strong></div>
+          <div><span>Passengers</span><strong>{{ detail.number_of_passengers || '-' }}</strong></div>
+          <div><span>Special Instructions</span><strong>{{ detail.special_instructions || '-' }}</strong></div>
+          <div><span>Status</span><strong>{{ detail.status }}</strong></div>
+          <div><span>Created At</span><strong>{{ detail.created_at | date:'medium' }}</strong></div>
+          <div><span>Approved By</span><strong>{{ detail.approved_by || '-' }}</strong></div>
+          <div><span>Approved At</span><strong>{{ detail.approved_at ? (detail.approved_at | date:'medium') : '-' }}</strong></div>
+          <div><span>Rejection Reason</span><strong>{{ detail.rejection_reason || '-' }}</strong></div>
+        </div>
+      </p-card>
+
+      <p-card>
+        <p class="admin-section-label mb-3">Customer</p>
+        <div class="summary-list">
+          <div><span>Full Name</span><strong>{{ detail.customers?.full_name || '-' }}</strong></div>
+          <div><span>Mobile</span><strong>{{ detail.customers?.mobile || '-' }}</strong></div>
+          <div><span>Email</span><strong>{{ detail.customers?.email || '-' }}</strong></div>
+          <div><span>Licence No</span><strong>{{ detail.customers?.license_no || '-' }}</strong></div>
+          <div><span>Licence Expiry</span><strong>{{ detail.customers?.license_expiry ? (detail.customers?.license_expiry | date:'mediumDate') : '-' }}</strong></div>
+          <div><span>Customer Type</span><strong>{{ detail.customers?.customer_type || '-' }}</strong></div>
+          <div><span>Business Name</span><strong>{{ detail.customers?.business_name || '-' }}</strong></div>
+          <div><span>GST</span><strong>{{ detail.customers?.gst_number || '-' }}</strong></div>
+          <div><span>ID Proof URL</span><strong>{{ detail.customers?.id_proof_url || '-' }}</strong></div>
+        </div>
+      </p-card>
+
+      <p-card>
+        <p class="admin-section-label mb-3">Quotation</p>
+        <div class="summary-list">
+          <div><span>Rate</span><strong>{{ detail.quotation?.rate | currency:'INR':'symbol':'1.0-0' }}</strong></div>
+          <div><span>Days</span><strong>{{ detail.quotation?.days || '-' }}</strong></div>
+          <div><span>Base Cost</span><strong>{{ detail.quotation?.base_cost | currency:'INR':'symbol':'1.0-0' }}</strong></div>
+          <div><span>GST</span><strong>{{ detail.quotation?.gst | currency:'INR':'symbol':'1.0-0' }}</strong></div>
+          <div><span>Advance</span><strong>{{ detail.quotation?.advance | currency:'INR':'symbol':'1.0-0' }}</strong></div>
+          <div><span>Security Deposit</span><strong>{{ detail.quotation?.security_deposit | currency:'INR':'symbol':'1.0-0' }}</strong></div>
+          <div><span>Final Amount</span><strong>{{ detail.quotation?.final_amount | currency:'INR':'symbol':'1.0-0' }}</strong></div>
+          <div><span>Quote Reference</span><strong>{{ detail.quotation?.quote_reference || '-' }}</strong></div>
+          <div><span>Fuel Policy</span><strong>{{ detail.quotation?.fuel_policy || '-' }}</strong></div>
+          <div><span>Extra Mileage Rate</span><strong>{{ detail.quotation?.extra_mileage_rate | currency:'INR':'symbol':'1.0-0' }}</strong></div>
+          <div><span>Promo Code</span><strong>{{ detail.quotation?.promo_code || '-' }}</strong></div>
+          <div><span>Discount Amount</span><strong>{{ detail.quotation?.discount_amount | currency:'INR':'symbol':'1.0-0' }}</strong></div>
+          <div><span>Status</span><strong>{{ detail.quotation?.status || '-' }}</strong></div>
+          <div><span>Advisor</span><strong>{{ detail.advisor_name }}</strong></div>
+          <div><span>Sent At</span><strong>{{ detail.quotation?.sent_at ? (detail.quotation?.sent_at | date:'medium') : '-' }}</strong></div>
+        </div>
+      </p-card>
+
+      <p-card>
+        <p class="admin-section-label mb-3">Vehicle</p>
+        <div class="summary-list">
+          <div><span>Brand</span><strong>{{ detail.vehicle?.brand || '-' }}</strong></div>
+          <div><span>Model</span><strong>{{ detail.vehicle?.model || '-' }}</strong></div>
+          <div><span>Registration</span><strong>{{ detail.vehicle?.registration_no || '-' }}</strong></div>
+          <div><span>Fuel</span><strong>{{ detail.vehicle?.fuel || '-' }}</strong></div>
+          <div><span>Transmission</span><strong>{{ detail.vehicle?.transmission || '-' }}</strong></div>
+          <div><span>Capacity</span><strong>{{ detail.vehicle?.capacity || '-' }}</strong></div>
+          <div><span>Year</span><strong>{{ detail.vehicle?.year || '-' }}</strong></div>
+          <div><span>Daily Rate Column</span><strong>{{ detail.vehicle?.daily_rate | currency:'INR':'symbol':'1.0-0' }}</strong></div>
+        </div>
+      </p-card>
+    </div>
+
+    <div class="mt-4 flex justify-end gap-2">
+      <button pButton type="button" label="Reject" severity="danger" outlined (click)="openRejectDialog(detail)"></button>
+      <button pButton type="button" label="Approve" severity="success" (click)="approveBooking(detail)"></button>
+    </div>
+  }
+</p-dialog>
+
+<p-dialog
   header="Reject Booking"
   [visible]="rejectDialogVisible()"
   (visibleChange)="rejectDialogVisible.set($event)"
@@ -251,19 +148,12 @@
   [draggable]="false"
   [style]="{ width: '420px' }">
   <div class="space-y-4">
-    <p class="m-0 text-sm text-gray-500">Enter the reason for rejecting booking {{ rejectDialogBooking()?.id }}.</p>
-    <textarea
-      pTextarea
-      rows="4"
-      class="w-full"
-      [ngModel]="rejectReason()"
-      (ngModelChange)="rejectReason.set($event)"
-      placeholder="Enter rejection reason">
-    </textarea>
+    <p class="m-0 text-sm text-gray-500">Rejection reason is mandatory before the booking can be rejected.</p>
+    <textarea pTextarea rows="4" class="w-full" [ngModel]="rejectReason()" (ngModelChange)="rejectReason.set($event)" placeholder="Enter rejection reason"></textarea>
   </div>
 
   <ng-template pTemplate="footer">
     <button pButton type="button" label="Cancel" text (click)="rejectDialogVisible.set(false)"></button>
-    <button pButton type="button" label="Reject Booking" severity="danger" (click)="confirmReject()"></button>
+    <button pButton type="button" label="Reject Booking" severity="danger" [disabled]="!rejectReason().trim()" (click)="rejectBooking()"></button>
   </ng-template>
 </p-dialog>

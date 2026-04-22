@@ -22,4 +22,7 @@ export interface Vehicle {
   created_at?: string;
   available?: number;
   booked?: boolean;
+  vehicle_status?: string;
+  next_available_date?: string | null;
+  tier_id?: string | null;
 }

@@ -60,12 +60,14 @@ export function normalizeVehicle(vehicle: Vehicle, index: number) {
   const raw = vehicle as Record<string, any>;
   const make = vehicle.make || vehicle.brand || vehicle.Brand || `Vehicle ${index + 1}`;
   const model = vehicle.model || `Series ${index + 1}`;
-  const statusSource = String(raw['status'] || 'active').toLowerCase();
+  const statusSource = String(raw['vehicle_status'] || raw['status'] || 'available').toLowerCase();
   const mappedStatus =
     statusSource === 'deleted'
       ? 'Inactive'
-      : statusSource === 'inactive'
+      : statusSource === 'inactive' || statusSource === 'maintenance' || statusSource === 'dirty'
         ? 'Maintenance'
+        : statusSource === 'booked'
+          ? 'Booked'
         : 'Available';
 
   return {
@@ -90,8 +92,10 @@ export function normalizeVehicle(vehicle: Vehicle, index: number) {
     dailyRate: Number(raw['daily_rate'] || raw['dailyRate'] || 2800 + index * 450),
     stock: Number(raw['stock'] || 1 + (index % 5)),
     location: raw['location'] || ['Delhi', 'Gurugram', 'Noida', 'Bengaluru'][index % 4],
-    status: mappedStatus as 'Available' | 'Maintenance' | 'Inactive',
+    status: mappedStatus as 'Available' | 'Booked' | 'Maintenance' | 'Inactive',
     rawStatus: statusSource,
+    vehicleStatus: statusSource,
+    nextAvailableDate: raw['next_available_date'] || null,
   };
 }
 
