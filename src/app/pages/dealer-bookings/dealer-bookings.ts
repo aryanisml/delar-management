@@ -11,10 +11,12 @@ import { DialogModule } from 'primeng/dialog';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { InputTextModule } from 'primeng/inputtext';
 import { MessageModule } from 'primeng/message';
+import { ProgressBarModule } from 'primeng/progressbar';
 import { SelectModule } from 'primeng/select';
 import { TagModule } from 'primeng/tag';
 import { TextareaModule } from 'primeng/textarea';
 import { ToastModule } from 'primeng/toast';
+import { normalizeVehicle, tagSeverityForStatus } from '../../admin-ui.models';
 import { SupabaseService } from '../../services/supabase';
 
 type VehicleFilters = {
@@ -85,6 +87,7 @@ type PricingSummary = {
     InputNumberModule,
     InputTextModule,
     MessageModule,
+    ProgressBarModule,
     SelectModule,
     TagModule,
     TextareaModule,
@@ -669,6 +672,31 @@ export class DealerBookings {
     }
 
     return this.formatCurrency(Number(rate));
+  }
+
+  adminVehicleCard(vehicle: any, index: number) {
+    const tier = vehicle?.tier ?? vehicle?.vehicle_tiers ?? {};
+    return normalizeVehicle(
+      {
+        ...vehicle,
+        daily_rate: tier.daily_rate ?? vehicle?.daily_rate,
+      },
+      index
+    );
+  }
+
+  statusSeverity(status: string) {
+    return tagSeverityForStatus(status);
+  }
+
+  fillRateClass(value: number) {
+    if (value > 80) {
+      return 'fill-rate--high';
+    }
+    if (value >= 50) {
+      return 'fill-rate--medium';
+    }
+    return 'fill-rate--low';
   }
 
   validateCustomer(updateErrors: boolean) {

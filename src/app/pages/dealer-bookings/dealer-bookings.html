@@ -62,41 +62,39 @@
       </p-card>
 
       <div class="vehicle-grid">
-        @for (vehicle of vehicles(); track vehicle.id) {
-          <button type="button" class="vehicle-card" [class.is-selected]="selectedVehicle()?.id === vehicle.id" (click)="selectVehicle(vehicle)">
-            <div class="vehicle-card__image">
-              @if (vehicle.thumbnail_url) {
-                <img [src]="vehicle.thumbnail_url" [alt]="vehicle.brand + ' ' + vehicle.model" />
-              } @else {
-                <img src="/assets/car-placeholder.svg" [alt]="vehicle.brand + ' ' + vehicle.model" />
-              }
+        @for (vehicle of vehicles(); track vehicle.id; let index = $index) {
+          @let displayVehicle = adminVehicleCard(vehicle, index);
+
+          <button type="button" class="vehicle-card vehicle-grid-card" [class.is-selected]="selectedVehicle()?.id === vehicle.id" (click)="selectVehicle(vehicle)">
+            <div class="vehicle-grid-card__media">
+              <img [src]="displayVehicle.imageUrl" [alt]="displayVehicle.make" class="vehicle-grid-card__image" />
+              <div class="vehicle-grid-card__badge">
+                <p-tag [value]="displayVehicle.status" [severity]="statusSeverity(displayVehicle.status)"></p-tag>
+                @if (displayVehicle.status === 'Booked' && displayVehicle.nextAvailableDate) {
+                  <p class="m-0 mt-1 text-xs text-amber-700">Available from {{ displayVehicle.nextAvailableDate | date:'mediumDate' }}</p>
+                }
+              </div>
             </div>
 
-            <div class="vehicle-card__body">
-              <div class="vehicle-card__title">
+            <div class="vehicle-grid-card__body">
+              <div class="flex items-start justify-between gap-3">
                 <div>
-                  <strong>{{ vehicle.brand }} {{ vehicle.model }}</strong>
-                  <p>{{ displayValue(vehicle.year) }} | {{ displayValue(vehicle.registration_no) }}</p>
+                  <p class="m-0 text-lg font-semibold text-gray-900">{{ displayVehicle.make }} {{ displayVehicle.model }}</p>
+                  <p class="m-0 text-sm text-gray-400">{{ displayVehicle.year }} - {{ displayVehicle.location }}</p>
                 </div>
-                <p-tag [value]="dailyRateLabel(vehicle)" severity="info"></p-tag>
+                <span class="vehicle-grid-card__rate">{{ displayVehicle.dailyRate | currency:'INR':'symbol':'1.0-0' }}</span>
               </div>
 
-              <div class="vehicle-meta">
-                <span>{{ displayValue(vehicle.fuel) }}</span>
-                <span>{{ displayValue(vehicle.transmission) }}</span>
-                <span>{{ displayValue(vehicle.capacity) }} seats</span>
-                <span>{{ displayValue(vehicle.location) }}</span>
+              <div class="vehicle-grid-card__metrics">
+                <span>{{ displayVehicle.type }}</span>
+                <span>{{ displayVehicle.capacity }} seats</span>
+                <span>{{ displayVehicle.fuel }}</span>
+                <span>{{ displayVehicle.mileage | number }} km</span>
               </div>
 
-              <div class="vehicle-dates">
-                <div>
-                  <span>Last serviced</span>
-                  <strong>{{ vehicle.last_serviced_date | date:'mediumDate' }}</strong>
-                </div>
-                <div>
-                  <span>Insurance expiry</span>
-                  <strong>{{ vehicle.insurance_expiry | date:'mediumDate' }}</strong>
-                </div>
+              <div [ngClass]="fillRateClass(displayVehicle.fillRate)">
+                <p-progressBar [value]="displayVehicle.fillRate" [showValue]="false"></p-progressBar>
+                <p class="mt-2 mb-0 text-xs font-medium text-gray-500">{{ displayVehicle.fillRate }}% fill rate</p>
               </div>
 
               @if (selectedVehicle()?.id === vehicle.id && insuranceStatus()) {
