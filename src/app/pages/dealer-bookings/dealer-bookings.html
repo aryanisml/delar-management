@@ -68,7 +68,7 @@
               @if (vehicle.thumbnail_url) {
                 <img [src]="vehicle.thumbnail_url" [alt]="vehicle.brand + ' ' + vehicle.model" />
               } @else {
-                <span>No image</span>
+                <img src="/assets/car-placeholder.svg" [alt]="vehicle.brand + ' ' + vehicle.model" />
               }
             </div>
 
@@ -76,16 +76,16 @@
               <div class="vehicle-card__title">
                 <div>
                   <strong>{{ vehicle.brand }} {{ vehicle.model }}</strong>
-                  <p>{{ vehicle.year || '-' }} | {{ vehicle.registration_no || 'Registration pending' }}</p>
+                  <p>{{ displayValue(vehicle.year) }} | {{ displayValue(vehicle.registration_no) }}</p>
                 </div>
-                <p-tag [value]="((vehicle.tier?.daily_rate || 0) | currency:'INR':'symbol':'1.0-0') || ''" severity="info"></p-tag>
+                <p-tag [value]="dailyRateLabel(vehicle)" severity="info"></p-tag>
               </div>
 
               <div class="vehicle-meta">
-                <span>{{ vehicle.fuel || '-' }}</span>
-                <span>{{ vehicle.transmission || '-' }}</span>
-                <span>{{ vehicle.capacity || '-' }} seats</span>
-                <span>{{ vehicle.type || '-' }}</span>
+                <span>{{ displayValue(vehicle.fuel) }}</span>
+                <span>{{ displayValue(vehicle.transmission) }}</span>
+                <span>{{ displayValue(vehicle.capacity) }} seats</span>
+                <span>{{ displayValue(vehicle.location) }}</span>
               </div>
 
               <div class="vehicle-dates">
@@ -126,15 +126,7 @@
           <button pButton type="button" label="Back to Vehicle" text icon="pi pi-arrow-left" (click)="goToStep(1)"></button>
         </div>
 
-        <div class="filter-grid">
-          <div class="field">
-            <label>Pickup Date</label>
-            <p-datepicker [ngModel]="trip().pickup_date" (ngModelChange)="updateTrip('pickup_date', $event); recalculatePricing()" appendTo="body"></p-datepicker>
-          </div>
-          <div class="field">
-            <label>Pickup Time</label>
-            <input pInputText type="time" [ngModel]="trip().pickup_time" (ngModelChange)="updateTrip('pickup_time', $event)" />
-          </div>
+        <div class="filter-grid trip-detail-grid">
           <div class="field">
             <label>Pickup Location</label>
             <input pInputText [ngModel]="trip().pickup_location" (ngModelChange)="updateTrip('pickup_location', $event)" />
@@ -144,8 +136,16 @@
             <input pInputText [ngModel]="trip().drop_location" (ngModelChange)="updateTrip('drop_location', $event)" />
           </div>
           <div class="field">
+            <label>Pickup Date</label>
+            <p-datepicker [ngModel]="trip().pickup_date" (ngModelChange)="updateTrip('pickup_date', $event); recalculatePricing()" appendTo="body"></p-datepicker>
+          </div>
+          <div class="field">
             <label>End Date</label>
             <p-datepicker [ngModel]="trip().end_date" (ngModelChange)="updateTrip('end_date', $event); recalculatePricing()" appendTo="body"></p-datepicker>
+          </div>
+          <div class="field">
+            <label>Pickup Time</label>
+            <input pInputText type="time" [ngModel]="trip().pickup_time" (ngModelChange)="updateTrip('pickup_time', $event)" />
           </div>
           <div class="field">
             <label>Drop-off Time</label>
@@ -196,13 +196,19 @@
           <div class="field">
             <label>Full Name</label>
             <input pInputText [ngModel]="customer().full_name" (ngModelChange)="updateCustomer('full_name', $event)" />
+            @if (customerErrors().full_name) {
+              <small class="field-error">{{ customerErrors().full_name }}</small>
+            }
           </div>
           <div class="field">
-            <label>Mobile</label>
+            <label>Mobile Number</label>
             <div class="inline-field">
               <input pInputText [ngModel]="customer().mobile" (ngModelChange)="updateCustomer('mobile', $event)" />
               <button pButton type="button" label="Lookup" outlined (click)="lookupCustomer()"></button>
             </div>
+            @if (customerErrors().mobile) {
+              <small class="field-error">{{ customerErrors().mobile }}</small>
+            }
           </div>
           <div class="field">
             <label>Email</label>
@@ -211,20 +217,32 @@
           <div class="field">
             <label>Licence Number</label>
             <input pInputText [ngModel]="customer().license_no" (ngModelChange)="updateCustomer('license_no', $event?.toUpperCase())" />
+            @if (customerErrors().license_no) {
+              <small class="field-error">{{ customerErrors().license_no }}</small>
+            }
           </div>
           <div class="field">
             <label>Licence Expiry</label>
             <p-datepicker [ngModel]="customer().license_expiry" (ngModelChange)="updateCustomer('license_expiry', $event)" appendTo="body"></p-datepicker>
+            @if (customerErrors().license_expiry) {
+              <small class="field-error">{{ customerErrors().license_expiry }}</small>
+            }
           </div>
           <div class="field">
             <label>Customer Type</label>
             <p-select [options]="customerTypeOptions" [ngModel]="customer().customer_type" (ngModelChange)="updateCustomer('customer_type', $event)" optionLabel="label" optionValue="value"></p-select>
+            @if (customerErrors().customer_type) {
+              <small class="field-error">{{ customerErrors().customer_type }}</small>
+            }
           </div>
 
           @if (customer().customer_type === 'business') {
             <div class="field">
               <label>Business Name</label>
               <input pInputText [ngModel]="customer().business_name" (ngModelChange)="updateCustomer('business_name', $event)" />
+              @if (customerErrors().business_name) {
+                <small class="field-error">{{ customerErrors().business_name }}</small>
+              }
             </div>
             <div class="field">
               <label>GST Number</label>
@@ -240,6 +258,9 @@
             </label>
             @if (uploadedIdFallback()) {
               <p-message severity="warn" text="No storage bucket was available, so the proof is currently kept as inline data in the record."></p-message>
+            }
+            @if (customerErrors().id_proof_url) {
+              <small class="field-error">{{ customerErrors().id_proof_url }}</small>
             }
           </div>
         </div>
@@ -282,7 +303,9 @@
             <div><span>Drop</span><strong>{{ trip().drop_location || '-' }}</strong></div>
             <div><span>Dates</span><strong>{{ trip().pickup_date | date:'mediumDate' }} - {{ trip().end_date | date:'mediumDate' }}</strong></div>
           </div>
-          <button pButton type="button" label="Continue to Quotation" icon="pi pi-arrow-right" iconPos="right" [disabled]="customerInvalid()" (click)="continueToQuotation()"></button>
+          <div class="disabled-action-wrap" (click)="continueToQuotation()">
+            <button pButton type="button" label="Continue to Quotation" icon="pi pi-arrow-right" iconPos="right" [disabled]="customerInvalid()" (click)="$event.stopPropagation(); continueToQuotation()"></button>
+          </div>
         </p-card>
       </div>
     </section>

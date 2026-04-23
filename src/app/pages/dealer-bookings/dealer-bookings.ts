@@ -2,7 +2,7 @@ import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
@@ -53,6 +53,8 @@ type CustomerForm = {
   id_proof_name: string;
 };
 
+type CustomerErrors = Partial<Record<keyof CustomerForm, string>>;
+
 type PricingSummary = {
   rate: number;
   days: number;
@@ -96,6 +98,7 @@ export class DealerBookings {
   private supabase = inject(SupabaseService);
   private messageService = inject(MessageService);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
   private sanitizer = inject(DomSanitizer);
 
   readonly step = signal(1);
@@ -138,6 +141,7 @@ export class DealerBookings {
     id_proof_url: '',
     id_proof_name: '',
   });
+  readonly customerErrors = signal<CustomerErrors>({});
   readonly existingCustomer = signal<any | null>(null);
   readonly customerChoice = signal<CustomerChoice>('existing');
   readonly uploadedIdFallback = signal<string | null>(null);
@@ -213,6 +217,10 @@ export class DealerBookings {
 
   async ngOnInit() {
     await this.loadVehicles();
+    const vehicleId = this.route.snapshot.queryParamMap.get('vehicleId');
+    if (vehicleId) {
+      await this.preselectVehicle(vehicleId);
+    }
   }
 
   async loadVehicles() {
@@ -250,6 +258,9 @@ export class DealerBookings {
 
   updateCustomer<K extends keyof CustomerForm>(key: K, value: CustomerForm[K]) {
     this.customer.update((current) => ({ ...current, [key]: value }));
+    if (Object.keys(this.customerErrors()).length) {
+      this.validateCustomer(true);
+    }
   }
 
   selectVehicle(vehicle: any) {
@@ -324,25 +335,11 @@ export class DealerBookings {
   }
 
   customerInvalid() {
-    const customer = this.customer();
-    if (!customer.full_name || !/^[6-9]\d{9}$/.test(customer.mobile) || !customer.license_no || !customer.license_expiry) {
-      return true;
-    }
-
-    if (customer.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customer.email)) {
-      return true;
-    }
-
-    if (customer.customer_type === 'business' && (!customer.business_name || !customer.gst_number)) {
-      return true;
-    }
-
-    return false;
+    return Object.keys(this.validateCustomer(false)).length > 0;
   }
 
   continueToQuotation() {
-    if (this.customerInvalid()) {
-      this.messageService.add({ severity: 'warn', summary: 'Customer details incomplete', detail: 'Please complete the customer form before continuing.' });
+    if (Object.keys(this.validateCustomer(true)).length) {
       return;
     }
 
@@ -370,6 +367,9 @@ export class DealerBookings {
       id_proof_name: file.name,
     }));
     this.uploadedIdFallback.set(data?.publicUrl ? null : data?.fallbackDataUrl || null);
+    if (Object.keys(this.customerErrors()).length) {
+      this.validateCustomer(true);
+    }
   }
 
   async generateQuotation() {
@@ -638,5 +638,99 @@ export class DealerBookings {
       currency: 'INR',
       maximumFractionDigits: 0,
     }).format(value);
+  }
+
+  private async preselectVehicle(vehicleId: string) {
+    const { data, error } = await this.supabase.getWalkInVehicles({ vehicleId });
+    if (error || !data?.length) {
+      this.messageService.add({ severity: 'warn', summary: 'Vehicle unavailable', detail: 'The selected vehicle could not be loaded for booking.' });
+      return;
+    }
+
+    const vehicle = data[0];
+    this.vehicles.update((current) => current.some((item) => item.id === vehicle.id) ? current : [vehicle, ...current]);
+    this.selectedVehicle.set(vehicle);
+    this.step.set(2);
+    this.recalculatePricing();
+  }
+
+  displayValue(value: unknown) {
+    if (value === null || value === undefined || value === '') {
+      return '-';
+    }
+
+    return String(value);
+  }
+
+  dailyRateLabel(vehicle: any) {
+    const rate = vehicle?.tier?.daily_rate ?? vehicle?.vehicle_tiers?.daily_rate;
+    if (rate === null || rate === undefined || rate === '') {
+      return '—';
+    }
+
+    return this.formatCurrency(Number(rate));
+  }
+
+  validateCustomer(updateErrors: boolean) {
+    const customer = this.customer();
+    const errors: CustomerErrors = {};
+    const mobile = this.normalizeMobile(customer.mobile);
+    const license = customer.license_no.trim();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (!customer.full_name.trim()) {
+      errors.full_name = 'Full name is required';
+    }
+
+    if (!mobile) {
+      errors.mobile = 'Mobile number is required';
+    } else if (mobile.startsWith('0')) {
+      errors.mobile = 'Mobile number should not start with 0';
+    } else if (!/^\d{10}$/.test(mobile)) {
+      errors.mobile = 'Enter a valid 10-digit mobile number';
+    }
+
+    if (!/^[a-zA-Z0-9]{6,}$/.test(license)) {
+      errors.license_no = 'Enter a valid licence number (min 6 characters)';
+    }
+
+    if (!customer.license_expiry) {
+      errors.license_expiry = 'Licence expiry date is required';
+    } else {
+      const expiry = new Date(customer.license_expiry);
+      expiry.setHours(0, 0, 0, 0);
+      if (expiry < today) {
+        errors.license_expiry = 'Licence has expired and cannot be accepted';
+      }
+    }
+
+    if (!customer.customer_type) {
+      errors.customer_type = 'Please select a customer type';
+    }
+
+    if (customer.customer_type === 'business' && !customer.business_name.trim()) {
+      errors.business_name = 'Business name is required for business customers';
+    }
+
+    if (!customer.id_proof_url) {
+      errors.id_proof_url = 'ID proof document is required';
+    }
+
+    if (updateErrors) {
+      this.customerErrors.set(errors);
+    }
+
+    return errors;
+  }
+
+  private normalizeMobile(value: string) {
+    let normalized = String(value ?? '').replace(/[\s-]/g, '');
+    if (normalized.startsWith('+91')) {
+      normalized = normalized.slice(3);
+    } else if (normalized.startsWith('91') && normalized.length > 10) {
+      normalized = normalized.slice(2);
+    }
+    return normalized;
   }
 }

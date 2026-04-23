@@ -25,6 +25,7 @@ export class AdminSidebar {
   @Input() roleLabel = 'Administrator';
   @Input() brandSubtitle = 'Rental Organizer';
   @Input() newBookingRoute = '/dealer/bookings';
+  @Input() showNewBookingShortcut = true;
   @Input() userName = 'Admin User';
   @Input() pendingBookingsCount = 0;
   @Input() vehicleCount = 0;

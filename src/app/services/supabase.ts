@@ -27,6 +27,7 @@ type WalkInVehicleFilters = {
   fuel?: string | null;
   pickup_date?: string | null;
   end_date?: string | null;
+  vehicleId?: string | null;
 };
 
 type WalkInTripInput = {
@@ -590,7 +591,7 @@ export class SupabaseService {
 
   async getWalkInVehicles(filters: WalkInVehicleFilters = {}) {
     try {
-      const { data, error } = await this.supabase
+      let query = this.supabase
         .from('vehicle')
         .select(`
           id,
@@ -601,7 +602,9 @@ export class SupabaseService {
           transmission,
           capacity,
           type,
+          location,
           registration_no,
+          image_url,
           insurance_expiry,
           last_serviced_date,
           vehicle_status,
@@ -619,6 +622,12 @@ export class SupabaseService {
         `)
         .eq('vehicle_status', 'available')
         .order('created_at', { ascending: false });
+
+      if (filters.vehicleId) {
+        query = query.eq('id', filters.vehicleId);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         return { data: [], error };
@@ -647,10 +656,11 @@ export class SupabaseService {
         .filter((row: any) => !filters.transmission || row.transmission === filters.transmission)
         .filter((row: any) => !filters.fuel || row.fuel === filters.fuel)
         .map((row: any) => {
-          const primaryImage = (row.vehicle_images ?? []).find((image: any) => image.is_primary) ?? row.vehicle_images?.[0] ?? null;
+          const primaryImage = (row.vehicle_images ?? []).find((image: any) => image.is_primary) ?? null;
+          const imageUrl = typeof row.image_url === 'string' && row.image_url.trim() ? row.image_url.trim() : null;
           return {
             ...row,
-            thumbnail_url: primaryImage?.url ?? null,
+            thumbnail_url: primaryImage?.url ?? imageUrl ?? '/assets/car-placeholder.svg',
             tier: row.vehicle_tiers ?? null,
           };
         });

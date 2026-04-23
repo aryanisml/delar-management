@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="400" viewBox="0 0 640 400" role="img" aria-label="Vehicle placeholder">
+  <rect width="640" height="400" fill="#eef2f7"/>
+  <path d="M156 244h328c11 0 20 9 20 20v34h-48a38 38 0 0 0-76 0H260a38 38 0 0 0-76 0h-48v-34c0-11 9-20 20-20Z" fill="#cbd5e1"/>
+  <path d="M214 184h190c13 0 25 7 32 18l32 50H170l31-50c3-6 8-13 13-18Z" fill="#94a3b8"/>
+  <path d="M226 202h76v50H194l25-40c2-4 4-7 7-10Zm96 0h74c8 0 15 4 19 11l25 39H322v-50Z" fill="#f8fafc"/>
+  <circle cx="222" cy="298" r="24" fill="#475569"/>
+  <circle cx="418" cy="298" r="24" fill="#475569"/>
+  <circle cx="222" cy="298" r="10" fill="#e2e8f0"/>
+  <circle cx="418" cy="298" r="10" fill="#e2e8f0"/>
+  <path d="M248 146h144" stroke="#cbd5e1" stroke-width="14" stroke-linecap="round"/>
+  <path d="M286 118h68" stroke="#cbd5e1" stroke-width="12" stroke-linecap="round"/>
+</svg>

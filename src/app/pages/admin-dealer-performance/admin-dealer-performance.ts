@@ -1,5 +1,5 @@
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, ViewChild, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ConfirmationService, MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
@@ -37,6 +37,8 @@ import { SupabaseService } from '../../services/supabase';
   providers: [ConfirmationService, MessageService],
 })
 export class AdminDealerPerformance {
+  @ViewChild('detailDialogContent') detailDialogContent?: ElementRef<HTMLElement>;
+
   private supabase = inject(SupabaseService);
   private confirmationService = inject(ConfirmationService);
   private messageService = inject(MessageService);
@@ -112,6 +114,31 @@ export class AdminDealerPerformance {
 
     this.selectedDetail.set(data);
     this.detailVisible.set(true);
+  }
+
+  onDetailDialogShow() {
+    setTimeout(() => {
+      const content = this.detailDialogContent?.nativeElement;
+      content?.scrollTo({ top: 0 });
+      content?.closest('.p-dialog-content')?.scrollTo({ top: 0 });
+    });
+  }
+
+  idProofLabel(value: string | null | undefined) {
+    if (!value) {
+      return '-';
+    }
+
+    if (value.startsWith('data:')) {
+      return 'Uploaded (inline)';
+    }
+
+    if (value.startsWith('https://')) {
+      const path = value.split('?')[0];
+      return decodeURIComponent(path.split('/').filter(Boolean).pop() || '-');
+    }
+
+    return value;
   }
 
   approveBooking(row: any) {

@@ -54,11 +54,12 @@
   header="Booking Details"
   [visible]="detailVisible()"
   (visibleChange)="detailVisible.set($event)"
+  (onShow)="onDetailDialogShow()"
   [modal]="true"
   [draggable]="false"
   [style]="{ width: '980px' }">
   @if (selectedDetail(); as detail) {
-    <div class="grid gap-4 lg:grid-cols-2">
+    <div #detailDialogContent class="grid gap-4 lg:grid-cols-2">
       <p-card>
         <p class="admin-section-label mb-3">Booking</p>
         <div class="summary-list">
@@ -93,7 +94,7 @@
           <div><span>Customer Type</span><strong>{{ detail.customers?.customer_type || '-' }}</strong></div>
           <div><span>Business Name</span><strong>{{ detail.customers?.business_name || '-' }}</strong></div>
           <div><span>GST</span><strong>{{ detail.customers?.gst_number || '-' }}</strong></div>
-          <div><span>ID Proof URL</span><strong>{{ detail.customers?.id_proof_url || '-' }}</strong></div>
+          <div><span>ID Proof</span><strong>{{ idProofLabel(detail.customers?.id_proof_url) }}</strong></div>
         </div>
       </p-card>
 

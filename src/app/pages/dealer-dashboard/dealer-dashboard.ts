@@ -271,9 +271,7 @@ export class DealerDashboard {
   }
 
   openBooking(vehicle: Vehicle) {
-    this.selectedVehicle.set(null);
-    this.selectedVehicle.set(vehicle);
-    this.bookingDialogVisible.set(true);
+    this.router.navigate(['/dealer/bookings'], { queryParams: { vehicleId: vehicle.id } });
   }
 
   closeBooking() {
