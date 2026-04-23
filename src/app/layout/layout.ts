@@ -33,7 +33,7 @@ export class Layout {
   userInfo = signal<{ email: string; id: string }>({ email: '', id: '' });
   userName = signal('User');
   userLetter = computed(() => this.userName().charAt(0).toUpperCase() || 'U');
-  isAdmin = computed(() => this.role() === 'admin');
+  isAdmin = computed(() => this.role() === 'admin' || this.role() === 'superadmin');
   portalLabel = computed(() => {
     const role = String(this.role() || '').toLowerCase();
     if (role === 'admin' || role === 'superadmin') {
@@ -66,13 +66,8 @@ export class Layout {
   homeRoute = computed(() => (this.isAdmin() ? '/admin/dashboard' : '/dealer/dashboard'));
   dealerMenuItems = signal<DealerMenuItem[]>([]);
   currentYear = new Date().getFullYear();
-  notifications = signal([
-    { title: 'Urgent booking pending', detail: 'Booking VMS-0004 is still unassigned.', time: '2 min ago' },
-    { title: 'Service due', detail: 'Two vehicles need service approval today.', time: '9 min ago' },
-    { title: 'Revenue export ready', detail: 'March revenue export completed successfully.', time: '28 min ago' },
-    { title: 'New user registered', detail: 'A corporate account was created from the portal.', time: '41 min ago' },
-    { title: 'Maintenance alert', detail: 'Scorpio service window starts in 6 hours.', time: '1 hr ago' },
-  ]);
+  notifications = signal<any[]>([]);
+  private notificationChannel: any = null;
 
   readonly userMenuItems = computed<MenuItem[]>(() => [
     { label: 'Profile', icon: 'pi pi-user' },
@@ -113,15 +108,12 @@ export class Layout {
         buildBookings(normalizedVehicles, bookings ?? []).filter((booking) => booking.status === 'Pending').length
       );
 
-      const { data: notifications } = await this.supabase.getMyNotifications();
-      this.notifications.set(
-        (notifications ?? []).slice(0, 5).map((item: any) => ({
-          title: item.title,
-          detail: item.message,
-          time: item.created_at ? new Date(item.created_at).toLocaleString() : 'Just now',
-        }))
-      );
-      this.notificationCount.set((notifications ?? []).filter((item: any) => !item.is_read).length);
+      await this.loadNotifications();
+      if (user?.id) {
+        this.notificationChannel = this.supabase.subscribeToNotifications(user.id, () => {
+          void this.loadNotifications();
+        });
+      }
 
       this.syncRouteMeta();
       this.router.events.pipe(filter((event) => event instanceof NavigationEnd)).subscribe(() => this.syncRouteMeta());
@@ -171,13 +163,49 @@ export class Layout {
   markNotificationsRead() {
     this.notificationCount.set(0);
     if (this.userInfo().id) {
-      void this.supabase.markNotificationsRead(this.userInfo().id);
+      void this.supabase.markNotificationsRead(this.userInfo().id).then(() => this.loadNotifications());
     }
     this.messageService.add({
       severity: 'success',
       summary: 'Notifications cleared',
       detail: 'All recent notifications were marked as read.',
     });
+  }
+
+  async openNotification(notification: any) {
+    if (notification.id) {
+      await this.supabase.markNotificationRead(notification.id);
+    }
+    await this.loadNotifications();
+    if (notification.booking_id) {
+      await this.router.navigateByUrl(this.isAdmin() ? '/admin/bookings' : '/dealer/my-bookings');
+    }
+  }
+
+  async loadNotifications() {
+    const { data: notifications, error } = await this.supabase.getMyNotifications();
+    if (error) {
+      this.messageService.add({ severity: 'error', summary: 'Notifications unavailable', detail: error.message || 'Could not load notifications.' });
+      return;
+    }
+
+    this.notifications.set(
+      (notifications ?? []).map((item: any) => ({
+        id: item.id,
+        title: item.title,
+        detail: item.message,
+        type: item.type,
+        booking_id: item.booking_id,
+        time: this.relativeTime(item.created_at),
+      }))
+    );
+    this.notificationCount.set((notifications ?? []).length);
+  }
+
+  ngOnDestroy() {
+    if (this.notificationChannel) {
+      this.supabase.supabase.removeChannel(this.notificationChannel);
+    }
   }
 
   private syncRouteMeta() {
@@ -209,6 +237,25 @@ export class Layout {
     }));
 
     this.breadcrumbItems.set(breadcrumbs);
+  }
+
+  private relativeTime(value: string) {
+    if (!value) {
+      return 'Just now';
+    }
+    const diff = Date.now() - new Date(value).getTime();
+    const minutes = Math.max(0, Math.floor(diff / 60000));
+    if (minutes < 1) {
+      return 'Just now';
+    }
+    if (minutes < 60) {
+      return `${minutes} min ago`;
+    }
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) {
+      return `${hours} hr ago`;
+    }
+    return `${Math.floor(hours / 24)} days ago`;
   }
 
   async signOut() {

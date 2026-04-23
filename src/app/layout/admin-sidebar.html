@@ -40,12 +40,14 @@
     }
   </nav>
 
-  <button type="button" class="admin-sidebar__new-project" [routerLink]="newBookingRoute" (click)="onLinkClick()">
-    <span class="admin-sidebar__new-icon">
-      <i class="pi pi-plus"></i>
-    </span>
-    <span>New Booking</span>
-  </button>
+  @if (showNewBookingShortcut) {
+    <button type="button" class="admin-sidebar__new-project" [routerLink]="newBookingRoute" (click)="onLinkClick()">
+      <span class="admin-sidebar__new-icon">
+        <i class="pi pi-plus"></i>
+      </span>
+      <span>New Booking</span>
+    </button>
+  }
 
   <div class="admin-sidebar__user">
     <p-avatar [label]="userName.charAt(0)" shape="circle" styleClass="admin-sidebar__avatar"></p-avatar>

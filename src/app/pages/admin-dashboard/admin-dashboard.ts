@@ -89,7 +89,7 @@ export class AdminDashboard {
   readonly vehicleForm = signal<any>(this.createEmptyForm());
 
   readonly vehicleTypes = ['SUV', 'Sedan', 'Truck', 'Van', 'Bus'].map((label) => ({ label, value: label }));
-  readonly statusOptions = ['Available', 'Booked', 'Maintenance', 'InService', 'Inactive'].map((label) => ({ label, value: label }));
+  readonly statusOptions = ['Available', 'Booked', 'Maintenance', 'Dirty', 'InService', 'Inactive'].map((label) => ({ label, value: label }));
   readonly fuelTypes = ['Petrol', 'Diesel', 'Electric', 'Hybrid', 'CNG'].map((label) => ({ label, value: label }));
   readonly viewOptions = [
     { icon: 'table view', value: 'table' },
@@ -263,12 +263,12 @@ export class AdminDashboard {
 
     const payload = {
       brand: form.make,
-      make: form.make,
       model: form.model,
       status: form.status === 'Available' ? 'active' : form.status === 'Inactive' ? 'deleted' : 'inactive',
       stock: form.stock,
       daily_rate: form.dailyRate,
       location: form.location,
+      vehicle_status: String(form.status || 'Available').toLowerCase(),
     };
 
     let result;

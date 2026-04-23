@@ -10,6 +10,7 @@
           [roleLabel]="'Administrator'"
           [brandSubtitle]="portalLabel()"
           [newBookingRoute]="'/admin/bookings'"
+          [showNewBookingShortcut]="false"
           [userName]="userName()"
           [pendingBookingsCount]="pendingBookingsCount()"
           [vehicleCount]="vehiclesCount()"
@@ -28,6 +29,7 @@
         [roleLabel]="'Administrator'"
         [brandSubtitle]="portalLabel()"
         [newBookingRoute]="'/admin/bookings'"
+        [showNewBookingShortcut]="false"
         [userName]="userName()"
         [pendingBookingsCount]="pendingBookingsCount()"
         [vehicleCount]="vehiclesCount()"
@@ -52,6 +54,7 @@
         (menuToggle)="toggleSidebar()"
         (searchChange)="onSearchChange($event)"
         (markAllRead)="markNotificationsRead()"
+        (notificationClick)="openNotification($event)"
         (themeToggle)="theme.toggle()">
       </app-admin-topbar>
 
@@ -112,6 +115,7 @@
         (menuToggle)="toggleSidebar()"
         (searchChange)="onSearchChange($event)"
         (markAllRead)="markNotificationsRead()"
+        (notificationClick)="openNotification($event)"
         (themeToggle)="theme.toggle()">
       </app-admin-topbar>
 

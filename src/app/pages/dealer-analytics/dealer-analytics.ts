@@ -55,7 +55,7 @@ export class DealerAnalytics {
     this.bookings.set(bookings);
 
     const totalSpend = bookings
-      .filter((booking) => booking.status === 'approved' || booking.status === 'completed')
+      .filter((booking) => booking.status === 'confirmed' || booking.status === 'completed')
       .reduce((sum, booking) => {
         const dailyRate = Number(booking.vehicle?.daily_rate ?? 0);
         const days = Math.max(1, Math.ceil((new Date(booking.end_date).getTime() - new Date(booking.start_date).getTime()) / 86400000));
@@ -68,7 +68,7 @@ export class DealerAnalytics {
 
     this.stats.set([
       { label: 'Total Bookings', value: bookings.length },
-      { label: 'Active Now', value: bookings.filter((booking) => booking.status === 'pending' || booking.status === 'approved').length },
+      { label: 'Active Now', value: bookings.filter((booking) => booking.status === 'pending' || booking.status === 'confirmed').length },
       { label: 'Total Spend', value: `Rs ${Math.round(totalSpend).toLocaleString('en-IN')}` },
       { label: 'Avg Booking Duration', value: `${avgDuration.toFixed(1)} days` },
     ]);
@@ -93,7 +93,7 @@ export class DealerAnalytics {
       ],
     });
 
-    const statusLabels = ['pending', 'approved', 'rejected', 'cancelled', 'completed'];
+    const statusLabels = ['pending', 'confirmed', 'rejected', 'cancelled', 'completed'];
     this.statusChart.set({
       labels: statusLabels.map((status) => status.toUpperCase()),
       datasets: [

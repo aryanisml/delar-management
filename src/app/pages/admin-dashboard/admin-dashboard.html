@@ -197,6 +197,9 @@
             <td>
               <div class="space-y-2">
                 <p-tag [value]="vehicle.status" [severity]="statusSeverity(vehicle.status)"></p-tag>
+                @if (vehicle.status === 'Booked' && vehicle.nextAvailableDate) {
+                  <p class="m-0 text-xs text-amber-700">Available from {{ vehicle.nextAvailableDate | date:'mediumDate' }}</p>
+                }
                 <p class="m-0 text-xs text-slate-500">Stock: {{ vehicle.stock }}</p>
               </div>
             </td>
@@ -229,6 +232,9 @@
             <img [src]="vehicle.imageUrl" [alt]="vehicle.make" class="vehicle-grid-card__image" />
             <div class="vehicle-grid-card__badge">
               <p-tag [value]="vehicle.status" [severity]="statusSeverity(vehicle.status)"></p-tag>
+              @if (vehicle.status === 'Booked' && vehicle.nextAvailableDate) {
+                <p class="m-0 mt-1 text-xs text-amber-700">Available from {{ vehicle.nextAvailableDate | date:'mediumDate' }}</p>
+              }
             </div>
           </div>
 

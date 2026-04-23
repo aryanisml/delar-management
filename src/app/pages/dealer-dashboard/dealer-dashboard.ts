@@ -58,7 +58,7 @@ export class DealerDashboard {
     email: 'Loading...',
     id: 'Fetching...',
   });
-  vehicles = signal<Array<Vehicle & { available?: number; rawStatus?: string; dailyRate?: number }>>([]);
+  vehicles = signal<Array<Vehicle & { available?: number; rawStatus?: string; dailyRate?: number; vehicleStatus?: string; nextAvailableDate?: string | null }>>([]);
   myBookings = signal<Booking[]>([]);
   loading = signal(true);
   submittingBooking = signal(false);
@@ -156,6 +156,7 @@ export class DealerDashboard {
   availableVehicles = computed(() => {
     const vehicles = this.filteredVehicles();
     const bookings = this.myBookings();
+    const today = new Date().toISOString().slice(0, 10);
 
     return vehicles.map((vehicle) => {
       const activeBookings = bookings.filter(
@@ -168,7 +169,10 @@ export class DealerDashboard {
 
       return {
         ...vehicle,
-        available: Math.max((vehicle.stock ?? 0) - activeBookings, 0),
+        available:
+          vehicle.vehicleStatus === 'available' && (!vehicle.nextAvailableDate || vehicle.nextAvailableDate <= today)
+            ? Math.max((vehicle.stock ?? 0) - activeBookings, 0)
+            : 0,
       };
     });
   });
@@ -267,9 +271,7 @@ export class DealerDashboard {
   }
 
   openBooking(vehicle: Vehicle) {
-    this.selectedVehicle.set(null);
-    this.selectedVehicle.set(vehicle);
-    this.bookingDialogVisible.set(true);
+    this.router.navigate(['/dealer/bookings'], { queryParams: { vehicleId: vehicle.id } });
   }
 
   closeBooking() {

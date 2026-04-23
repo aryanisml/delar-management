@@ -44,7 +44,9 @@ export class CustomerDetailsComponent {
 
   readonly submitted = signal(false);
   readonly suggestions = signal<any[]>([]);
+  readonly suggestionField = signal<'mobile' | 'email' | null>(null);
   readonly searching = signal(false);
+  readonly returningCustomer = signal(false);
   readonly booking = this.flow.booking;
   readonly vehicle = this.flow.vehicle;
   readonly durationLabel = this.flow.durationLabel;
@@ -100,26 +102,44 @@ export class CustomerDetailsComponent {
     this.customer.update((current) => ({ ...current, [field]: value }));
 
     if (field === 'mobile' || field === 'email') {
-      this.queueCustomerSearch();
+      this.queueCustomerSearch(field);
     }
   }
 
-  async queueCustomerSearch() {
+  async queueCustomerSearch(fieldHint?: 'mobile' | 'email') {
     if (this.suggestionTimer) {
       clearTimeout(this.suggestionTimer);
     }
 
     this.suggestionTimer = setTimeout(async () => {
-      const query = this.customer().mobile || this.customer().email;
-      if (!query || query.trim().length < 3) {
+      const mobile = this.customer().mobile?.trim() ?? '';
+      const email = this.customer().email?.trim() ?? '';
+      const field =
+        fieldHint === 'mobile' && mobile.length >= 5
+          ? 'mobile'
+          : fieldHint === 'email' && email.length >= 3 && email.includes('@')
+            ? 'email'
+            : mobile.length >= 5
+              ? 'mobile'
+              : email.length >= 3 && email.includes('@')
+                ? 'email'
+                : null;
+      const query = field === 'mobile' ? mobile : email;
+      if (!field) {
         this.suggestions.set([]);
+        this.suggestionField.set(null);
         return;
       }
 
       this.searching.set(true);
-      const { data } = await this.supabase.searchCustomers(query);
+      const { data, error } = await this.supabase.searchCustomersByField(field, query);
       this.searching.set(false);
+      if (error) {
+        this.messageService.add({ severity: 'error', summary: 'Search failed', detail: 'Could not search returning customers.' });
+        return;
+      }
       this.suggestions.set(data ?? []);
+      this.suggestionField.set(field);
     }, 260);
   }
 
@@ -136,7 +156,9 @@ export class CustomerDetailsComponent {
       businessName: row.business_name ?? '',
       gstNumber: row.gst_number ?? '',
     });
+    this.returningCustomer.set(true);
     this.suggestions.set([]);
+    this.suggestionField.set(null);
   }
 
   onFileSelected(event: Event) {

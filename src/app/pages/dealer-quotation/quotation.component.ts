@@ -88,7 +88,7 @@ export class QuotationComponent {
 
     this.advisor.set({
       name: (user?.user_metadata as Record<string, string> | undefined)?.['full_name'] || user?.email?.split('@')[0] || 'Rental Advisor',
-      id: user?.id?.slice(0, 8) || 'advisor',
+      id: user?.id || 'advisor',
     });
   }
 
@@ -153,11 +153,12 @@ export class QuotationComponent {
       extra_mileage_rate: this.isOutstation() ? this.extraMileageRate() : null,
       promo_code: this.promoCode().trim().toUpperCase() || null,
       discount: this.discount(),
+      discount_amount: this.discount(),
       final_amount: this.grandTotal(),
       status,
     };
 
-    const { error } = await this.supabase.supabase.from('quotations').upsert(payload, { onConflict: 'booking_id' });
+    const { error } = await this.supabase.saveQuotationDraft(payload);
     if (error) {
       this.messageService.add({ severity: 'error', summary: 'Save failed', detail: 'Failed to save quotation.' });
       return false;
@@ -171,7 +172,7 @@ export class QuotationComponent {
       return;
     }
 
-    await this.supabase.supabase.from('bookings').update({ quote_status: 'draft' }).eq('id', this.booking().id);
+    await this.supabase.updateBookingQuoteStatus(this.booking().id, 'draft');
     this.messageService.add({ severity: 'success', summary: 'Saved', detail: 'Quotation saved as draft.' });
   }
 
@@ -180,24 +181,52 @@ export class QuotationComponent {
       return;
     }
 
-    await this.supabase.supabase.from('bookings').update({ quote_status: 'sent' }).eq('id', this.booking().id);
+    await this.supabase.updateBookingQuoteStatus(this.booking().id, 'sent');
     this.messageService.add({ severity: 'success', summary: 'Quotation sent', detail: `Sent via ${channel}.` });
   }
 
   async confirmBooking() {
-    if (!(await this.saveQuotation('accepted'))) {
+    if (!this.booking()) {
       return;
     }
 
-    await this.supabase.supabase
-      .from('bookings')
-      .update({ status: 'confirmed', quote_status: 'accepted' })
-      .eq('id', this.booking().id);
+    this.loading.set(true);
+    const { data, error } = await this.supabase.submitQuotationRequest({
+      booking: this.booking(),
+      vehicle: this.vehicle(),
+      customer: this.customer(),
+      advisorName: this.advisor().name,
+      pricing: {
+        rate: this.rate(),
+        days: this.billableDays(),
+        duration_label: this.durationLabel(),
+        base_cost: this.baseCost(),
+        gst: this.gst(),
+        advance: this.advance(),
+        security_deposit: this.securityDeposit(),
+        fuel_policy: this.fuelPolicy(),
+        extra_mileage_rate: this.isOutstation() ? this.extraMileageRate() : null,
+        extra_mileage_charge: 0,
+        promo_code: this.promoCode().trim().toUpperCase() || null,
+        discount_amount: this.discount(),
+        final_amount: this.grandTotal(),
+      },
+    });
+    this.loading.set(false);
+
+    if (error) {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Submission failed',
+        detail: (error as any).message || 'Could not submit quotation for admin review.',
+      });
+      return;
+    }
 
     this.messageService.add({
       severity: 'success',
-      summary: 'Booking confirmed',
-      detail: 'Step 5 payment and confirmation screen is planned for a future sprint.',
+      summary: 'Submitted',
+      detail: `Quotation ${data?.quotation?.quote_reference || ''} was submitted for admin approval.`,
     });
     await this.router.navigate(['/dealer/my-bookings']);
   }

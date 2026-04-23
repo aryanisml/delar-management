@@ -1,39 +1,36 @@
 import { Component, inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { Auth } from '../../services/auth';
+import { SupabaseService } from '../../services/supabase';
 
 @Component({
   selector: 'app-auth-callback',
   template: '<div>Processing authentication...</div>',
-  standalone: true
+  standalone: true,
 })
 export class AuthCallback {
   private router = inject(Router);
-  private auth = inject(Auth);
+  private supabase = inject(SupabaseService);
 
   async ngOnInit() {
     try {
-      // Wait a moment for Supabase to process the hash
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      // Get the current user and their role
-      const user = await this.auth.getCurrentUser();
-      
+      const user = await this.supabase.getCurrentUser();
       if (!user) {
-        this.router.navigate(['/login']);
+        await this.router.navigate(['/login']);
         return;
       }
 
-      const role = await this.auth.getUserRole();
-      
-      if (role === 'admin') {
-        this.router.navigate(['/admin']);
-      } else {
-        this.router.navigate(['/dealer']);
+      const role = await this.supabase.ensureUserRoleAndDealer(user);
+      if (role === 'admin' || role === 'superadmin') {
+        await this.router.navigate(['/admin/dashboard']);
+        return;
       }
+
+      await this.router.navigate(['/dealer/dashboard']);
     } catch (error) {
       console.error('Auth callback error:', error);
-      this.router.navigate(['/login']);
+      await this.router.navigate(['/login']);
     }
   }
 }
