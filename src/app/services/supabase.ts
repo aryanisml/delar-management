@@ -54,27 +54,21 @@ type WalkInCustomerInput = {
   id_proof_url?: string | null;
 };
 
-type WalkInPricingInput = {
-  rate: number;
-  days: number;
-  base_cost: number;
-  gst: number;
-  advance: number;
-  security_deposit: number;
-  final_amount: number;
-  extra_mileage_rate: number;
-  discount_amount?: number;
-  promo_code?: string | null;
-  fuel_policy?: string | null;
-};
-
 type WalkInQuotationInput = {
   vehicle_id: string;
   trip: WalkInTripInput;
   customer: WalkInCustomerInput;
-  pricing: WalkInPricingInput;
   existing_customer_id?: string | null;
   existing_customer_choice?: 'existing' | 'update' | 'new';
+};
+
+type CreateQuotationInput = {
+  bookingId: string;
+  advisorId: string;
+  vehicleId: string;
+  startDate: string;
+  endDate: string;
+  customer: any;
 };
 
 type NotificationInput = {
@@ -83,6 +77,7 @@ type NotificationInput = {
   message: string;
   type?: string;
   booking_id?: string;
+  is_read?: boolean;
 };
 
 @Injectable({
@@ -306,71 +301,47 @@ export class SupabaseService {
   }
 
   async getMyBookings(userId: string) {
-    const quotationsResult = await this.supabase
-      .from('quotations')
-      .select('booking_id, status, quote_reference, advisor_id')
-      .eq('advisor_id', userId);
-
-    if (quotationsResult.error || !quotationsResult.data?.length) {
-      return { data: [], error: quotationsResult.error };
+    const customerResult = await this.supabase.from('customers').select('id').eq('created_by', userId);
+    if (customerResult.error) {
+      return { data: [], error: customerResult.error };
     }
 
-    const bookingIds = quotationsResult.data.map((quotation: any) => quotation.booking_id).filter(Boolean);
-    const bookingsResult = await this.supabase
+    const customerIds = (customerResult.data ?? []).map((customer: any) => customer.id).filter(Boolean);
+    const filters = [`user_id.eq.${userId}`];
+    if (customerIds.length) {
+      filters.push(`customer_id.in.(${customerIds.join(',')})`);
+    }
+
+    const result = await this.supabase
       .from('bookings')
       .select(`
-        id,
-        vehicle_id,
-        user_id,
-        pickup_location,
-        drop_location,
-        start_date,
-        end_date,
-        purpose,
-        approved_by,
-        approved_at,
-        rejection_reason,
-        dealer_notes,
-        status,
-        total_price,
-        pickup_time,
-        dropoff_time,
-        number_of_passengers,
-        special_instructions,
-        created_at,
-        updated_at,
-        vehicle (
-          id,
-          brand,
-          model,
-          location,
-          image_url,
-          type,
-          fuel,
-          transmission,
-          capacity,
-          registration_no
+        *,
+        vehicle:vehicle_id (
+          id, brand, model, image_url, location, vehicle_status
         ),
-        customers (
-          full_name,
-          mobile
+        customer:customer_id (
+          id, full_name, mobile, email
+        ),
+        quotation:quotations!quotations_booking_id_fkey (
+          id, quote_reference, final_amount, rate, days, status, base_cost, gst, advance, security_deposit
         )
       `)
-      .in('id', bookingIds)
+      .or(filters.join(','))
       .order('created_at', { ascending: false });
 
-    if (bookingsResult.error) {
-      return bookingsResult;
+    if (result.error) {
+      return { data: [], error: result.error };
     }
 
-    const quotationByBooking = new Map((quotationsResult.data ?? []).map((quote: any) => [quote.booking_id, quote]));
     return {
-      data: (bookingsResult.data ?? []).map((booking: any) => {
-        const quote = quotationByBooking.get(booking.id);
+      data: (result.data ?? []).map((booking: any) => {
+        const quotation = Array.isArray(booking.quotation) ? booking.quotation[0] ?? null : booking.quotation ?? null;
         return {
           ...booking,
-          quote_status: quote?.status ?? null,
-          quote_reference: quote?.quote_reference ?? null,
+          quotation,
+          quote_status: quotation?.status ?? null,
+          quote_reference: quotation?.quote_reference ?? null,
+          total_price: quotation?.final_amount ?? booking.total_price ?? null,
         };
       }),
       error: null,
@@ -423,6 +394,11 @@ export class SupabaseService {
     }
 
     return await this.supabase.from('customers').select('*').eq('mobile', normalized).maybeSingle();
+  }
+
+  private isDuplicateMobileError(error: any) {
+    const message = String(error?.message ?? '');
+    return error?.code === '23505' || /customers_mobile_unique|duplicate key/i.test(message);
   }
 
   async uploadCustomerIdProof(file: File, reference: string) {
@@ -608,6 +584,7 @@ export class SupabaseService {
           insurance_expiry,
           last_serviced_date,
           vehicle_status,
+          next_available_date,
           tier_id,
           vehicle_tiers (
             daily_rate,
@@ -620,7 +597,6 @@ export class SupabaseService {
             is_primary
           )
         `)
-        .eq('vehicle_status', 'available')
         .order('created_at', { ascending: false });
 
       if (filters.vehicleId) {
@@ -651,6 +627,7 @@ export class SupabaseService {
 
       const filtered = (data ?? [])
         .filter((row: any) => !conflictVehicleIds.has(row.id))
+        .filter((row: any) => String(row.vehicle_status ?? '').toLowerCase() !== 'deleted')
         .filter((row: any) => !filters.type || row.type === filters.type)
         .filter((row: any) => !filters.capacity || Number(row.capacity ?? 0) >= Number(filters.capacity))
         .filter((row: any) => !filters.transmission || row.transmission === filters.transmission)
@@ -688,6 +665,128 @@ export class SupabaseService {
     return { data: !(data?.length), error };
   }
 
+  async createOrFetchQuotation(input: CreateQuotationInput) {
+    const existing = await this.supabase.from('quotations').select('*').eq('booking_id', input.bookingId).maybeSingle();
+    if (existing.error) {
+      return { data: null, error: existing.error };
+    }
+
+    if (this.hasResolvedPricing(existing.data)) {
+      return { data: existing.data, error: null };
+    }
+
+    if (!existing.data) {
+      const quotationPayload = {
+        booking_id: input.bookingId,
+        advisor_id: input.advisorId,
+        status: 'draft',
+        customer_name: input.customer.full_name,
+        mobile: input.customer.mobile,
+        email: input.customer.email,
+        license: input.customer.license_no,
+        license_expiry: input.customer.license_expiry,
+        customer_type: input.customer.customer_type,
+        business_name: input.customer.business_name ?? null,
+        gst_number: input.customer.gst_number ?? null,
+        id_proof_url: input.customer.id_proof_url ?? null,
+      };
+
+      const insert = await this.supabase.from('quotations').insert([quotationPayload]);
+      if (insert.error) {
+        console.error('Quotation insert failed', insert.error);
+        return { data: null, error: insert.error };
+      }
+    }
+
+    const priced = await this.pollForPricing(input.bookingId);
+    if (priced.data) {
+      return { data: priced.data, error: null };
+    }
+    if (priced.error) {
+      return { data: null, error: priced.error };
+    }
+
+    return await this.applyFrontendPricingFallback(input);
+  }
+
+  private async pollForPricing(bookingId: string, maxAttempts = 6, intervalMs = 1500) {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      await this.delay(intervalMs);
+      const { data, error } = await this.supabase.from('quotations').select('*').eq('booking_id', bookingId).single();
+      if (error) {
+        return { data: null, error };
+      }
+      if (this.hasResolvedPricing(data)) {
+        return { data, error: null };
+      }
+    }
+
+    return { data: null, error: null };
+  }
+
+  private async applyFrontendPricingFallback(input: CreateQuotationInput) {
+    const vehicleResult = await this.supabase
+      .from('vehicle')
+      .select(`
+        tier_id,
+        vehicle_tiers (
+          daily_rate,
+          security_deposit
+        )
+      `)
+      .eq('id', input.vehicleId)
+      .single();
+
+    if (vehicleResult.error) {
+      return { data: null, error: vehicleResult.error };
+    }
+
+    const tier = Array.isArray((vehicleResult.data as any).vehicle_tiers)
+      ? (vehicleResult.data as any).vehicle_tiers[0]
+      : (vehicleResult.data as any).vehicle_tiers;
+    if (!tier) {
+      return { data: null, error: new Error('Vehicle tier pricing is unavailable') };
+    }
+
+    const days = this.calculateBookingDays(input.startDate, input.endDate);
+    const rate = Number(tier.daily_rate ?? 0);
+    const baseCost = rate * days;
+    const gst = baseCost * 0.18;
+    const finalAmount = baseCost + gst;
+    const advance = baseCost * 0.3;
+
+    // FALLBACK: DB trigger did not return pricing in time. Frontend computed pricing and wrote it back.
+    return await this.supabase
+      .from('quotations')
+      .update({
+        rate,
+        days,
+        base_cost: baseCost,
+        gst,
+        final_amount: finalAmount,
+        advance,
+        security_deposit: Number(tier.security_deposit ?? 0),
+      })
+      .eq('booking_id', input.bookingId)
+      .select()
+      .single();
+  }
+
+  private hasResolvedPricing(quotation: any) {
+    return Boolean(quotation && Number(quotation.final_amount ?? 0) > 0);
+  }
+
+  private calculateBookingDays(startDate: string, endDate: string) {
+    const start = new Date(`${startDate}T00:00:00`);
+    const end = new Date(`${endDate}T00:00:00`);
+    const diff = Math.round((end.getTime() - start.getTime()) / 86400000);
+    return Math.max(1, diff || 1);
+  }
+
+  private delay(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
   async createWalkInQuotation(input: WalkInQuotationInput) {
     const user = await this.getCurrentUser();
     if (!user) {
@@ -716,6 +815,12 @@ export class SupabaseService {
     };
 
     let customerRecord: any = null;
+    let duplicateMobile = false;
+    const existingByMobile = await this.findCustomerByMobile(input.customer.mobile);
+    if (existingByMobile.error) {
+      return { data: null, error: existingByMobile.error };
+    }
+
     if (input.existing_customer_id && input.existing_customer_choice !== 'new') {
       if (input.existing_customer_choice === 'update') {
         const updateResult = await this.supabase
@@ -739,15 +844,28 @@ export class SupabaseService {
         }
         customerRecord = existingResult.data;
       }
+    } else if (existingByMobile.data?.id) {
+      customerRecord = existingByMobile.data;
+      duplicateMobile = true;
     } else {
       const createResult = await this.supabase.from('customers').insert([customerPayload]).select().single();
       if (createResult.error) {
-        return { data: null, error: createResult.error };
+        if (this.isDuplicateMobileError(createResult.error)) {
+          const existing = await this.findCustomerByMobile(input.customer.mobile);
+          if (existing.data?.id) {
+            customerRecord = existing.data;
+            duplicateMobile = true;
+          } else {
+            return { data: null, error: createResult.error };
+          }
+        } else {
+          return { data: null, error: createResult.error };
+        }
+      } else {
+        customerRecord = createResult.data;
       }
-      customerRecord = createResult.data;
     }
 
-    const quoteReference = await this.generateQuoteReference();
     const bookingResult = await this.supabase
       .from('bookings')
       .insert([
@@ -761,7 +879,6 @@ export class SupabaseService {
           end_date: input.trip.end_date,
           purpose: input.trip.purpose,
           status: 'pending',
-          total_price: input.pricing.final_amount,
           pickup_time: input.trip.pickup_time,
           dropoff_time: input.trip.dropoff_time,
           number_of_passengers: input.trip.number_of_passengers,
@@ -775,41 +892,29 @@ export class SupabaseService {
       return { data: null, error: bookingResult.error };
     }
 
-    const quotationResult = await this.supabase
-      .from('quotations')
-      .insert([
-        {
-          booking_id: bookingResult.data.id,
-          customer_name: customerRecord.full_name,
-          mobile: customerRecord.mobile,
-          email: customerRecord.email,
-          license: customerRecord.license_no,
-          license_expiry: customerRecord.license_expiry,
-          customer_type: customerRecord.customer_type,
-          business_name: customerRecord.business_name,
-          gst_number: customerRecord.gst_number,
-          id_proof_url: customerRecord.id_proof_url,
-          rate: input.pricing.rate,
-          days: input.pricing.days,
-          base_cost: input.pricing.base_cost,
-          gst: input.pricing.gst,
-          advance: input.pricing.advance,
-          security_deposit: input.pricing.security_deposit,
-          final_amount: input.pricing.final_amount,
-          status: 'draft',
-          quote_reference: quoteReference,
-          advisor_id: user.id,
-          fuel_policy: input.pricing.fuel_policy || 'Full-to-Full',
-          extra_mileage_rate: input.pricing.extra_mileage_rate,
-          promo_code: input.pricing.promo_code || null,
-          discount_amount: input.pricing.discount_amount ?? 0,
-        },
-      ])
-      .select()
-      .single();
+    const quotationResult = await this.createOrFetchQuotation({
+      bookingId: bookingResult.data.id,
+      advisorId: user.id,
+      vehicleId: input.vehicle_id,
+      startDate: input.trip.pickup_date,
+      endDate: input.trip.end_date,
+      customer: customerRecord,
+    });
 
     if (quotationResult.error) {
+      await this.supabase.from('quotations').delete().eq('booking_id', bookingResult.data.id);
+      await this.supabase.from('bookings').delete().eq('id', bookingResult.data.id);
       return { data: null, error: quotationResult.error };
+    }
+
+    const vehicleUpdate = await this.supabase
+      .from('vehicle')
+      .update({ vehicle_status: 'booked', next_available_date: input.trip.end_date })
+      .eq('id', input.vehicle_id);
+    if (vehicleUpdate.error) {
+      await this.supabase.from('quotations').delete().eq('booking_id', bookingResult.data.id);
+      await this.supabase.from('bookings').delete().eq('id', bookingResult.data.id);
+      return { data: null, error: vehicleUpdate.error };
     }
 
     await this.logAudit('walk_in_quotation_generated', bookingResult.data.id);
@@ -818,20 +923,21 @@ export class SupabaseService {
         booking: bookingResult.data,
         quotation: quotationResult.data,
         customer: customerRecord,
+        duplicateMobile,
       },
       error: null,
     };
   }
 
   async confirmWalkInBooking(bookingId: string, customerChannel?: 'email' | 'sms' | 'whatsapp' | null) {
-    const request = await this.getAdminBookingDetails(bookingId);
+      const request = await this.getAdminBookingDetails(bookingId);
     if (request.error || !request.data) {
       return { data: null, error: request.error ?? new Error('Booking not found') };
     }
 
     const quotationUpdate = await this.supabase
       .from('quotations')
-      .update({ status: 'confirmed', sent_at: new Date().toISOString() })
+      .update({ status: 'approved', sent_at: new Date().toISOString() })
       .eq('booking_id', bookingId)
       .select()
       .single();
@@ -852,7 +958,7 @@ export class SupabaseService {
     }
 
     await this.notifyAdminsOfBookingRequest(bookingUpdate.data, quotationUpdate.data, request.data.vehicle, request.data.advisor_name);
-    await this.logAudit(`walk_in_booking_confirmed:${customerChannel || 'manual'}`, bookingId);
+    await this.logAudit(`walk_in_booking_approved:${customerChannel || 'manual'}`, bookingId);
 
     return {
       data: {
@@ -985,36 +1091,33 @@ export class SupabaseService {
 
       const booking = request.data;
       const quotation = booking.quotation;
-      const vehicle = booking.vehicle;
-      const quoteRef = quotation?.quote_reference ?? booking.id;
-      const customerName = quotation?.customer_name ?? 'customer';
-
       const bookingUpdate = await this.supabase
         .from('bookings')
-        .update({ status: 'confirmed', approved_by: user.id, approved_at: new Date().toISOString() })
+        .update({ status: 'approved', approved_by: user.id, approved_at: new Date().toISOString() })
         .eq('id', bookingId);
       if (bookingUpdate.error) {
         return { data: null, error: bookingUpdate.error };
       }
 
-      const quotationUpdate = await this.supabase.from('quotations').update({ status: 'confirmed' }).eq('booking_id', bookingId);
+      const quotationUpdate = await this.supabase.from('quotations').update({ status: 'approved' }).eq('booking_id', bookingId);
       if (quotationUpdate.error) {
         return { data: null, error: quotationUpdate.error };
       }
 
       const vehicleUpdate = await this.supabase
         .from('vehicle')
-        .update({ vehicle_status: 'booked', next_available_date: booking.end_date })
+        .update({ next_available_date: booking.end_date })
         .eq('id', booking.vehicle_id);
       if (vehicleUpdate.error) {
         return { data: null, error: vehicleUpdate.error };
       }
 
       await this.insertNotificationPayload({
-        user_id: booking.user_id,
+        user_id: quotation?.advisor_id ?? booking.user_id,
         title: 'Booking Approved',
-        message: `Your booking ${quoteRef} for ${customerName} has been approved by admin. Vehicle ${vehicle?.make || vehicle?.brand || ''} ${vehicle?.model || ''} is now confirmed.`,
-        type: 'booking_approved',
+        message: 'Your booking request has been approved.',
+        type: 'success',
+        is_read: false,
         booking_id: bookingId,
       });
 
@@ -1034,18 +1137,20 @@ export class SupabaseService {
     }
 
     try {
+      if (!reason.trim()) {
+        return { data: null, error: new Error('Rejection reason is required') };
+      }
+
       const request = await this.getBookingRequestDetails(bookingId);
       if (request.error || !request.data) {
         return { data: null, error: request.error ?? new Error('Booking not found') };
       }
 
       const booking = request.data;
-      const quotation = booking.quotation;
-      const quoteRef = quotation?.quote_reference ?? booking.id;
 
       const bookingUpdate = await this.supabase
         .from('bookings')
-        .update({ status: 'rejected', rejection_reason: reason })
+        .update({ status: 'rejected', rejection_reason: reason, approved_by: user.id, approved_at: new Date().toISOString() })
         .eq('id', bookingId);
       if (bookingUpdate.error) {
         return { data: null, error: bookingUpdate.error };
@@ -1056,11 +1161,33 @@ export class SupabaseService {
         return { data: null, error: quotationUpdate.error };
       }
 
+      const activeBookings = await this.supabase
+        .from('bookings')
+        .select('id', { count: 'exact', head: true })
+        .eq('vehicle_id', booking.vehicle_id)
+        .in('status', ['pending', 'approved', 'in_service'])
+        .neq('id', bookingId);
+
+      if (activeBookings.error) {
+        return { data: null, error: activeBookings.error };
+      }
+
+      if ((activeBookings.count ?? 0) === 0) {
+        const vehicleUpdate = await this.supabase
+          .from('vehicle')
+          .update({ vehicle_status: 'available', next_available_date: null })
+          .eq('id', booking.vehicle_id);
+        if (vehicleUpdate.error) {
+          return { data: null, error: vehicleUpdate.error };
+        }
+      }
+
       await this.insertNotificationPayload({
-        user_id: booking.user_id,
+        user_id: booking.quotation?.advisor_id ?? booking.user_id,
         title: 'Booking Rejected',
-        message: `Booking ${quoteRef} was rejected. Reason: ${reason}`,
-        type: 'booking_rejected',
+        message: reason,
+        type: 'error',
+        is_read: false,
         booking_id: bookingId,
       });
 
@@ -1074,7 +1201,7 @@ export class SupabaseService {
   async getBookingRequestDetails(bookingId: string) {
     const { data, error } = await this.supabase
       .from('bookings')
-      .select(`*, vehicle (*), quotations (*)`)
+      .select(`*, vehicle (*)`)
       .eq('id', bookingId)
       .maybeSingle();
 
@@ -1082,10 +1209,15 @@ export class SupabaseService {
       return { data: null, error };
     }
 
+    const quotation = await this.getQuotationByBooking(bookingId);
+    if (quotation.error) {
+      return { data: null, error: quotation.error };
+    }
+
     return {
       data: {
         ...data,
-        quotation: Array.isArray((data as any).quotations) ? (data as any).quotations[0] : (data as any).quotations,
+        quotation: quotation.data,
       },
       error: null,
     };
@@ -1125,23 +1257,6 @@ export class SupabaseService {
           gst_number,
           id_proof_url
         ),
-        quotations (
-          rate,
-          days,
-          base_cost,
-          gst,
-          advance,
-          security_deposit,
-          final_amount,
-          quote_reference,
-          fuel_policy,
-          extra_mileage_rate,
-          promo_code,
-          discount_amount,
-          status,
-          advisor_id,
-          sent_at
-        ),
         vehicle (
           brand,
           model,
@@ -1161,13 +1276,17 @@ export class SupabaseService {
       return { data: null, error };
     }
 
-    const quotation = Array.isArray((data as any).quotations) ? (data as any).quotations[0] : (data as any).quotations;
-    const advisorName = await this.resolveAdvisorDisplayName(quotation?.advisor_id);
+    const quotation = await this.getQuotationByBooking(bookingId);
+    if (quotation.error) {
+      return { data: null, error: quotation.error };
+    }
+
+    const advisorName = await this.resolveAdvisorDisplayName(quotation.data?.advisor_id);
 
     return {
       data: {
         ...data,
-        quotation,
+        quotation: quotation.data,
         advisor_name: advisorName,
       },
       error: null,
@@ -1272,7 +1391,7 @@ export class SupabaseService {
     const { data, error } = await this.supabase
       .from('bookings')
       .select('id, vehicle_id, end_date')
-      .eq('status', 'confirmed')
+      .eq('status', 'approved')
       .lt('end_date', today);
 
     if (error) {

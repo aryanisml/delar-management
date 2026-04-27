@@ -1,34 +1,32 @@
 :host {
   display: block;
+  --wizard-teal: #00b69b;
+  --wizard-teal-dark: #009a84;
+  --wizard-success: #10b981;
+  --wizard-danger: #ef4444;
+  --wizard-warning: #f59e0b;
+  --wizard-info: #3b82f6;
+  --wizard-ink: #0f172a;
+  --wizard-muted: #64748b;
+  --wizard-soft: #94a3b8;
+  --wizard-surface: #ffffff;
+  --wizard-surface-muted: #f1f5f9;
+  --wizard-border: #e2e8f0;
 }
 
 .wizard-page {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
-}
-
-.wizard-header,
-.wizard-steps,
-.wizard-grid,
-.filter-grid,
-.vehicle-grid,
-.vehicle-card__title,
-.vehicle-dates,
-.summary-list,
-.choice-row,
-.action-panel,
-.send-row,
-.inline-field {
-  display: flex;
+  padding: 24px 28px;
 }
 
 .wizard-header,
 .card-heading,
-.vehicle-card__title,
 .choice-row,
-.send-row,
-.inline-field {
+.inline-field,
+.send-row {
+  display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
@@ -38,132 +36,329 @@
   flex-wrap: wrap;
 }
 
-.wizard-status {
-  min-width: 180px;
-  border: 1px solid var(--border);
-  border-radius: 0.75rem;
-  background: var(--surface-card);
-  padding: 0.9rem 1rem;
+.wizard-header .admin-page-title {
+  color: var(--wizard-ink);
+  font-size: 24px;
+  font-weight: 700;
 }
 
-.wizard-status span,
-.vehicle-dates span,
-.summary-list span,
-.pricing-grid span {
-  color: var(--text-muted);
-  font-size: 0.8rem;
+.wizard-header .admin-page-subtitle {
+  max-width: 780px;
+  color: var(--wizard-muted);
 }
 
-.wizard-status strong,
-.summary-list strong,
-.pricing-grid strong {
-  color: var(--text-primary);
-  font-size: 0.95rem;
-}
-
-.wizard-steps {
-  gap: 0.75rem;
+.wizard-stepper-card {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  border-radius: 14px;
+  background: var(--wizard-surface);
+  padding: 20px 32px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
   overflow-x: auto;
 }
 
 .wizard-step {
-  min-width: 132px;
-  border: 1px solid var(--border);
-  border-radius: 0.75rem;
-  background: var(--surface-card);
-  padding: 0.85rem 1rem;
-  text-align: left;
+  position: relative;
+  display: flex;
+  min-width: 108px;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.55rem;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  cursor: pointer;
 }
 
-.wizard-step span {
+.wizard-step__circle {
+  position: relative;
+  z-index: 1;
   display: inline-flex;
-  width: 1.8rem;
-  height: 1.8rem;
+  width: 36px;
+  height: 36px;
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  background: var(--surface-muted);
-  color: var(--text-primary);
+  background: var(--wizard-surface-muted);
+  color: var(--wizard-muted);
+  font-size: 0.95rem;
   font-weight: 700;
+  transition:
+    background 250ms ease,
+    color 250ms ease,
+    border-color 250ms ease,
+    box-shadow 250ms ease;
 }
 
-.wizard-step p {
-  margin: 0.6rem 0 0;
-  color: var(--text-primary);
-  font-size: 0.92rem;
-  font-weight: 600;
+.wizard-step__label {
+  margin: 0;
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  color: var(--wizard-muted);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.3;
+  text-align: center;
+  transition:
+    background 250ms ease,
+    color 250ms ease;
 }
 
-.wizard-step.is-active {
-  border-color: var(--brand-primary);
-  background: var(--brand-soft);
+.wizard-step__connector {
+  position: absolute;
+  top: 17px;
+  left: calc(50% + 26px);
+  width: calc(100% - 52px);
+  height: 2px;
+  border-radius: 999px;
+  background: var(--wizard-border);
+  overflow: hidden;
 }
 
-.wizard-step.is-active span,
-.wizard-step.is-done span {
-  background: var(--brand-primary);
-  color: white;
+.wizard-step__connector-fill {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--wizard-teal);
+  transition: width 400ms ease;
+}
+
+.wizard-step.is-done .wizard-step__circle {
+  background: var(--wizard-teal);
+  color: #fff;
+}
+
+.wizard-step.is-done .wizard-step__label {
+  background: var(--wizard-teal);
+  color: #fff;
+}
+
+.wizard-step.is-done .wizard-step__connector-fill {
+  width: 100%;
+}
+
+.wizard-step.is-active .wizard-step__circle {
+  border: 2px solid var(--wizard-teal);
+  background: #fff;
+  color: var(--wizard-teal);
+  box-shadow: 0 0 0 4px rgba(0, 182, 155, 0.15);
+}
+
+.wizard-step.is-active .wizard-step__label {
+  color: var(--wizard-teal);
+}
+
+.wizard-progress {
+  overflow: hidden;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.2);
+}
+
+.wizard-progress__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--wizard-teal);
+  transition: width 500ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .wizard-grid {
-  flex-direction: column;
-  gap: 1rem;
+  display: grid;
+  gap: 20px;
 }
 
 .wizard-grid--two {
-  display: grid;
-  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+:host ::ng-deep .wizard-card {
+  border-radius: 14px;
+  border: 0;
+  background: var(--wizard-surface);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
 }
 
 :host ::ng-deep .wizard-card .p-card-body {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  padding: 1.25rem;
+  padding: 14px;
 }
 
-:host ::ng-deep .fill-rate--high .p-progressbar-value {
-  background: #0e9f6e;
+:host ::ng-deep .wizard-card--filters {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.07);
 }
 
-:host ::ng-deep .fill-rate--medium .p-progressbar-value {
-  background: #c27803;
+:host ::ng-deep .wizard-card--filters .p-card-body {
+  gap: 1.15rem;
+  padding: 16px 24px;
 }
 
-:host ::ng-deep .fill-rate--low .p-progressbar-value {
-  background: #e02424;
+.card-heading {
+  flex-wrap: wrap;
 }
 
 .card-heading h3,
 .summary-card h3 {
   margin: 0;
-  color: var(--text-primary);
-  font-size: 1.05rem;
+  color: var(--wizard-ink);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .card-heading p,
 .summary-card p {
-  margin: 0.25rem 0 0;
-  color: var(--text-muted);
+  margin: 0.3rem 0 0;
+  color: var(--wizard-muted);
   font-size: 0.88rem;
 }
 
-.filter-grid {
-  flex-wrap: wrap;
-  gap: 1rem;
+.filter-bar {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr)) minmax(110px, 132px) auto;
+  align-items: end;
+  gap: 0;
+}
+
+.filter-segment {
+  min-width: 0;
+  padding: 0 18px;
+}
+
+.filter-segment:not(:first-child) {
+  border-left: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.filter-segment label,
+.field label {
+  display: block;
+  margin-bottom: 0.45rem;
+  color: var(--wizard-soft);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.filter-segment--action {
+  display: flex;
+  align-items: stretch;
+}
+
+.filter-refresh-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-left: 0.75rem;
+}
+
+:host ::ng-deep .filter-search-button.p-button {
+  width: 100%;
+  min-width: 100px;
+  height: 52px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--wizard-teal);
+  color: #fff;
+  font-weight: 600;
+  transition:
+    transform 200ms ease,
+    box-shadow 200ms ease,
+    background 200ms ease;
+}
+
+:host ::ng-deep .filter-search-button.p-button:hover {
+  background: var(--wizard-teal-dark);
+  transform: scale(1.02);
+  box-shadow: 0 10px 24px rgba(0, 182, 155, 0.22);
+}
+
+:host ::ng-deep .filter-refresh-button.p-button {
+  width: 42px;
+  min-width: 42px;
+  height: 42px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 12px;
+  color: var(--wizard-muted);
+  background: rgba(255, 255, 255, 0.78);
+}
+
+:host ::ng-deep .filter-refresh-button .p-button-icon {
+  transition: transform 400ms ease;
+}
+
+:host ::ng-deep .filter-refresh-button:active .p-button-icon {
+  transform: rotate(360deg);
+}
+
+:host ::ng-deep .wizard-card--filters .p-datepicker,
+:host ::ng-deep .wizard-card--filters .p-select,
+:host ::ng-deep .wizard-card--filters .p-inputtext {
+  width: 100%;
+}
+
+:host ::ng-deep .wizard-card--filters .p-inputtext,
+:host ::ng-deep .wizard-card--filters .p-select,
+:host ::ng-deep .wizard-card--filters .p-select-label,
+:host ::ng-deep .wizard-card--filters .p-datepicker-input {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  color: var(--wizard-ink) !important;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+:host ::ng-deep .wizard-card--filters .p-select-dropdown,
+:host ::ng-deep .wizard-card--filters .p-datepicker-dropdown {
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--wizard-muted) !important;
+  box-shadow: none !important;
+}
+
+:host ::ng-deep .wizard-card--filters .p-datepicker-input::placeholder,
+:host ::ng-deep .wizard-card--filters .p-inputtext::placeholder,
+:host ::ng-deep .wizard-card--filters .p-select-label.p-placeholder {
+  color: var(--wizard-soft) !important;
+  font-weight: 500;
+}
+
+:host ::ng-deep .wizard-card--filters input[type='number'] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+:host ::ng-deep .wizard-card--filters input[type='number']::-webkit-outer-spin-button,
+:host ::ng-deep .wizard-card--filters input[type='number']::-webkit-inner-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+
+.filter-grid,
+.summary-list,
+.action-panel,
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
 .trip-detail-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.trip-detail-grid .field {
-  min-width: 0;
-}
-
-.trip-detail-grid .field--full {
-  grid-column: 1 / -1;
+  gap: 20px;
 }
 
 .field {
@@ -171,27 +366,48 @@
   min-width: min(100%, 220px);
   flex: 1 1 220px;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.45rem;
 }
 
 .field--full {
+  grid-column: 1 / -1;
   min-width: 100%;
-  flex-basis: 100%;
-}
-
-.field label {
-  color: var(--text-primary);
-  font-size: 0.85rem;
-  font-weight: 600;
 }
 
 .field-error {
-  color: var(--danger);
+  color: var(--wizard-danger);
   font-size: 0.78rem;
 }
 
 .field :is(input, textarea, .p-datepicker, .p-inputnumber, .p-select) {
   width: 100%;
+}
+
+:host ::ng-deep .field .p-inputtext,
+:host ::ng-deep .field .p-select,
+:host ::ng-deep .field .p-datepicker-input,
+:host ::ng-deep .field .p-inputnumber-input,
+:host ::ng-deep .field textarea {
+  border: 1px solid var(--wizard-border);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--wizard-ink);
+  box-shadow: none;
+}
+
+:host ::ng-deep .field .p-inputtext,
+:host ::ng-deep .field .p-datepicker-input,
+:host ::ng-deep .field .p-inputnumber-input,
+:host ::ng-deep .field textarea,
+:host ::ng-deep .field .p-select-label {
+  padding: 0.8rem 0.9rem;
+  font-size: 0.94rem;
+}
+
+:host ::ng-deep .field .p-select-dropdown,
+:host ::ng-deep .field .p-datepicker-dropdown {
+  border: 0;
+  background: transparent;
 }
 
 .disabled-action-wrap {
@@ -204,141 +420,296 @@
 
 .vehicle-grid {
   display: grid;
-  gap: 1rem;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: 1fr;
+  gap: 20px;
 }
 
 .vehicle-card {
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
-  border: 1px solid #e5e7eb;
-  border-radius: 1.35rem;
-  background: #ffffff;
-  box-shadow: 0 18px 40px -36px rgba(15, 23, 42, 0.28);
-  text-align: left;
+  border: 0;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
+  cursor: pointer;
+  transition:
+    transform 250ms ease,
+    box-shadow 250ms ease;
+  animation: fadeInUp 300ms ease both;
+}
+
+.vehicle-card:hover,
+.vehicle-card:focus-visible {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.13);
+  outline: none;
 }
 
 .vehicle-card.is-selected {
-  border-color: var(--brand-primary);
-  box-shadow: 0 0 0 1px var(--brand-primary);
-}
-
-.vehicle-card__body,
-.stack {
-  display: flex;
-  flex-direction: column;
-  gap: 0.9rem;
-}
-
-.vehicle-card__body {
-  padding: 1rem;
-}
-
-.vehicle-card__title strong {
-  color: var(--text-primary);
-  font-size: 1rem;
-}
-
-.vehicle-card__title p {
-  margin: 0.25rem 0 0;
-  color: var(--text-muted);
-  font-size: 0.82rem;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.13),
+    0 0 0 2px rgba(0, 182, 155, 0.4);
 }
 
 .vehicle-grid-card__media {
   position: relative;
+  overflow: hidden;
+  height: 220px;
+  border-radius: 14px 14px 0 0;
 }
 
 .vehicle-grid-card__image {
   display: block;
   width: 100%;
-  height: 190px;
+  height: 100%;
   object-fit: cover;
+  transition: transform 400ms ease;
 }
 
-.vehicle-grid-card__badge {
+.vehicle-card:hover .vehicle-grid-card__image,
+.vehicle-card:focus-visible .vehicle-grid-card__image {
+  transform: scale(1.05);
+}
+
+.vehicle-grid-card__status-badge,
+.vehicle-grid-card__rate-pill {
   position: absolute;
-  top: 1rem;
-  left: 1rem;
+  top: 14px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.38rem 0.7rem;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.vehicle-grid-card__status-badge {
+  left: 14px;
+}
+
+.vehicle-grid-card__date-chip {
+  position: absolute;
+  top: 46px;
+  left: 14px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.72);
+  padding: 3px 10px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.status-badge--available {
+  background: rgba(16, 185, 129, 0.9);
+}
+
+.status-badge--booked {
+  background: rgba(239, 68, 68, 0.85);
+}
+
+.status-badge--in-service {
+  background: rgba(59, 130, 246, 0.9);
+}
+
+.vehicle-grid-card__rate-pill {
+  right: 14px;
+  background: rgba(15, 23, 42, 0.75);
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .vehicle-grid-card__body {
   display: flex;
+  flex: 1;
   flex-direction: column;
-  gap: 1rem;
-  padding: 1.25rem;
+  gap: 14px;
+  padding: 14px;
 }
 
-.vehicle-grid-card__rate {
-  font-size: 1rem;
+.vehicle-grid-card__heading {
+  min-width: 0;
+}
+
+.vehicle-grid-card__title {
+  margin: 0;
+  overflow: hidden;
+  color: var(--wizard-ink);
+  font-size: 17px;
   font-weight: 700;
-  color: #1a56db;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.vehicle-grid-card__metrics {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.65rem;
-  font-size: 0.84rem;
-  color: #64748b;
+.vehicle-grid-card__meta,
+.vehicle-grid-card__utilization-copy,
+.vehicle-grid-card__availability-note {
+  margin: 0;
+  color: var(--wizard-muted);
+  font-size: 12px;
 }
 
-.vehicle-meta,
-.pricing-grid {
-  display: grid;
-  gap: 0.75rem;
+.vehicle-grid-card__meta {
+  margin-top: 0.25rem;
 }
 
-.vehicle-meta {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.vehicle-grid-card__specs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
-.vehicle-meta span {
-  border-radius: 0.7rem;
-  background: var(--surface-muted);
-  padding: 0.55rem 0.7rem;
-  color: var(--text-primary);
-  font-size: 0.82rem;
-  font-weight: 600;
+.vehicle-grid-card__spec-pill {
+  border-radius: 5px;
+  background: var(--wizard-surface-muted);
+  padding: 0.32rem 0.5rem;
+  color: var(--wizard-muted);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.2;
 }
 
-.vehicle-dates {
-  gap: 0.75rem;
+.vehicle-grid-card__mileage {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--wizard-muted);
+  font-size: 12px;
+  font-weight: 500;
 }
 
-.vehicle-dates > div,
-.summary-list > div,
-.pricing-grid > div {
+.vehicle-grid-card__mileage svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+
+.vehicle-grid-card__utilization {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.5rem;
+}
+
+:host ::ng-deep .vehicle-grid-card__utilization .p-progressbar {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--wizard-surface-muted);
+}
+
+:host ::ng-deep .vehicle-grid-card__utilization .p-progressbar-value {
+  border-radius: inherit;
+  transition: width 400ms ease, background 250ms ease;
+}
+
+:host ::ng-deep .fill-rate--low .p-progressbar-value {
+  background: linear-gradient(90deg, #00b69b 0%, #14b8a6 100%);
+}
+
+:host ::ng-deep .fill-rate--medium .p-progressbar-value {
+  background: linear-gradient(90deg, #f59e0b 0%, #fbbf24 100%);
+}
+
+:host ::ng-deep .fill-rate--high .p-progressbar-value {
+  background: linear-gradient(90deg, #ef4444 0%, #f87171 100%);
+}
+
+.vehicle-grid-card__availability-note {
+  color: #b45309;
+  font-weight: 500;
+}
+
+:host ::ng-deep .vehicle-grid-card__action.p-button {
+  width: 100%;
+  min-height: 38px;
+  margin-top: auto;
+  border: 0;
+  border-radius: 10px;
+  background: var(--wizard-teal);
+  color: #fff;
+  font-weight: 600;
+  transition:
+    background 200ms ease,
+    transform 200ms ease,
+    box-shadow 200ms ease;
+}
+
+:host ::ng-deep .vehicle-grid-card__action.p-button:hover {
+  background: var(--wizard-teal-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 182, 155, 0.3);
 }
 
 .summary-card {
   height: fit-content;
 }
 
-.summary-list,
-.pricing-grid {
+:host ::ng-deep .summary-card--snapshot {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.07);
+}
+
+.summary-list > div,
+.pricing-grid > div,
+.diff-list > div {
+  display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.3rem;
+}
+
+.summary-list span,
+.pricing-grid span,
+.diff-list span {
+  color: var(--wizard-muted);
+  font-size: 12px;
+}
+
+.summary-list strong,
+.pricing-grid strong,
+.diff-list strong {
+  color: var(--wizard-ink);
+  font-size: 0.95rem;
 }
 
 .summary-list--compact {
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--wizard-border);
   padding-top: 1rem;
 }
 
 .pricing-grid {
+  display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.pricing-loading {
+  display: grid;
+  justify-items: center;
+  gap: 0.75rem;
+  padding: 28px 0;
+  color: var(--wizard-muted);
+  font-size: 0.9rem;
+}
+
+:host ::ng-deep .pricing-loading .p-progress-spinner {
+  width: 36px;
+  height: 36px;
 }
 
 .pricing-grid__total {
   grid-column: 1 / -1;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--wizard-border);
   padding-top: 0.9rem;
 }
 
-.choice-row {
+.choice-row,
+.send-row {
   flex-wrap: wrap;
 }
 
@@ -348,20 +719,9 @@
 }
 
 .diff-list > div {
-  border-radius: 0.7rem;
-  background: var(--surface-muted);
-  padding: 0.75rem 0.9rem;
-}
-
-.diff-list span {
-  display: block;
-  color: var(--text-muted);
-  font-size: 0.78rem;
-}
-
-.diff-list strong {
-  color: var(--text-primary);
-  font-size: 0.88rem;
+  border-radius: 12px;
+  background: var(--wizard-surface-muted);
+  padding: 0.85rem 0.95rem;
 }
 
 .upload-field {
@@ -369,11 +729,11 @@
   min-height: 88px;
   align-items: center;
   justify-content: center;
-  border: 1px dashed var(--border);
-  border-radius: 0.75rem;
-  background: var(--surface-muted);
+  border: 1px dashed var(--wizard-border);
+  border-radius: 12px;
+  background: var(--wizard-surface-muted);
   padding: 1rem;
-  color: var(--text-primary);
+  color: var(--wizard-ink);
   cursor: pointer;
 }
 
@@ -381,13 +741,292 @@
   display: none;
 }
 
-.action-panel {
-  flex-direction: column;
-  gap: 1rem;
+.customer-step {
+  display: block;
 }
 
-.send-row {
-  flex-wrap: wrap;
+:host ::ng-deep .customer-card {
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+:host ::ng-deep .customer-card .p-card-body {
+  padding: 24px;
+}
+
+.customer-form-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(320px, 2fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.customer-section {
+  min-width: 0;
+}
+
+.customer-section__header h3 {
+  margin: 0 0 18px;
+  color: var(--wizard-ink);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.customer-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.customer-grid--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.customer-step .field {
+  min-width: 0;
+  gap: 6px;
+}
+
+.customer-step .field label {
+  margin-bottom: 0;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+:host ::ng-deep .customer-step .field .p-inputtext,
+:host ::ng-deep .customer-step .field .p-datepicker-input {
+  height: 44px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0 14px;
+  font-size: 14px;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+:host ::ng-deep .customer-step .field .p-inputtext:focus,
+:host ::ng-deep .customer-step .field .p-datepicker-input:focus {
+  border-color: #00b69b;
+  box-shadow: 0 0 0 3px rgba(0, 182, 155, 0.12);
+}
+
+.customer-step .field-error {
+  color: #ef4444;
+  font-size: 11px;
+}
+
+.mobile-lookup-row {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(112px, 3fr);
+  gap: 10px;
+}
+
+:host ::ng-deep .mobile-lookup-row .p-button {
+  height: 44px;
+  border-radius: 10px;
+}
+
+.customer-type-toggle {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.customer-type-toggle button {
+  height: 44px;
+  border: 1.5px solid #00b69b;
+  border-radius: 10px;
+  background: #fff;
+  color: #00b69b;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.customer-type-toggle button.is-selected {
+  background: #00b69b;
+  color: #fff;
+}
+
+.returning-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: 8px;
+  background: rgba(16, 185, 129, 0.08);
+  padding: 10px 14px;
+  color: #047857;
+  font-size: 13px;
+}
+
+.licence-chip {
+  width: fit-content;
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.08);
+  padding: 4px 10px;
+  color: #047857;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.licence-chip.is-warning {
+  background: rgba(245, 158, 11, 0.12);
+  color: #b45309;
+}
+
+.licence-chip.is-expired {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+}
+
+.customer-step .upload-field {
+  min-height: 80px;
+  border: 1.5px dashed #cbd5e1;
+  border-radius: 10px;
+  background: #fff;
+  color: #64748b;
+  text-align: center;
+}
+
+.upload-field__placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.upload-field__file {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  width: 100%;
+  align-items: center;
+  gap: 4px 10px;
+  text-align: left;
+}
+
+.upload-field__file strong,
+.upload-field__file small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upload-field__file small {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.upload-field__file button {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #0f172a;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.customer-step__sidebar {
+  position: sticky;
+  top: 24px;
+  align-self: start;
+}
+
+:host ::ng-deep .customer-snapshot-card {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+}
+
+:host ::ng-deep .customer-snapshot-card .p-card-body {
+  padding: 24px;
+}
+
+.customer-snapshot-card__header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.customer-snapshot-card__header span {
+  color: #94a3b8;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.customer-snapshot-card__header strong {
+  color: #0f172a;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.customer-snapshot-card__divider {
+  height: 1px;
+  background: rgba(148, 163, 184, 0.28);
+}
+
+.customer-snapshot-list {
+  gap: 16px;
+}
+
+.customer-snapshot-list > div {
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.customer-snapshot-list strong {
+  text-align: right;
+}
+
+.customer-snapshot-card__rate {
+  color: var(--wizard-teal);
+}
+
+:host ::ng-deep .customer-snapshot-card__action.p-button {
+  width: 100%;
+  min-height: 46px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--wizard-teal);
+  color: #fff;
+  font-weight: 600;
+  transition:
+    background 200ms ease,
+    transform 200ms ease,
+    box-shadow 200ms ease,
+    opacity 200ms ease;
+}
+
+:host ::ng-deep .customer-snapshot-card__action.p-button:not(:disabled):hover {
+  background: var(--wizard-teal-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 182, 155, 0.3);
+}
+
+:host ::ng-deep .customer-snapshot-card__action.p-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.action-panel {
+  gap: 1rem;
 }
 
 .empty-card {
@@ -400,35 +1039,121 @@
   border: 0;
 }
 
+:host ::ng-deep .p-dialog {
+  border-radius: 18px;
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.18);
+  overflow: hidden;
+}
+
+:host ::ng-deep .p-dialog .p-dialog-header,
+:host ::ng-deep .p-dialog .p-dialog-content {
+  background: #fff;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (min-width: 960px) {
   .wizard-grid--two {
     grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
   }
 }
 
-@media (max-width: 767px) {
-  .trip-detail-grid {
-    grid-template-columns: minmax(0, 1fr);
+@media (min-width: 768px) {
+  .vehicle-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1280px) {
+  .vehicle-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1023px) {
+  .filter-bar {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px 0;
   }
 
+  .filter-segment:nth-child(5),
+  .filter-segment:nth-child(1) {
+    border-left: 0;
+  }
+
+  .filter-segment--action {
+    grid-column: span 2;
+  }
+
+  .filter-refresh-wrap {
+    grid-column: -2 / -1;
+    grid-row: 2;
+  }
+}
+
+@media (max-width: 767px) {
+  .wizard-page {
+    padding: 20px 16px;
+  }
+
+  .wizard-stepper-card {
+    padding: 18px 16px;
+  }
+
+  .wizard-step {
+    min-width: 92px;
+  }
+
+  .filter-bar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .filter-segment {
+    padding: 0 12px;
+  }
+
+  .filter-segment:nth-child(odd) {
+    border-left: 0;
+  }
+
+  .filter-segment--action,
+  .filter-refresh-wrap {
+    grid-column: span 1;
+  }
+
+  .trip-detail-grid,
   .pricing-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .vehicle-grid,
-  .vehicle-grid-card__metrics {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .vehicle-dates,
   .inline-field {
     flex-direction: column;
     align-items: stretch;
   }
-}
 
-@media (min-width: 768px) and (max-width: 1280px) {
-  .vehicle-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .customer-form-shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .customer-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mobile-lookup-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .customer-step__sidebar {
+    position: static;
   }
 }

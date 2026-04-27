@@ -214,7 +214,7 @@ export class AdminOverview implements OnDestroy {
 
   configureCharts(bookings: any[], vehicles: any[]) {
     const monthLabels = [`Apr '25`, `May '25`, `Jun '25`, `Jul '25`, `Aug '25`, `Sep '25`, `Oct '25`, `Nov '25`, `Dec '25`, `Jan '26`, `Feb '26`, `Mar '26`];
-    const confirmedSeries = [18, 22, 26, 25, 30, 34, 31, 36, 40, 42, 39, 45];
+    const approvedSeries = [18, 22, 26, 25, 30, 34, 31, 36, 40, 42, 39, 45];
     const completedSeries = [12, 16, 20, 18, 24, 26, 27, 28, 32, 34, 33, 38];
     const revenueSeries = {
       labels: ['Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'],
@@ -233,7 +233,7 @@ export class AdminOverview implements OnDestroy {
       datasets: [
         {
           label: 'Confirmed Bookings',
-          data: confirmedSeries,
+          data: approvedSeries,
           borderColor: '#00B4A6',
           backgroundColor: 'rgba(0, 180, 166, 0.16)',
           fill: true,

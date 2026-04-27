@@ -70,6 +70,18 @@ export class MyBookingsComponent {
     return tagSeverityForStatus(status);
   }
 
+  quoteReference(row: any) {
+    return row.quote_reference || `#${String(row.id || '').slice(0, 8).toUpperCase()}`;
+  }
+
+  hasPricing(row: any) {
+    return Number(row.quotation?.final_amount ?? row.total_price ?? 0) > 0;
+  }
+
+  finalAmount(row: any) {
+    return Number(row.quotation?.final_amount ?? row.total_price ?? 0);
+  }
+
   openDetail(row: any) {
     this.selectedBooking.set(row);
     this.detailVisible.set(true);

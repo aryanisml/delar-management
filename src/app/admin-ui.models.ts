@@ -11,7 +11,7 @@ export interface DashboardBooking {
   userEmail: string;
   startDate: string;
   endDate: string;
-  status: 'Pending' | 'Confirmed' | 'InProgress' | 'Completed' | 'Cancelled';
+  status: 'Pending' | 'Approved' | 'InProgress' | 'Completed' | 'Cancelled';
   priority: 'Low' | 'Normal' | 'High' | 'Urgent';
   pickup: string;
   assignedTo: string;
@@ -24,8 +24,8 @@ function mapBookingStatus(status: string | null | undefined, index: number): Das
   switch (normalized) {
     case 'pending':
       return 'Pending';
-    case 'confirmed':
-      return 'Confirmed';
+    case 'approved':
+      return 'Approved';
     case 'inprogress':
     case 'in_progress':
     case 'active':
@@ -36,7 +36,7 @@ function mapBookingStatus(status: string | null | undefined, index: number): Das
     case 'canceled':
       return 'Cancelled';
     default:
-      return (['Pending', 'Confirmed', 'InProgress', 'Completed', 'Cancelled'][index % 5]) as DashboardBooking['status'];
+      return (['Pending', 'Approved', 'InProgress', 'Completed', 'Cancelled'][index % 5]) as DashboardBooking['status'];
   }
 }
 
@@ -115,7 +115,7 @@ export function buildBookings(
       userEmail: `user${index + 1}@vehicleadmin.io`,
       startDate: new Date(2026, 2, 23 + (index % 4), 9 + index, 0).toISOString(),
       endDate: new Date(2026, 2, 24 + (index % 5), 18, 0).toISOString(),
-      status: (['Pending', 'Confirmed', 'InProgress', 'Completed', 'Cancelled'][index % 5]) as DashboardBooking['status'],
+      status: (['Pending', 'Approved', 'InProgress', 'Completed', 'Cancelled'][index % 5]) as DashboardBooking['status'],
       priority: (['Low', 'Normal', 'High', 'Urgent'][index % 4]) as DashboardBooking['priority'],
       pickup: ['Connaught Place, Delhi', 'Cyber Hub, Gurugram', 'Sector 18, Noida', 'Indiranagar, Bengaluru'][index % 4],
       assignedTo: index % 3 === 0 ? 'Unassigned' : ['Ananya Rao', 'Dev Malhotra', 'Sana Khan'][index % 3],
@@ -180,18 +180,23 @@ export function tagSeverityForStatus(status: string): 'success' | 'warn' | 'dang
   const normalized = status.toLowerCase();
   switch (normalized) {
     case 'available':
-    case 'confirmed':
+    case 'approved':
+    case 'completed':
       return 'success';
     case 'booked':
     case 'pending':
       return 'warn';
     case 'inservice':
+    case 'in_service':
     case 'in progress':
     case 'inprogress':
       return 'info';
     case 'maintenance':
-    case 'cancelled':
+    case 'rejected':
       return 'danger';
+    case 'cancelled':
+    case 'canceled':
+      return 'secondary';
     case 'inactive':
     default:
       return 'secondary';

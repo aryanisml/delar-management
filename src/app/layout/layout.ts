@@ -54,6 +54,19 @@ export class Layout {
     }
     return 'Operations Workspace';
   });
+  sidebarBrandSubtitle = computed(() => {
+    const role = String(this.role() || '').toLowerCase();
+    if (role === 'admin' || role === 'superadmin') {
+      return 'Command Center';
+    }
+    if (role === 'rental_advisor') {
+      return 'Booking Console';
+    }
+    if (role === 'dealer') {
+      return 'Fleet Operations';
+    }
+    return 'Your Vehicles Dashboard';
+  });
   mobileSidebarOpen = signal(false);
   desktopSidebarCollapsed = signal(false);
   menuOpen = signal(false);

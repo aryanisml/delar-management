@@ -12,6 +12,7 @@ import { InputNumberModule } from 'primeng/inputnumber';
 import { InputTextModule } from 'primeng/inputtext';
 import { MessageModule } from 'primeng/message';
 import { ProgressBarModule } from 'primeng/progressbar';
+import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { SelectModule } from 'primeng/select';
 import { TagModule } from 'primeng/tag';
 import { TextareaModule } from 'primeng/textarea';
@@ -57,21 +58,6 @@ type CustomerForm = {
 
 type CustomerErrors = Partial<Record<keyof CustomerForm, string>>;
 
-type PricingSummary = {
-  rate: number;
-  days: number;
-  base_cost: number;
-  gst: number;
-  advance: number;
-  security_deposit: number;
-  final_amount: number;
-  extra_mileage_rate: number;
-  included_km_per_day: number;
-  discount_amount: number;
-  promo_code: string | null;
-  fuel_policy: string;
-};
-
 @Component({
   selector: 'app-dealer-bookings',
   standalone: true,
@@ -88,6 +74,7 @@ type PricingSummary = {
     InputTextModule,
     MessageModule,
     ProgressBarModule,
+    ProgressSpinnerModule,
     SelectModule,
     TagModule,
     TextareaModule,
@@ -148,7 +135,9 @@ export class DealerBookings {
   readonly existingCustomer = signal<any | null>(null);
   readonly customerChoice = signal<CustomerChoice>('existing');
   readonly uploadedIdFallback = signal<string | null>(null);
-  readonly pricing = signal<PricingSummary | null>(null);
+  readonly idProofFileSize = signal<string>('');
+  readonly duplicateMobileMessage = signal('');
+  readonly quotationError = signal('');
   readonly generatedBooking = signal<any | null>(null);
   readonly generatedQuotation = signal<any | null>(null);
   readonly sendState = signal<{ email: boolean; sms: boolean; whatsapp: boolean }>({
@@ -160,10 +149,6 @@ export class DealerBookings {
 
   readonly purposeOptions = ['Corporate', 'Airport Transfer', 'Personal', 'Business Visit', 'Event']
     .map((value) => ({ label: value, value }));
-  readonly customerTypeOptions = [
-    { label: 'Individual', value: 'individual' },
-    { label: 'Business', value: 'business' },
-  ];
   readonly paymentOptions = ['UPI', 'Card', 'Cash'].map((value) => ({ label: value, value }));
 
   readonly totalDays = computed(() => this.calculateDays(this.trip().pickup_date, this.trip().end_date));
@@ -194,30 +179,6 @@ export class DealerBookings {
     }
     return { label: 'Licence valid', severity: 'success' as const };
   });
-  readonly customerDiffs = computed(() => {
-    const existing = this.existingCustomer();
-    const current = this.customer();
-    if (!existing) {
-      return [];
-    }
-
-    const comparisons = [
-      { label: 'Name', existing: existing.full_name ?? '', current: current.full_name ?? '' },
-      { label: 'Email', existing: existing.email ?? '', current: current.email ?? '' },
-      { label: 'Licence No', existing: existing.license_no ?? '', current: current.license_no ?? '' },
-      {
-        label: 'Licence Expiry',
-        existing: existing.license_expiry ?? '',
-        current: current.license_expiry ? this.toDateOnly(current.license_expiry) : '',
-      },
-      { label: 'Customer Type', existing: existing.customer_type ?? '', current: current.customer_type ?? '' },
-      { label: 'Business Name', existing: existing.business_name ?? '', current: current.business_name ?? '' },
-      { label: 'GST', existing: existing.gst_number ?? '', current: current.gst_number ?? '' },
-    ];
-
-    return comparisons.filter((item) => item.current && item.existing !== item.current);
-  });
-
   async ngOnInit() {
     await this.loadVehicles();
     const vehicleId = this.route.snapshot.queryParamMap.get('vehicleId');
@@ -261,6 +222,9 @@ export class DealerBookings {
 
   updateCustomer<K extends keyof CustomerForm>(key: K, value: CustomerForm[K]) {
     this.customer.update((current) => ({ ...current, [key]: value }));
+    if (key === 'mobile') {
+      this.duplicateMobileMessage.set('');
+    }
     if (Object.keys(this.customerErrors()).length) {
       this.validateCustomer(true);
     }
@@ -269,7 +233,8 @@ export class DealerBookings {
   selectVehicle(vehicle: any) {
     this.selectedVehicle.set(vehicle);
     this.step.set(2);
-    this.recalculatePricing();
+    this.generatedBooking.set(null);
+    this.generatedQuotation.set(null);
   }
 
   async applyAvailabilityFilters() {
@@ -300,54 +265,59 @@ export class DealerBookings {
       return;
     }
 
-    this.recalculatePricing();
+    this.generatedBooking.set(null);
+    this.generatedQuotation.set(null);
     this.step.set(3);
   }
 
   async lookupCustomer() {
-    const mobile = this.customer().mobile.trim();
+    return await this.lookupCustomerByMobile(true);
+  }
+
+  async lookupCustomerOnBlur() {
+    await this.lookupCustomerByMobile(false);
+  }
+
+  private async lookupCustomerByMobile(showLookupMiss: boolean) {
+    const mobile = this.normalizeMobile(this.customer().mobile);
     if (!/^[6-9]\d{9}$/.test(mobile)) {
-      return;
+      return false;
     }
 
     const { data, error } = await this.supabase.findCustomerByMobile(mobile);
     if (error) {
       this.messageService.add({ severity: 'error', summary: 'Customer lookup failed', detail: error.message || 'Could not look up the customer.' });
-      return;
+      return false;
     }
 
     this.existingCustomer.set(data);
     if (!data) {
       this.customerChoice.set('new');
-      return;
+      if (showLookupMiss) {
+        this.duplicateMobileMessage.set('');
+      }
+      return false;
     }
 
-    this.customer.update((current) => ({
-      ...current,
-      full_name: current.full_name || data.full_name || '',
-      email: current.email || data.email || '',
-      license_no: current.license_no || data.license_no || '',
-      license_expiry: current.license_expiry || (data.license_expiry ? new Date(data.license_expiry) : null),
-      customer_type: data.customer_type === 'business' ? 'business' : current.customer_type,
-      business_name: current.business_name || data.business_name || '',
-      gst_number: current.gst_number || data.gst_number || '',
-      id_proof_url: current.id_proof_url || data.id_proof_url || '',
-      id_proof_name: current.id_proof_name || (data.id_proof_url ? 'Existing proof on file' : ''),
-    }));
+    this.prefillCustomer(data);
     this.customerChoice.set('existing');
+    return true;
   }
 
   customerInvalid() {
     return Object.keys(this.validateCustomer(false)).length > 0;
   }
 
-  continueToQuotation() {
+  async continueToQuotation() {
     if (Object.keys(this.validateCustomer(true)).length) {
       return;
     }
 
-    this.recalculatePricing();
+    await this.ensureExistingCustomerForMobile();
     this.step.set(4);
+    if (await this.generateQuotation()) {
+      return;
+    }
   }
 
   async onIdProofSelected(event: Event) {
@@ -369,18 +339,56 @@ export class DealerBookings {
       id_proof_url: data?.publicUrl || data?.fallbackDataUrl || '',
       id_proof_name: file.name,
     }));
+    this.idProofFileSize.set(this.formatFileSize(file.size));
     this.uploadedIdFallback.set(data?.publicUrl ? null : data?.fallbackDataUrl || null);
     if (Object.keys(this.customerErrors()).length) {
       this.validateCustomer(true);
     }
   }
 
+  removeIdProof() {
+    this.customer.update((current) => ({ ...current, id_proof_url: '', id_proof_name: '' }));
+    this.idProofFileSize.set('');
+    this.uploadedIdFallback.set(null);
+  }
+
   async generateQuotation() {
-    if (!this.selectedVehicle() || !this.pricing()) {
-      return;
+    if (!this.selectedVehicle()) {
+      return false;
+    }
+
+    if (this.generatedBooking()?.id) {
+      this.generatingQuotation.set(true);
+      const user = await this.supabase.getCurrentUser();
+      const quotation = await this.supabase.createOrFetchQuotation({
+        bookingId: this.generatedBooking().id,
+        advisorId: user?.id ?? '',
+        vehicleId: this.selectedVehicle().id,
+        startDate: this.toDateOnly(this.trip().pickup_date),
+        endDate: this.toDateOnly(this.trip().end_date),
+        customer: {
+          full_name: this.customer().full_name,
+          mobile: this.customer().mobile,
+          email: this.customer().email || null,
+          license_no: this.customer().license_no,
+          license_expiry: this.customer().license_expiry ? this.toDateOnly(this.customer().license_expiry) : null,
+          customer_type: this.customer().customer_type,
+          business_name: this.customer().business_name || null,
+          gst_number: this.customer().gst_number || null,
+          id_proof_url: this.customer().id_proof_url || null,
+        },
+      });
+      this.generatingQuotation.set(false);
+      if (quotation.error) {
+        this.quotationError.set(quotation.error.message || 'Could not load the database quotation.');
+        return false;
+      }
+      this.generatedQuotation.set(quotation.data ?? null);
+      return Boolean(quotation.data);
     }
 
     this.generatingQuotation.set(true);
+    this.quotationError.set('');
     const result = await this.supabase.createWalkInQuotation({
       vehicle_id: this.selectedVehicle().id,
       trip: {
@@ -405,7 +413,6 @@ export class DealerBookings {
         gst_number: this.customer().gst_number || null,
         id_proof_url: this.customer().id_proof_url || null,
       },
-      pricing: this.pricing()!,
       existing_customer_id: this.existingCustomer()?.id ?? null,
       existing_customer_choice: this.existingCustomer() ? this.customerChoice() : 'new',
     });
@@ -413,22 +420,28 @@ export class DealerBookings {
 
     if (result.error) {
       const detail = result.error.message || 'Could not generate the quotation.';
-      this.messageService.add({ severity: 'error', summary: 'Quotation failed', detail });
+      this.quotationError.set(detail);
       if (/no longer available/i.test(detail)) {
         this.step.set(1);
         await this.loadVehicles();
       }
-      return;
+      return false;
     }
 
     this.generatedBooking.set(result.data?.booking ?? null);
     this.generatedQuotation.set(result.data?.quotation ?? null);
-    this.step.set(5);
+    if (result.data?.duplicateMobile && result.data?.customer) {
+      this.existingCustomer.set(result.data.customer);
+      this.prefillCustomer(result.data.customer);
+      this.customerChoice.set('existing');
+      this.duplicateMobileMessage.set('This mobile number is already registered. Use the Lookup button to load their details.');
+    }
     this.messageService.add({
       severity: 'success',
-      summary: 'Quotation generated',
-      detail: `Quotation ${result.data?.quotation?.quote_reference || ''} is ready for preview and confirmation.`,
+      summary: 'Quotation ready',
+      detail: `Quotation ${result.data?.quotation?.quote_reference || ''} was calculated by the database.`,
     });
+    return Boolean(result.data?.quotation);
   }
 
   async previewPdf() {
@@ -459,7 +472,7 @@ export class DealerBookings {
       const url = URL.createObjectURL(blob);
       const quoteRef = this.generatedQuotation()?.quote_reference || 'Quotation';
       const message = encodeURIComponent(
-        `Quotation ${quoteRef} for ${this.customer().full_name}. Pickup ${this.trip().pickup_location}, drop ${this.trip().drop_location}, total ${this.formatCurrency(this.pricing()?.final_amount || 0)}.`
+        `Quotation ${quoteRef} for ${this.customer().full_name}. Pickup ${this.trip().pickup_location}, drop ${this.trip().drop_location}, total ${this.formatCurrency(this.quotationAmount('final_amount'))}.`
       );
 
       if (channel === 'email') {
@@ -495,47 +508,16 @@ export class DealerBookings {
     this.confirmingBooking.set(false);
 
     if (error) {
-      this.messageService.add({ severity: 'error', summary: 'Confirmation failed', detail: error.message || 'Could not confirm this booking.' });
+      this.messageService.add({ severity: 'error', summary: 'Confirmation failed', detail: (error as any).message || 'Could not confirm this booking.' });
       return;
     }
 
     this.messageService.add({
       severity: 'success',
-      summary: 'Booking confirmed',
+      summary: 'Booking approved',
       detail: `Advance payment recorded in workflow${this.paymentMode() ? ` via ${this.paymentMode()}` : ''}. Admin has been notified for approval.`,
     });
     await this.router.navigateByUrl('/dealer/my-bookings');
-  }
-
-  recalculatePricing() {
-    const vehicle = this.selectedVehicle();
-    if (!vehicle) {
-      this.pricing.set(null);
-      return;
-    }
-
-    const tier = vehicle.tier ?? vehicle.vehicle_tiers ?? {};
-    const rate = Number(tier.daily_rate ?? 0);
-    const days = this.totalDays();
-    const base_cost = rate * days;
-    const discount_amount = 0;
-    const gst = base_cost * this.supabase.gstRate;
-    const final_amount = base_cost + gst - discount_amount;
-
-    this.pricing.set({
-      rate,
-      days,
-      base_cost,
-      gst,
-      advance: base_cost * 0.5,
-      security_deposit: Number(tier.security_deposit ?? 0),
-      final_amount,
-      extra_mileage_rate: Number(tier.extra_mileage_rate ?? 0),
-      included_km_per_day: Number(tier.included_km_per_day ?? 0),
-      discount_amount,
-      promo_code: null,
-      fuel_policy: 'Full-to-Full',
-    });
   }
 
   stepDone(target: number) {
@@ -549,9 +531,8 @@ export class DealerBookings {
   }
 
   private buildPdfBlob() {
-    const pricing = this.pricing();
     const quotation = this.generatedQuotation();
-    if (!pricing) {
+    if (!quotation) {
       return null;
     }
 
@@ -562,14 +543,14 @@ export class DealerBookings {
       `Vehicle: ${this.selectedVehicle()?.brand || ''} ${this.selectedVehicle()?.model || ''}`.trim(),
       `Pickup: ${this.trip().pickup_location} on ${this.toDateOnly(this.trip().pickup_date)}`,
       `Drop: ${this.trip().drop_location} on ${this.toDateOnly(this.trip().end_date)}`,
-      `Rate per day: ${this.formatCurrency(pricing.rate)}`,
-      `Days: ${pricing.days}`,
-      `Base cost: ${this.formatCurrency(pricing.base_cost)}`,
-      `GST: ${this.formatCurrency(pricing.gst)}`,
-      `Advance: ${this.formatCurrency(pricing.advance)}`,
-      `Security deposit: ${this.formatCurrency(pricing.security_deposit)}`,
-      `Final amount: ${this.formatCurrency(pricing.final_amount)}`,
-      `Extra mileage rate: ${this.formatCurrency(pricing.extra_mileage_rate)} per km`,
+      `Rate per day: ${this.formatCurrency(this.quotationAmount('rate'))}`,
+      `Days: ${quotation.days ?? '-'}`,
+      `Base cost: ${this.formatCurrency(this.quotationAmount('base_cost'))}`,
+      `GST: ${this.formatCurrency(this.quotationAmount('gst'))}`,
+      `Advance: ${this.formatCurrency(this.quotationAmount('advance'))}`,
+      `Security deposit: ${this.formatCurrency(this.quotationAmount('security_deposit'))}`,
+      `Final amount: ${this.formatCurrency(this.quotationAmount('final_amount'))}`,
+      `Extra mileage rate: ${this.formatCurrency(this.quotationAmount('extra_mileage_rate'))} per km`,
     ];
 
     const content = [
@@ -654,7 +635,14 @@ export class DealerBookings {
     this.vehicles.update((current) => current.some((item) => item.id === vehicle.id) ? current : [vehicle, ...current]);
     this.selectedVehicle.set(vehicle);
     this.step.set(2);
-    this.recalculatePricing();
+  }
+
+  quotationAmount(field: string) {
+    return Number(this.generatedQuotation()?.[field] ?? 0);
+  }
+
+  pricingResolved() {
+    return this.quotationAmount('final_amount') > 0;
   }
 
   displayValue(value: unknown) {
@@ -697,6 +685,59 @@ export class DealerBookings {
       return 'fill-rate--medium';
     }
     return 'fill-rate--low';
+  }
+
+  isVehicleUnavailable(vehicle: any) {
+    const status = String(vehicle?.vehicle_status ?? vehicle?.vehicleStatus ?? '').toLowerCase();
+    return status === 'booked' || status === 'in_service';
+  }
+
+  private async ensureExistingCustomerForMobile() {
+    const mobile = this.normalizeMobile(this.customer().mobile);
+    if (!/^[6-9]\d{9}$/.test(mobile)) {
+      return false;
+    }
+
+    const { data } = await this.supabase.findCustomerByMobile(mobile);
+    if (!data?.id) {
+      this.duplicateMobileMessage.set('');
+      return false;
+    }
+
+    this.existingCustomer.set(data);
+    this.prefillCustomer(data);
+    this.customerChoice.set('existing');
+    this.duplicateMobileMessage.set('This mobile number is already registered. Use the Lookup button to load their details.');
+    return true;
+  }
+
+  private prefillCustomer(data: any) {
+    this.customer.update((current) => ({
+      ...current,
+      full_name: data.full_name || '',
+      mobile: data.mobile || current.mobile,
+      email: data.email || '',
+      license_no: data.license_no || '',
+      license_expiry: data.license_expiry ? new Date(data.license_expiry) : null,
+      customer_type: data.customer_type === 'business' ? 'business' : 'individual',
+      business_name: data.business_name || '',
+      gst_number: data.gst_number || '',
+      id_proof_url: data.id_proof_url || '',
+      id_proof_name: data.id_proof_url ? 'Existing proof on file' : '',
+    }));
+    this.idProofFileSize.set('');
+  }
+
+  private formatFileSize(size: number) {
+    if (!size) {
+      return '';
+    }
+
+    if (size < 1024 * 1024) {
+      return `${Math.max(1, Math.round(size / 1024))} KB`;
+    }
+
+    return `${(size / 1024 / 1024).toFixed(1)} MB`;
   }
 
   validateCustomer(updateErrors: boolean) {

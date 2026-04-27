@@ -390,6 +390,14 @@ export class AdminDashboard {
     return tagSeverityForStatus(status);
   }
 
+  showAvailabilityDate(vehicle: any) {
+    return ['booked', 'in_service', 'maintenance'].includes(String(vehicle?.vehicleStatus ?? '').toLowerCase());
+  }
+
+  availabilityDateLabel(vehicle: any) {
+    return vehicle?.nextAvailableDate ? 'Available from' : 'Date TBD';
+  }
+
   fillRateClass(value: number) {
     if (value > 80) {
       return 'fill-rate--high';

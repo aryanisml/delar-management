@@ -31,13 +31,13 @@ export class AdminAnalytics {
     const bookings = buildBookings(vehicles, bookingRows ?? []);
 
     const revenue = bookings
-      .filter((booking) => booking.status === 'Confirmed' || booking.status === 'Completed' || booking.status === 'InProgress')
+      .filter((booking) => booking.status === 'Approved' || booking.status === 'Completed' || booking.status === 'InProgress')
       .reduce((sum, booking) => sum + booking.cost, 0);
     const avgDuration =
       bookings.reduce((sum, booking) => sum + Math.max(1, Math.ceil((new Date(booking.endDate).getTime() - new Date(booking.startDate).getTime()) / 86400000)), 0) /
       Math.max(1, bookings.length);
     const totalStock = vehicles.reduce((sum, vehicle) => sum + Number(vehicle.stock ?? 0), 0);
-    const bookedUnits = bookings.filter((booking) => ['Confirmed', 'InProgress', 'Pending'].includes(booking.status)).length;
+    const bookedUnits = bookings.filter((booking) => ['Approved', 'InProgress', 'Pending'].includes(booking.status)).length;
     const utilisation = Math.round((bookedUnits / Math.max(1, totalStock)) * 100);
     const topVehicle = [...vehicles]
       .sort(
@@ -88,7 +88,7 @@ export class AdminAnalytics {
       ],
     });
 
-    const statuses = ['Pending', 'Confirmed', 'InProgress', 'Completed', 'Cancelled'];
+    const statuses = ['Pending', 'Approved', 'InProgress', 'Completed', 'Cancelled'];
     this.bookingsByStatusChart.set({
       labels: statuses,
       datasets: [
