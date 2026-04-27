@@ -52,7 +52,7 @@
                 }
 
                 @if (row.status === 'approved') {
-                  <button pButton type="button" icon="pi pi-check" text severity="secondary" disabled></button>
+                  <button pButton type="button" icon="pi pi-credit-card" text severity="success" (click)="openPayment(row)"></button>
                 }
               </div>
             </td>

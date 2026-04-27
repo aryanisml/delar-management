@@ -1,0 +1,254 @@
+.payment-page {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.payment-page--loading {
+  min-height: 50vh;
+  place-items: center;
+}
+
+.payment-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.38fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.payment-main,
+.payment-side {
+  display: grid;
+  gap: 1rem;
+}
+
+:host ::ng-deep .payment-card {
+  border-radius: 0.9rem;
+  box-shadow: var(--shadow-soft);
+}
+
+:host ::ng-deep .payment-card--snapshot {
+  border: 1px solid #cfe5ff;
+  background: linear-gradient(135deg, #f8fbff 0%, #eef6ff 100%);
+}
+
+.payment-eyebrow {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.snapshot-card__header,
+.section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.snapshot-card__title,
+.section-heading h3,
+.payment-action h3 {
+  margin: 0.35rem 0 0;
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.snapshot-card__title {
+  font-size: 1.7rem;
+}
+
+.section-heading h3 {
+  font-size: 1.2rem;
+}
+
+.snapshot-card__route {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 1rem;
+  align-items: center;
+  margin-top: 1.5rem;
+}
+
+.snapshot-stop {
+  display: grid;
+  gap: 0.3rem;
+  border-radius: 0.85rem;
+  background: rgba(255, 255, 255, 0.85);
+  padding: 1rem 1.1rem;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.snapshot-stop__label,
+.snapshot-card__meta span,
+.pricing-row span,
+.gateway-dialog__summary span {
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.snapshot-stop strong,
+.snapshot-card__meta strong,
+.pricing-row strong,
+.gateway-dialog__summary strong {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.snapshot-stop small {
+  color: #94a3b8;
+}
+
+.snapshot-card__arrow {
+  display: flex;
+  justify-content: center;
+}
+
+.snapshot-card__arrow span {
+  width: 4rem;
+  height: 2px;
+  background: linear-gradient(90deg, #00b69b 0%, #1a56db 100%);
+  position: relative;
+}
+
+.snapshot-card__arrow span::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  right: -2px;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-top: 2px solid #1a56db;
+  border-right: 2px solid #1a56db;
+  transform: rotate(45deg);
+}
+
+.snapshot-card__meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+  margin-top: 1.25rem;
+}
+
+.snapshot-card__meta div,
+.gateway-dialog__summary div {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.pricing-grid {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.pricing-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.amount-due {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 1.1rem;
+  border-radius: 1rem;
+  background: #0f172a;
+  padding: 1.15rem 1.2rem;
+}
+
+.amount-due span,
+.amount-due small {
+  color: rgba(255, 255, 255, 0.74);
+}
+
+.amount-due strong,
+.gateway-dialog__amount {
+  color: #ffffff;
+  font-size: 1.9rem;
+  font-weight: 800;
+}
+
+.payment-action {
+  display: grid;
+  justify-items: center;
+  gap: 1.2rem;
+  text-align: center;
+  padding: 0.5rem 0;
+}
+
+.payment-action p {
+  margin: 0;
+  color: #64748b;
+  line-height: 1.65;
+}
+
+.trust-list {
+  display: grid;
+  gap: 0.7rem;
+  width: 100%;
+}
+
+.trust-item {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  border-radius: 0.85rem;
+  background: #f8fafc;
+  padding: 0.85rem 1rem;
+  color: #334155;
+  font-size: 0.9rem;
+}
+
+.trust-item i {
+  color: #00b69b;
+}
+
+:host ::ng-deep .payment-action__cta.p-button {
+  width: 100%;
+  min-height: 3rem;
+  border-radius: 0.9rem;
+  font-weight: 700;
+}
+
+.gateway-dialog {
+  display: grid;
+  gap: 1rem;
+  text-align: center;
+}
+
+.gateway-dialog__amount {
+  margin: 0;
+  color: #0f172a;
+}
+
+.gateway-dialog__copy {
+  margin: 0;
+  color: #64748b;
+  line-height: 1.65;
+}
+
+.gateway-dialog__summary {
+  display: grid;
+  gap: 0.8rem;
+  border-radius: 1rem;
+  background: #f8fafc;
+  padding: 1rem;
+  text-align: left;
+}
+
+@media (max-width: 960px) {
+  .payment-layout,
+  .snapshot-card__route,
+  .snapshot-card__meta {
+    grid-template-columns: 1fr;
+  }
+
+  .snapshot-card__arrow {
+    display: none;
+  }
+}

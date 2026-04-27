@@ -241,7 +241,7 @@ export class Layout {
     };
 
     const currentPath = this.router.url.split('?')[0];
-    this.pageTitle.set(titleMap[currentPath] || (currentPath.includes('/quotation') ? 'Quotation' : 'Dashboard'));
+    this.pageTitle.set(titleMap[currentPath] || (currentPath.includes('/quotation') ? 'Quotation' : currentPath.includes('/payments') ? 'Payments' : 'Dashboard'));
 
     const pathParts = currentPath.split('/').filter(Boolean);
     const breadcrumbs = pathParts.slice(1).map((part, index) => ({

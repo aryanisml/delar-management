@@ -1,0 +1,168 @@
+<p-toast></p-toast>
+
+@if (loading()) {
+  <section class="payment-page payment-page--loading">
+    <p-progressSpinner ariaLabel="Loading payment details"></p-progressSpinner>
+  </section>
+} @else {
+  <div class="payment-page">
+    <p-card styleClass="payment-card payment-card--snapshot">
+      <div class="snapshot-card__header">
+        <div>
+          <p class="payment-eyebrow">Trip Snapshot</p>
+          <h2 class="snapshot-card__title">{{ vehicleName() }}</h2>
+        </div>
+        <p-tag [value]="(booking()?.status || 'approved') | uppercase" severity="success"></p-tag>
+      </div>
+
+      <div class="snapshot-card__route">
+        <div class="snapshot-stop">
+          <span class="snapshot-stop__label">Pickup</span>
+          <strong>{{ booking()?.pickup_location || '-' }}</strong>
+          <small>{{ booking()?.start_date | date:'d MMM y' }}{{ booking()?.pickup_time ? ' · ' + booking()?.pickup_time : '' }}</small>
+        </div>
+        <div class="snapshot-card__arrow">
+          <span></span>
+        </div>
+        <div class="snapshot-stop">
+          <span class="snapshot-stop__label">Drop</span>
+          <strong>{{ booking()?.drop_location || '-' }}</strong>
+          <small>{{ booking()?.end_date | date:'d MMM y' }}{{ booking()?.dropoff_time ? ' · ' + booking()?.dropoff_time : '' }}</small>
+        </div>
+      </div>
+
+      <div class="snapshot-card__meta">
+        <div>
+          <span>Total Days</span>
+          <strong>{{ resolvedPricing().days }}</strong>
+        </div>
+        <div>
+          <span>Booking Reference</span>
+          <strong>{{ booking()?.id }}</strong>
+        </div>
+        <div>
+          <span>Quotation</span>
+          <strong>{{ quoteReference() }}</strong>
+        </div>
+      </div>
+    </p-card>
+
+    <section class="payment-layout">
+      <div class="payment-main">
+        @if (pricingSource() === 'local') {
+          <p-message
+            severity="warn"
+            text="Pricing is temporarily calculated locally. Contact administrator if issue persists."></p-message>
+        }
+
+        <p-card styleClass="payment-card">
+          <div class="section-heading">
+            <div>
+              <p class="payment-eyebrow">Quotation</p>
+              <h3>Pricing Breakdown</h3>
+            </div>
+            <button pButton type="button" label="Download Quotation PDF" icon="pi pi-download" outlined (click)="downloadQuotationPdf()"></button>
+          </div>
+
+          <div class="pricing-grid">
+            <div class="pricing-row">
+              <span>Daily Rate</span>
+              <strong>{{ resolvedPricing().rate | currency:'INR':'symbol':'1.0-0' }}</strong>
+            </div>
+            <div class="pricing-row">
+              <span>Days</span>
+              <strong>{{ resolvedPricing().days }}</strong>
+            </div>
+            <div class="pricing-row">
+              <span>Base Cost</span>
+              <strong>{{ resolvedPricing().base_cost | currency:'INR':'symbol':'1.0-0' }}</strong>
+            </div>
+            <div class="pricing-row">
+              <span>GST</span>
+              <strong>{{ resolvedPricing().gst | currency:'INR':'symbol':'1.0-0' }}</strong>
+            </div>
+            <div class="pricing-row">
+              <span>Final Amount</span>
+              <strong>{{ resolvedPricing().final_amount | currency:'INR':'symbol':'1.0-0' }}</strong>
+            </div>
+            <div class="pricing-row">
+              <span>Security Deposit</span>
+              <strong>{{ resolvedPricing().security_deposit | currency:'INR':'symbol':'1.0-0' }}</strong>
+            </div>
+            <div class="pricing-row">
+              <span>Advance Paid</span>
+              <strong>{{ resolvedPricing().advance | currency:'INR':'symbol':'1.0-0' }}</strong>
+            </div>
+          </div>
+
+          <div class="amount-due">
+            <span>Amount Due Now</span>
+            <strong>{{ amountDueNow() | currency:'INR':'symbol':'1.0-0' }}</strong>
+            <small>Advance collection is separated from the refundable security deposit.</small>
+          </div>
+        </p-card>
+      </div>
+
+      <aside class="payment-side">
+        <p-card styleClass="payment-card payment-card--action">
+          <div class="payment-action">
+            <p class="payment-eyebrow">Payment Action</p>
+            <h3>{{ amountDueNow() | currency:'INR':'symbol':'1.0-0' }}</h3>
+            <p>Collect the advance securely, then continue through the dedicated payment step.</p>
+
+            <div class="trust-list">
+              <div class="trust-item">
+                <i class="pi pi-shield"></i>
+                <span>Booking-linked payment summary</span>
+              </div>
+              <div class="trust-item">
+                <i class="pi pi-lock"></i>
+                <span>Quotation values locked to this trip</span>
+              </div>
+              <div class="trust-item">
+                <i class="pi pi-check-circle"></i>
+                <span>Clean handoff to payment workflow</span>
+              </div>
+            </div>
+
+            <button pButton type="button" label="Complete Payment" icon="pi pi-credit-card" class="payment-action__cta" (click)="openPaymentDialog()"></button>
+            <button pButton type="button" label="Back to My Bookings" text (click)="backToBookings()"></button>
+          </div>
+        </p-card>
+      </aside>
+    </section>
+  </div>
+}
+
+<p-dialog
+  header="Complete Payment"
+  [visible]="paymentDialogVisible()"
+  (visibleChange)="paymentDialogVisible.set($event)"
+  [modal]="true"
+  [draggable]="false"
+  [style]="{ width: '440px' }">
+  <div class="gateway-dialog">
+    <p class="gateway-dialog__amount">{{ amountDueNow() | currency:'INR':'symbol':'1.0-0' }}</p>
+    <p class="gateway-dialog__copy">Move into your payment gateway or dedicated payment step from here. Keep the collection flow isolated from quotation review.</p>
+
+    <div class="gateway-dialog__summary">
+      <div>
+        <span>Booking</span>
+        <strong>{{ booking()?.id }}</strong>
+      </div>
+      <div>
+        <span>Vehicle</span>
+        <strong>{{ vehicleName() }}</strong>
+      </div>
+      <div>
+        <span>Quotation</span>
+        <strong>{{ quoteReference() }}</strong>
+      </div>
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <button pButton type="button" label="Close" text (click)="paymentDialogVisible.set(false)"></button>
+    <button pButton type="button" label="Proceed to Gateway" icon="pi pi-arrow-right" iconPos="right" (click)="proceedToGateway()"></button>
+  </ng-template>
+</p-dialog>

@@ -15,6 +15,7 @@ import { DealerAnalytics } from './pages/dealer-analytics/dealer-analytics';
 import { DealerBookings } from './pages/dealer-bookings/dealer-bookings';
 import { DealerDashboard } from './pages/dealer-dashboard/dealer-dashboard';
 import { DealerInventory } from './pages/dealer-inventory/dealer-inventory';
+import { PaymentComponent } from './pages/dealer-payment/payment.component';
 import { Login } from './pages/login/login';
 import { ProfileComponent } from './pages/profile/profile';
 import { QuotationComponent } from './pages/dealer-quotation/quotation.component';
@@ -48,12 +49,13 @@ export const routes: Routes = [
     { path: 'my-bookings', component: MyBookingsComponent },
     { path: 'inventory', component: DealerInventory },
     { path: 'analytics', component: DealerAnalytics },
-    { path: 'bookings', component: DealerBookings },
-    { path: 'booking/:bookingId/customer-details', component: CustomerDetailsComponent },
-    { path: 'booking/:bookingId/quotation', component: QuotationComponent },
-    { path: 'quotation/:bookingId', component: QuotationComponent },
-  ],
-},
+	    { path: 'bookings', component: DealerBookings },
+	    { path: 'booking/:bookingId/customer-details', component: CustomerDetailsComponent },
+	    { path: 'booking/:bookingId/quotation', component: QuotationComponent },
+	    { path: 'booking/:bookingId/payments', component: PaymentComponent },
+	    { path: 'quotation/:bookingId', component: QuotationComponent },
+	  ],
+	},
       { path: 'profile', component: ProfileComponent, data: { title: 'Profile' } },
       { path: '', redirectTo: 'admin/dashboard', pathMatch: 'full' },
     ],

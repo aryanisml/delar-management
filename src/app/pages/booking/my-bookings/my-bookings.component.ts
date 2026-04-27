@@ -1,5 +1,6 @@
 import { CommonModule, DatePipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
+import { Router } from '@angular/router';
 import { ConfirmationService, MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
@@ -23,6 +24,7 @@ export class MyBookingsComponent {
   private supabase = inject(SupabaseService);
   private confirmationService = inject(ConfirmationService);
   private messageService = inject(MessageService);
+  private router = inject(Router);
 
   readonly bookings = signal<any[]>([]);
   readonly bulkBookings = signal<any[]>([]);
@@ -85,6 +87,10 @@ export class MyBookingsComponent {
   openDetail(row: any) {
     this.selectedBooking.set(row);
     this.detailVisible.set(true);
+  }
+
+  async openPayment(row: any) {
+    await this.router.navigate(['/dealer/booking', row.id, 'payments']);
   }
 
   cancelBooking(row: any) {
