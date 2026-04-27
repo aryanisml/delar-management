@@ -56,18 +56,25 @@ export class QuotationComponent {
     return `QT-${String(id).replace(/-/g, '').slice(0, 8).toUpperCase()}`;
   });
 
-  readonly rate = computed(() => Number(this.vehicle()?.daily_rate ?? this.vehicle()?.dailyRate ?? 0));
-  readonly billableDays = computed(() => this.duration().totalDays);
-  readonly baseCost = computed(() => this.rate() * this.billableDays());
-  readonly securityDeposit = computed(() =>
-    Number(this.vehicle()?.security_deposit ?? this.vehicle()?.securityDeposit ?? this.baseCost())
-  );
-  readonly advance = computed(() => this.baseCost() * 0.5);
-  readonly gst = computed(() => Math.max(0, this.baseCost() - this.discount()) * 0.18);
-  readonly extraMileageRate = computed(() => Number(this.vehicle()?.extra_mileage_rate ?? this.vehicle()?.extraMileageRate ?? 18));
-  readonly fuelPolicy = computed(() => this.vehicle()?.fuel_policy ?? this.vehicle()?.fuelPolicy ?? 'Full-to-Full');
+  readonly pricing = computed(() => this.supabase.buildQuotationPricingPreview(
+    this.vehicle(),
+    this.booking()?.start_date || '',
+    this.booking()?.end_date || '',
+    {
+      discountAmount: this.discount(),
+      fuelPolicy: this.vehicle()?.fuel_policy ?? this.vehicle()?.fuelPolicy ?? 'Full-to-Full',
+    }
+  ));
+  readonly rate = computed(() => this.pricing().rate);
+  readonly billableDays = computed(() => this.pricing().days);
+  readonly baseCost = computed(() => this.pricing().base_cost);
+  readonly securityDeposit = computed(() => this.pricing().security_deposit);
+  readonly advance = computed(() => this.pricing().advance);
+  readonly gst = computed(() => this.pricing().gst);
+  readonly extraMileageRate = computed(() => this.pricing().extra_mileage_rate);
+  readonly fuelPolicy = computed(() => this.pricing().fuel_policy);
   readonly isOutstation = computed(() => String(this.booking()?.purpose ?? '').toLowerCase().includes('outstation'));
-  readonly grandTotal = computed(() => Math.max(0, this.baseCost() - this.discount()) + this.gst());
+  readonly grandTotal = computed(() => this.pricing().final_amount);
 
   async ngOnInit() {
     const id = this.route.snapshot.paramMap.get('bookingId');

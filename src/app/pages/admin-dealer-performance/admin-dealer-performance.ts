@@ -108,7 +108,7 @@ export class AdminDealerPerformance {
   async viewDetails(row: any) {
     const { data, error } = await this.supabase.getAdminBookingDetails(row.id);
     if (error || !data) {
-      this.messageService.add({ severity: 'error', summary: 'Details unavailable', detail: error?.message || 'Could not load booking details.' });
+      this.messageService.add({ severity: 'error', summary: 'Details unavailable', detail: (error as any)?.message || 'Could not load booking details.' });
       return;
     }
 
@@ -155,7 +155,7 @@ export class AdminDealerPerformance {
           return;
         }
 
-        this.messageService.add({ severity: 'success', summary: 'Booking approved', detail: `Booking ${row.id} is now confirmed.` });
+        this.messageService.add({ severity: 'success', summary: 'Booking approved', detail: `Booking ${row.id} is now approved.` });
         this.detailVisible.set(false);
         await this.loadRequests();
       },

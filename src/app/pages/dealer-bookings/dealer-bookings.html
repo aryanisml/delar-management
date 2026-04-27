@@ -3,60 +3,146 @@
 <div class="wizard-page">
   <section class="wizard-header">
     <div>
-      <p class="admin-section-label mb-2">Rental Advisor Flow</p>
       <h2 class="admin-page-title m-0">Walk-in Booking Wizard</h2>
       <p class="admin-page-subtitle mt-1 mb-0">Select a vehicle, capture trip and customer details, generate the quotation, then confirm for admin approval.</p>
     </div>
-    <div class="wizard-status">
-      <span>Current Step</span>
-      <strong>Step {{ step() }} of 5</strong>
-    </div>
   </section>
 
-  <div class="wizard-steps">
+  <div class="wizard-stepper-card">
     @for (item of ['Vehicle', 'Trip', 'Customer', 'Quotation', 'Confirm']; track item; let index = $index) {
-      <button type="button" class="wizard-step" [class.is-active]="step() === index + 1" [class.is-done]="stepDone(index + 1)" (click)="goToStep(index + 1)">
-        <span>{{ index + 1 }}</span>
-        <p>{{ item }}</p>
+      <button
+        type="button"
+        class="wizard-step"
+        [class.is-active]="step() === index + 1"
+        [class.is-done]="stepDone(index + 1)"
+        [attr.aria-current]="step() === index + 1 ? 'step' : null"
+        (click)="goToStep(index + 1)">
+        <span class="wizard-step__circle">
+          @if (stepDone(index + 1)) {
+            <i class="pi pi-check"></i>
+          } @else {
+            {{ index + 1 }}
+          }
+        </span>
+        <p class="wizard-step__label">{{ item }}</p>
+        @if (index < 4) {
+          <span class="wizard-step__connector" aria-hidden="true">
+            <span class="wizard-step__connector-fill"></span>
+          </span>
+        }
       </button>
     }
+  </div>
+  <div class="wizard-progress" aria-hidden="true">
+    <div class="wizard-progress__fill" [style.width.%]="step() * 20"></div>
   </div>
 
   @if (step() === 1) {
     <section class="wizard-grid">
-      <p-card styleClass="wizard-card">
+      <p-card styleClass="wizard-card wizard-card--filters">
         <div class="card-heading">
           <div>
             <h3>Availability Filters</h3>
             <p>Availability is checked against overlapping `bookings` records with active statuses.</p>
           </div>
-          <button pButton type="button" label="Refresh" outlined icon="pi pi-refresh" (click)="applyAvailabilityFilters()"></button>
         </div>
 
-        <div class="filter-grid">
-          <div class="field">
+        <div class="filter-bar">
+          <div class="filter-segment">
             <label>Pickup Date</label>
-            <p-datepicker [ngModel]="filters().pickup_date" (ngModelChange)="updateFilters({ pickup_date: $event }); updateTrip('pickup_date', $event)" appendTo="body"></p-datepicker>
+            <p-datepicker
+              [ngModel]="filters().pickup_date"
+              (ngModelChange)="updateFilters({ pickup_date: $event }); updateTrip('pickup_date', $event)"
+              appendTo="body"
+              [showIcon]="true"
+              dateFormat="dd M yy"
+              placeholder="Select"></p-datepicker>
           </div>
-          <div class="field">
+          <div class="filter-segment">
             <label>End Date</label>
-            <p-datepicker [ngModel]="filters().end_date" (ngModelChange)="updateFilters({ end_date: $event }); updateTrip('end_date', $event)" appendTo="body"></p-datepicker>
+            <p-datepicker
+              [ngModel]="filters().end_date"
+              (ngModelChange)="updateFilters({ end_date: $event }); updateTrip('end_date', $event)"
+              appendTo="body"
+              [showIcon]="true"
+              dateFormat="dd M yy"
+              placeholder="Select"></p-datepicker>
           </div>
-          <div class="field">
+          <div class="filter-segment">
             <label>Type</label>
-            <input pInputText [ngModel]="filters().type" (ngModelChange)="updateFilters({ type: $event || null })" placeholder="SUV, Sedan..." />
+            <p-select
+              [options]="[
+                { label: 'Any', value: null },
+                { label: 'SUV', value: 'SUV' },
+                { label: 'Sedan', value: 'Sedan' },
+                { label: 'Hatchback', value: 'Hatchback' },
+                { label: 'MUV', value: 'MUV' },
+                { label: 'Luxury', value: 'Luxury' }
+              ]"
+              [ngModel]="filters().type"
+              (ngModelChange)="updateFilters({ type: $event || null })"
+              optionLabel="label"
+              optionValue="value"
+              placeholder="Any type"
+              appendTo="body"></p-select>
           </div>
-          <div class="field">
+          <div class="filter-segment">
             <label>Capacity</label>
-            <p-inputNumber [ngModel]="filters().capacity" (ngModelChange)="updateFilters({ capacity: $event })" [min]="1"></p-inputNumber>
+            <input
+              pInputText
+              type="number"
+              inputmode="numeric"
+              min="1"
+              placeholder="Any"
+              [ngModel]="filters().capacity"
+              (ngModelChange)="updateFilters({ capacity: $event ? +$event : null })" />
           </div>
-          <div class="field">
+          <div class="filter-segment">
             <label>Transmission</label>
-            <input pInputText [ngModel]="filters().transmission" (ngModelChange)="updateFilters({ transmission: $event || null })" placeholder="Automatic or Manual" />
+            <p-select
+              [options]="[
+                { label: 'Any', value: null },
+                { label: 'Automatic', value: 'Automatic' },
+                { label: 'Manual', value: 'Manual' }
+              ]"
+              [ngModel]="filters().transmission"
+              (ngModelChange)="updateFilters({ transmission: $event || null })"
+              optionLabel="label"
+              optionValue="value"
+              placeholder="Any"
+              appendTo="body"></p-select>
           </div>
-          <div class="field">
+          <div class="filter-segment">
             <label>Fuel</label>
-            <input pInputText [ngModel]="filters().fuel" (ngModelChange)="updateFilters({ fuel: $event || null })" placeholder="Petrol, Diesel..." />
+            <p-select
+              [options]="[
+                { label: 'Any', value: null },
+                { label: 'Petrol', value: 'Petrol' },
+                { label: 'Diesel', value: 'Diesel' },
+                { label: 'Electric', value: 'Electric' },
+                { label: 'Hybrid', value: 'Hybrid' },
+                { label: 'CNG', value: 'CNG' }
+              ]"
+              [ngModel]="filters().fuel"
+              (ngModelChange)="updateFilters({ fuel: $event || null })"
+              optionLabel="label"
+              optionValue="value"
+              placeholder="Any"
+              appendTo="body"></p-select>
+          </div>
+          <div class="filter-segment filter-segment--action">
+            <button pButton type="button" label="Search" class="filter-search-button" (click)="applyAvailabilityFilters()"></button>
+          </div>
+          <div class="filter-refresh-wrap">
+            <button
+              pButton
+              type="button"
+              text
+              rounded
+              icon="pi pi-refresh"
+              class="filter-refresh-button"
+              aria-label="Refresh vehicle availability"
+              (click)="applyAvailabilityFilters()"></button>
           </div>
         </div>
       </p-card>
@@ -65,43 +151,78 @@
         @for (vehicle of vehicles(); track vehicle.id; let index = $index) {
           @let displayVehicle = adminVehicleCard(vehicle, index);
 
-          <button type="button" class="vehicle-card vehicle-grid-card" [class.is-selected]="selectedVehicle()?.id === vehicle.id" (click)="selectVehicle(vehicle)">
+          <article
+            class="vehicle-card vehicle-grid-card"
+            [class.is-selected]="selectedVehicle()?.id === vehicle.id"
+            [style.animationDelay.ms]="index * 60"
+            role="button"
+            tabindex="0"
+            (click)="selectVehicle(vehicle)"
+            (keyup.enter)="selectVehicle(vehicle)">
             <div class="vehicle-grid-card__media">
               <img [src]="displayVehicle.imageUrl" [alt]="displayVehicle.make" class="vehicle-grid-card__image" />
-              <div class="vehicle-grid-card__badge">
-                <p-tag [value]="displayVehicle.status" [severity]="statusSeverity(displayVehicle.status)"></p-tag>
-                @if (displayVehicle.status === 'Booked' && displayVehicle.nextAvailableDate) {
-                  <p class="m-0 mt-1 text-xs text-amber-700">Available from {{ displayVehicle.nextAvailableDate | date:'mediumDate' }}</p>
-                }
+              <div
+                class="vehicle-grid-card__status-badge"
+                [class.status-badge--available]="vehicleStatusTone(vehicle) === 'available'"
+                [class.status-badge--booked]="vehicleStatusTone(vehicle) === 'booked'"
+                [class.status-badge--in-service]="vehicleStatusTone(vehicle) === 'in-service'"
+                [class.status-badge--maintenance]="vehicleStatusTone(vehicle) === 'maintenance'">
+                {{ vehicleStatusLabel(vehicle, displayVehicle.status) }}
+              </div>
+              @if (isVehicleUnavailable(vehicle)) {
+                <div class="vehicle-grid-card__date-chip">
+                  {{ vehicleAvailabilityCaption(vehicle) }}
+                </div>
+              }
+              <div class="vehicle-grid-card__rate-pill">
+                {{ displayVehicle.dailyRate | currency:'INR':'symbol':'1.0-0' }}/day
               </div>
             </div>
 
             <div class="vehicle-grid-card__body">
-              <div class="flex items-start justify-between gap-3">
-                <div>
-                  <p class="m-0 text-lg font-semibold text-gray-900">{{ displayVehicle.make }} {{ displayVehicle.model }}</p>
-                  <p class="m-0 text-sm text-gray-400">{{ displayVehicle.year }} - {{ displayVehicle.location }}</p>
-                </div>
-                <span class="vehicle-grid-card__rate">{{ displayVehicle.dailyRate | currency:'INR':'symbol':'1.0-0' }}</span>
+              <div class="vehicle-grid-card__heading">
+                <p class="vehicle-grid-card__title">{{ displayVehicle.make }} {{ displayVehicle.model }}</p>
+                <p class="vehicle-grid-card__meta">{{ displayVehicle.year }} &middot; {{ displayVehicle.location }}</p>
               </div>
 
-              <div class="vehicle-grid-card__metrics">
-                <span>{{ displayVehicle.type }}</span>
-                <span>{{ displayVehicle.capacity }} seats</span>
-                <span>{{ displayVehicle.fuel }}</span>
+              <div class="vehicle-grid-card__specs">
+                <span class="vehicle-grid-card__spec-pill">{{ displayVehicle.type }}</span>
+                <span class="vehicle-grid-card__spec-pill">{{ displayVehicle.fuel }}</span>
+                <span class="vehicle-grid-card__spec-pill">{{ vehicle.transmission || 'Automatic' }}</span>
+                <span class="vehicle-grid-card__spec-pill">{{ displayVehicle.capacity }} Seats</span>
+              </div>
+
+              <div class="vehicle-grid-card__mileage">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M5.6 14.3a6.4 6.4 0 1 1 12.8 0" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.8"/>
+                  <path d="M12 14l3.8-3.8" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.8"/>
+                  <circle cx="12" cy="14" r="1.2" fill="currentColor"/>
+                </svg>
                 <span>{{ displayVehicle.mileage | number }} km</span>
               </div>
 
-              <div [ngClass]="fillRateClass(displayVehicle.fillRate)">
+              <div class="vehicle-grid-card__utilization" [ngClass]="fillRateClass(displayVehicle.fillRate)">
                 <p-progressBar [value]="displayVehicle.fillRate" [showValue]="false"></p-progressBar>
-                <p class="mt-2 mb-0 text-xs font-medium text-gray-500">{{ displayVehicle.fillRate }}% fill rate</p>
+                <p class="vehicle-grid-card__utilization-copy">{{ displayVehicle.fillRate }}% fill rate</p>
               </div>
 
               @if (selectedVehicle()?.id === vehicle.id && insuranceStatus()) {
                 <p-message severity="error" text="Insurance expires within 30 days."></p-message>
               }
+
+              @if (isVehicleUnavailable(vehicle)) {
+                <p class="vehicle-grid-card__availability-note">{{ vehicleAvailabilityCaption(vehicle) }}</p>
+              }
+
+              <button
+                pButton
+                type="button"
+                [label]="canBookVehicle(vehicle) ? 'Book Now' : 'Unavailable'"
+                class="vehicle-grid-card__action"
+                [disabled]="!canBookVehicle(vehicle)"
+                (click)="$event.stopPropagation(); selectVehicle(vehicle)"></button>
             </div>
-          </button>
+          </article>
         }
 
         @if (!vehicles().length && !loadingVehicles()) {
@@ -135,11 +256,11 @@
           </div>
           <div class="field">
             <label>Pickup Date</label>
-            <p-datepicker [ngModel]="trip().pickup_date" (ngModelChange)="updateTrip('pickup_date', $event); recalculatePricing()" appendTo="body"></p-datepicker>
+            <p-datepicker [ngModel]="trip().pickup_date" (ngModelChange)="updateTrip('pickup_date', $event)" appendTo="body"></p-datepicker>
           </div>
           <div class="field">
             <label>End Date</label>
-            <p-datepicker [ngModel]="trip().end_date" (ngModelChange)="updateTrip('end_date', $event); recalculatePricing()" appendTo="body"></p-datepicker>
+            <p-datepicker [ngModel]="trip().end_date" (ngModelChange)="updateTrip('end_date', $event)" appendTo="body"></p-datepicker>
           </div>
           <div class="field">
             <label>Pickup Time</label>
@@ -164,7 +285,7 @@
         </div>
       </p-card>
 
-      <p-card styleClass="wizard-card summary-card">
+      <p-card styleClass="wizard-card summary-card summary-card--snapshot">
         <h3>Trip Snapshot</h3>
         <div class="summary-list">
           <div><span>Vehicle</span><strong>{{ selectedVehicle()?.brand }} {{ selectedVehicle()?.model }}</strong></div>
@@ -178,134 +299,159 @@
   }
 
   @if (step() === 3) {
-    <section class="wizard-grid wizard-grid--two">
-      <p-card styleClass="wizard-card">
-        <div class="card-heading">
-          <div>
-            <h3>Customer Details</h3>
-            <p>Mobile lookup runs against the `customers` table before creating a new record.</p>
-          </div>
-          @if (licenseStatus(); as status) {
-            <p-tag [value]="status.label" [severity]="status.severity"></p-tag>
-          }
-        </div>
-
-        <div class="filter-grid">
-          <div class="field">
-            <label>Full Name</label>
-            <input pInputText [ngModel]="customer().full_name" (ngModelChange)="updateCustomer('full_name', $event)" />
-            @if (customerErrors().full_name) {
-              <small class="field-error">{{ customerErrors().full_name }}</small>
-            }
-          </div>
-          <div class="field">
-            <label>Mobile Number</label>
-            <div class="inline-field">
-              <input pInputText [ngModel]="customer().mobile" (ngModelChange)="updateCustomer('mobile', $event)" />
-              <button pButton type="button" label="Lookup" outlined (click)="lookupCustomer()"></button>
+    <section class="customer-step">
+      <p-card styleClass="wizard-card customer-card">
+        <div class="customer-form-shell">
+          <div class="customer-section customer-section--identity">
+            <div class="customer-section__header">
+              <h3>Customer Identity</h3>
             </div>
-            @if (customerErrors().mobile) {
-              <small class="field-error">{{ customerErrors().mobile }}</small>
-            }
-          </div>
-          <div class="field">
-            <label>Email</label>
-            <input pInputText [ngModel]="customer().email" (ngModelChange)="updateCustomer('email', $event)" />
-          </div>
-          <div class="field">
-            <label>Licence Number</label>
-            <input pInputText [ngModel]="customer().license_no" (ngModelChange)="updateCustomer('license_no', $event?.toUpperCase())" />
-            @if (customerErrors().license_no) {
-              <small class="field-error">{{ customerErrors().license_no }}</small>
-            }
-          </div>
-          <div class="field">
-            <label>Licence Expiry</label>
-            <p-datepicker [ngModel]="customer().license_expiry" (ngModelChange)="updateCustomer('license_expiry', $event)" appendTo="body"></p-datepicker>
-            @if (customerErrors().license_expiry) {
-              <small class="field-error">{{ customerErrors().license_expiry }}</small>
-            }
-          </div>
-          <div class="field">
-            <label>Customer Type</label>
-            <p-select [options]="customerTypeOptions" [ngModel]="customer().customer_type" (ngModelChange)="updateCustomer('customer_type', $event)" optionLabel="label" optionValue="value"></p-select>
-            @if (customerErrors().customer_type) {
-              <small class="field-error">{{ customerErrors().customer_type }}</small>
-            }
-          </div>
 
-          @if (customer().customer_type === 'business') {
-            <div class="field">
-              <label>Business Name</label>
-              <input pInputText [ngModel]="customer().business_name" (ngModelChange)="updateCustomer('business_name', $event)" />
-              @if (customerErrors().business_name) {
-                <small class="field-error">{{ customerErrors().business_name }}</small>
-              }
-            </div>
-            <div class="field">
-              <label>GST Number</label>
-              <input pInputText [ngModel]="customer().gst_number" (ngModelChange)="updateCustomer('gst_number', $event?.toUpperCase())" />
-            </div>
-          }
-
-          <div class="field field--full">
-            <label>ID Proof Upload</label>
-            <label class="upload-field">
-              <input type="file" accept="image/*,.pdf" (change)="onIdProofSelected($event)" />
-              <span>{{ customer().id_proof_name || 'Choose ID proof file' }}</span>
-            </label>
-            @if (uploadedIdFallback()) {
-              <p-message severity="warn" text="No storage bucket was available, so the proof is currently kept as inline data in the record."></p-message>
-            }
-            @if (customerErrors().id_proof_url) {
-              <small class="field-error">{{ customerErrors().id_proof_url }}</small>
-            }
-          </div>
-        </div>
-      </p-card>
-
-      <div class="stack">
-        @if (existingCustomer()) {
-          <p-card styleClass="wizard-card">
-            <div class="card-heading">
-              <div>
-                <h3>Returning Customer Match</h3>
-                <p>Confirm whether to use the stored record or overwrite it with the edited values.</p>
+            @if (existingCustomer()) {
+              <div class="returning-banner">
+                <span>✓</span>
+                <strong>Returning customer found — details pre-filled</strong>
               </div>
-              <p-tag value="Existing customer" severity="success"></p-tag>
-            </div>
+            }
 
-            <div class="choice-row">
-              <button pButton type="button" label="Use Existing" [outlined]="customerChoice() !== 'existing'" (click)="customerChoice.set('existing')"></button>
-              <button pButton type="button" label="Overwrite Existing" [outlined]="customerChoice() !== 'update'" (click)="customerChoice.set('update')"></button>
-              <button pButton type="button" label="Create New" [outlined]="customerChoice() !== 'new'" (click)="customerChoice.set('new')"></button>
-            </div>
-
-            @if (customerDiffs().length) {
-              <div class="diff-list">
-                @for (diff of customerDiffs(); track diff.label) {
-                  <div>
-                    <span>{{ diff.label }}</span>
-                    <strong>{{ diff.existing || '-' }} -> {{ diff.current || '-' }}</strong>
-                  </div>
+            <div class="customer-grid">
+              <div class="field field--full">
+                <label>Full Name</label>
+                <input pInputText [ngModel]="customer().full_name" (ngModelChange)="updateCustomer('full_name', $event)" />
+                @if (customerErrors().full_name) {
+                  <small class="field-error">{{ customerErrors().full_name }}</small>
                 }
               </div>
-            }
-          </p-card>
-        }
 
-        <p-card styleClass="wizard-card summary-card">
-          <h3>Trip Snapshot</h3>
-          <div class="summary-list">
-            <div><span>Pickup</span><strong>{{ trip().pickup_location || '-' }}</strong></div>
-            <div><span>Drop</span><strong>{{ trip().drop_location || '-' }}</strong></div>
-            <div><span>Dates</span><strong>{{ trip().pickup_date | date:'mediumDate' }} - {{ trip().end_date | date:'mediumDate' }}</strong></div>
+              <div class="field field--full">
+                <label>Mobile Number</label>
+                <div class="mobile-lookup-row">
+                  <input pInputText [ngModel]="customer().mobile" (ngModelChange)="updateCustomer('mobile', $event)" (blur)="lookupCustomerOnBlur()" />
+                  <button pButton type="button" label="Lookup" outlined (click)="lookupCustomer()"></button>
+                </div>
+                @if (customerErrors().mobile) {
+                  <small class="field-error">{{ customerErrors().mobile }}</small>
+                }
+                @if (duplicateMobileMessage()) {
+                  <small class="field-error">{{ duplicateMobileMessage() }}</small>
+                }
+              </div>
+
+              <div class="field field--full">
+                <label>Email</label>
+                <input pInputText [ngModel]="customer().email" (ngModelChange)="updateCustomer('email', $event)" />
+              </div>
+
+              <div class="field field--full">
+                <label>Customer Type</label>
+                <div class="customer-type-toggle">
+                  <button type="button" [class.is-selected]="customer().customer_type === 'individual'" (click)="updateCustomer('customer_type', 'individual')">Individual</button>
+                  <button type="button" [class.is-selected]="customer().customer_type === 'business'" (click)="updateCustomer('customer_type', 'business')">Business</button>
+                </div>
+                @if (customerErrors().customer_type) {
+                  <small class="field-error">{{ customerErrors().customer_type }}</small>
+                }
+              </div>
+
+              @if (customer().customer_type === 'business') {
+                <div class="field">
+                  <label>Business Name</label>
+                  <input pInputText [ngModel]="customer().business_name" (ngModelChange)="updateCustomer('business_name', $event)" />
+                  @if (customerErrors().business_name) {
+                    <small class="field-error">{{ customerErrors().business_name }}</small>
+                  }
+                </div>
+                <div class="field">
+                  <label>GST Number</label>
+                  <input pInputText [ngModel]="customer().gst_number" (ngModelChange)="updateCustomer('gst_number', $event?.toUpperCase())" />
+                </div>
+              }
+
+              <div class="field field--full">
+                <label>Licence Number</label>
+                <input pInputText [ngModel]="customer().license_no" (ngModelChange)="updateCustomer('license_no', $event?.toUpperCase())" />
+                @if (customerErrors().license_no) {
+                  <small class="field-error">{{ customerErrors().license_no }}</small>
+                }
+              </div>
+
+              <div class="field field--full">
+                <label>Licence Expiry Date</label>
+                <p-datepicker [ngModel]="customer().license_expiry" (ngModelChange)="updateCustomer('license_expiry', $event)" appendTo="body"></p-datepicker>
+                @if (licenseStatus(); as status) {
+                  <span class="licence-chip" [class.is-expired]="status.severity === 'danger'" [class.is-warning]="status.severity === 'warn'">
+                    {{ status.severity === 'danger' ? '✕ Licence expired' : status.severity === 'warn' ? '⚠ ' + status.label : status.label }}
+                  </span>
+                }
+                @if (customerErrors().license_expiry) {
+                  <small class="field-error">{{ customerErrors().license_expiry }}</small>
+                }
+              </div>
+
+              <div class="field field--full">
+                <label>ID Proof Upload</label>
+                <label class="upload-field">
+                  <input type="file" accept="image/*,.pdf" (change)="onIdProofSelected($event)" />
+                  @if (customer().id_proof_name) {
+                    <span class="upload-field__file">
+                      <strong>{{ customer().id_proof_name }}</strong>
+                      @if (idProofFileSize()) {
+                        <small>{{ idProofFileSize() }}</small>
+                      }
+                      <button type="button" aria-label="Remove ID proof" (click)="$event.preventDefault(); removeIdProof()">×</button>
+                    </span>
+                  } @else {
+                    <span class="upload-field__placeholder">
+                      <i class="pi pi-upload"></i>
+                      Upload Aadhaar / Passport / PAN
+                    </span>
+                  }
+                </label>
+                @if (uploadedIdFallback()) {
+                  <p-message severity="warn" text="No storage bucket was available, so the proof is currently kept as inline data in the record."></p-message>
+                }
+                @if (customerErrors().id_proof_url) {
+                  <small class="field-error">{{ customerErrors().id_proof_url }}</small>
+                }
+              </div>
+            </div>
           </div>
-          <div class="disabled-action-wrap" (click)="continueToQuotation()">
-            <button pButton type="button" label="Continue to Quotation" icon="pi pi-arrow-right" iconPos="right" [disabled]="customerInvalid()" (click)="$event.stopPropagation(); continueToQuotation()"></button>
-          </div>
-        </p-card>
-      </div>
+
+          <aside class="customer-step__sidebar">
+            <p-card styleClass="wizard-card summary-card summary-card--snapshot customer-snapshot-card">
+              <div class="customer-snapshot-card__header">
+                <span>Trip Snapshot</span>
+                <strong>{{ selectedVehicle()?.brand }} {{ selectedVehicle()?.model }}</strong>
+              </div>
+
+              <div class="customer-snapshot-card__divider"></div>
+
+              <div class="summary-list customer-snapshot-list">
+                <div><span>Pickup</span><strong>{{ trip().pickup_location || '-' }}</strong></div>
+                <div><span>Drop</span><strong>{{ trip().drop_location || '-' }}</strong></div>
+                <div><span>Dates</span><strong>{{ trip().pickup_date | date:'mediumDate' }} - {{ trip().end_date | date:'mediumDate' }}</strong></div>
+                <div><span>Total Days</span><strong>{{ totalDays() }}</strong></div>
+                <div><span>Daily Rate</span><strong class="customer-snapshot-card__rate">{{ dailyRateLabel(selectedVehicle()) }}</strong></div>
+              </div>
+
+              <div class="customer-snapshot-card__divider"></div>
+
+              @if (quotationError()) {
+                <small class="field-error">{{ quotationError() }}</small>
+              }
+
+              <button
+                pButton
+                type="button"
+                label="Continue to Quotation →"
+                class="customer-snapshot-card__action"
+                [loading]="generatingQuotation()"
+                [disabled]="customerInvalid()"
+                (click)="continueToQuotation()"></button>
+            </p-card>
+          </aside>
+        </div>
+      </p-card>
     </section>
   }
 
@@ -315,22 +461,33 @@
         <div class="card-heading">
           <div>
             <h3>Quotation Generation</h3>
-            <p>Pricing is computed only from `vehicle_tiers`, with GST fixed by the app config constant.</p>
+            <p>Pricing is calculated from vehicle pricing data and trip duration as soon as the quotation is created.</p>
           </div>
-          <p-tag value="Draft quotation" severity="info"></p-tag>
+          <p-tag [value]="generatedQuotation()?.status || 'Draft quotation'" severity="info"></p-tag>
         </div>
 
-        <div class="pricing-grid">
-          <div><span>Rate</span><strong>{{ pricing()?.rate | currency:'INR':'symbol':'1.0-0' }}</strong></div>
-          <div><span>Days</span><strong>{{ pricing()?.days }}</strong></div>
-          <div><span>Base Cost</span><strong>{{ pricing()?.base_cost | currency:'INR':'symbol':'1.0-0' }}</strong></div>
-          <div><span>GST</span><strong>{{ pricing()?.gst | currency:'INR':'symbol':'1.0-0' }}</strong></div>
-          <div><span>Advance</span><strong>{{ pricing()?.advance | currency:'INR':'symbol':'1.0-0' }}</strong></div>
-          <div><span>Security Deposit</span><strong>{{ pricing()?.security_deposit | currency:'INR':'symbol':'1.0-0' }}</strong></div>
-          <div><span>Extra Mileage Rate</span><strong>{{ pricing()?.extra_mileage_rate | currency:'INR':'symbol':'1.0-0' }}/km</strong></div>
-          <div><span>Included Km / Day</span><strong>{{ pricing()?.included_km_per_day || 0 }}</strong></div>
-          <div class="pricing-grid__total"><span>Final Amount</span><strong>{{ pricing()?.final_amount | currency:'INR':'symbol':'1.0-0' }}</strong></div>
-        </div>
+        @if (generatingQuotation()) {
+          <div class="pricing-loading">
+            <p-progressSpinner ariaLabel="Calculating pricing"></p-progressSpinner>
+            <p>Calculating pricing...</p>
+          </div>
+        } @else if (pricingResolved()) {
+          <div class="pricing-grid">
+            <div><span>Quote Reference</span><strong>{{ generatedQuotation()?.quote_reference || '-' }}</strong></div>
+            <div><span>Vehicle</span><strong>{{ selectedVehicle()?.brand }} {{ selectedVehicle()?.model }}</strong></div>
+            <div><span>Customer Name</span><strong>{{ customer().full_name }}</strong></div>
+            <div><span>Dates</span><strong>{{ trip().pickup_date | date:'mediumDate' }} - {{ trip().end_date | date:'mediumDate' }}</strong></div>
+            <div><span>Days</span><strong>{{ generatedQuotation()?.days }}</strong></div>
+            <div><span>Daily Rate</span><strong>{{ generatedQuotation()?.rate | currency:'INR':'symbol':'1.0-0' }}</strong></div>
+            <div><span>Base Cost</span><strong>{{ generatedQuotation()?.base_cost | currency:'INR':'symbol':'1.0-0' }}</strong></div>
+            <div><span>GST (18%)</span><strong>{{ generatedQuotation()?.gst | currency:'INR':'symbol':'1.0-0' }}</strong></div>
+            <div><span>Security Deposit</span><strong>{{ generatedQuotation()?.security_deposit | currency:'INR':'symbol':'1.0-0' }}</strong></div>
+            <div><span>Advance Required</span><strong>{{ generatedQuotation()?.advance | currency:'INR':'symbol':'1.0-0' }}</strong></div>
+            <div class="pricing-grid__total"><span>Final Amount</span><strong>{{ generatedQuotation()?.final_amount | currency:'INR':'symbol':'1.0-0' }}</strong></div>
+          </div>
+        } @else {
+          <small class="field-error">Pricing unavailable</small>
+        }
 
         <div class="summary-list summary-list--compact">
           <div><span>Customer</span><strong>{{ customer().full_name }}</strong></div>
@@ -338,7 +495,7 @@
           <div><span>Purpose</span><strong>{{ trip().purpose }}</strong></div>
         </div>
 
-        <button pButton type="button" label="Generate Quotation" icon="pi pi-file" [loading]="generatingQuotation()" (click)="generateQuotation()"></button>
+        <button pButton type="button" label="Continue to Confirm" icon="pi pi-arrow-right" iconPos="right" [disabled]="!pricingResolved()" (click)="step.set(5)"></button>
       </p-card>
 
       <p-card styleClass="wizard-card summary-card">
@@ -347,7 +504,7 @@
           <div><span>Customer Source</span><strong>{{ existingCustomer() ? 'Matched by mobile' : 'New record' }}</strong></div>
           <div><span>Trip Window</span><strong>{{ trip().pickup_date | date:'mediumDate' }} - {{ trip().end_date | date:'mediumDate' }}</strong></div>
           <div><span>Booking Status on Create</span><strong>pending</strong></div>
-          <div><span>Quotation Status on Create</span><strong>draft</strong></div>
+          <div><span>Quotation Status</span><strong>{{ generatedQuotation()?.status || 'draft' }}</strong></div>
         </div>
       </p-card>
     </section>
@@ -359,7 +516,7 @@
         <div class="card-heading">
           <div>
             <h3>Booking Confirmation & Payment</h3>
-            <p>Quotation is already stored. Confirming now marks the quotation `confirmed` and notifies admins for approval.</p>
+            <p>Quotation is already stored. Confirming now submits it for admin approval and keeps the vehicle reserved.</p>
           </div>
           <p-tag [value]="generatedQuotation()?.quote_reference || 'Quotation'" severity="success"></p-tag>
         </div>
@@ -393,7 +550,7 @@
           <div><span>Vehicle</span><strong>{{ selectedVehicle()?.brand }} {{ selectedVehicle()?.model }}</strong></div>
           <div><span>Pickup</span><strong>{{ trip().pickup_location }}</strong></div>
           <div><span>Drop</span><strong>{{ trip().drop_location }}</strong></div>
-          <div><span>Deposit</span><strong>{{ pricing()?.security_deposit | currency:'INR':'symbol':'1.0-0' }}</strong></div>
+          <div><span>Deposit</span><strong>{{ generatedQuotation()?.security_deposit | currency:'INR':'symbol':'1.0-0' }}</strong></div>
         </div>
       </p-card>
     </section>

@@ -35,12 +35,20 @@
 
     <p-card styleClass="vehicle-spotlight-card">
       @if (spotlightVehicle(); as vehicle) {
-        <div class="vehicle-spotlight-card__media">
-          <img [src]="vehicle.imageUrl" [alt]="vehicle.make" class="vehicle-spotlight-card__image" />
-          <div class="vehicle-spotlight-card__overlay">
-            <p-tag [value]="vehicle.status" [severity]="statusSeverity(vehicle.status)"></p-tag>
+          <div class="vehicle-spotlight-card__media">
+            <img [src]="vehicle.imageUrl" [alt]="vehicle.make" class="vehicle-spotlight-card__image" />
+            <div class="vehicle-spotlight-card__overlay">
+              <p-tag [value]="vehicle.status" [severity]="statusSeverity(vehicle.status)"></p-tag>
+              @if (showAvailabilityDate(vehicle)) {
+                <p class="m-0 mt-2 text-xs text-slate-500">
+                  {{ availabilityDateLabel(vehicle) }}
+                  @if (vehicle.nextAvailableDate) {
+                    {{ vehicle.nextAvailableDate | date:'d MMM y' }}
+                  }
+                </p>
+              }
+            </div>
           </div>
-        </div>
 
         <div class="vehicle-spotlight-card__body">
           <div>
@@ -197,8 +205,13 @@
             <td>
               <div class="space-y-2">
                 <p-tag [value]="vehicle.status" [severity]="statusSeverity(vehicle.status)"></p-tag>
-                @if (vehicle.status === 'Booked' && vehicle.nextAvailableDate) {
-                  <p class="m-0 text-xs text-amber-700">Available from {{ vehicle.nextAvailableDate | date:'mediumDate' }}</p>
+                @if (showAvailabilityDate(vehicle)) {
+                  <p class="m-0 text-xs text-slate-500">
+                    {{ availabilityDateLabel(vehicle) }}
+                    @if (vehicle.nextAvailableDate) {
+                      {{ vehicle.nextAvailableDate | date:'d MMM y' }}
+                    }
+                  </p>
                 }
                 <p class="m-0 text-xs text-slate-500">Stock: {{ vehicle.stock }}</p>
               </div>
@@ -232,8 +245,13 @@
             <img [src]="vehicle.imageUrl" [alt]="vehicle.make" class="vehicle-grid-card__image" />
             <div class="vehicle-grid-card__badge">
               <p-tag [value]="vehicle.status" [severity]="statusSeverity(vehicle.status)"></p-tag>
-              @if (vehicle.status === 'Booked' && vehicle.nextAvailableDate) {
-                <p class="m-0 mt-1 text-xs text-amber-700">Available from {{ vehicle.nextAvailableDate | date:'mediumDate' }}</p>
+              @if (showAvailabilityDate(vehicle)) {
+                <p class="m-0 mt-1 text-xs text-slate-500">
+                  {{ availabilityDateLabel(vehicle) }}
+                  @if (vehicle.nextAvailableDate) {
+                    {{ vehicle.nextAvailableDate | date:'d MMM y' }}
+                  }
+                </p>
               }
             </div>
           </div>
@@ -402,15 +420,23 @@
       <div class="vehicle-detail-card__hero">
         <img [src]="vehicle.imageUrl" [alt]="vehicle.make" class="vehicle-detail-card__image" />
         <div class="vehicle-detail-card__header">
-          <div>
-            <div class="flex flex-wrap items-center gap-2">
-              <p-tag [value]="vehicle.status" [severity]="statusSeverity(vehicle.status)"></p-tag>
-              <p-tag [value]="vehicle.type" severity="info"></p-tag>
-              <p-tag [value]="vehicle.fuel" severity="secondary"></p-tag>
+            <div>
+              <div class="flex flex-wrap items-center gap-2">
+                <p-tag [value]="vehicle.status" [severity]="statusSeverity(vehicle.status)"></p-tag>
+                <p-tag [value]="vehicle.type" severity="info"></p-tag>
+                <p-tag [value]="vehicle.fuel" severity="secondary"></p-tag>
+              </div>
+              @if (showAvailabilityDate(vehicle)) {
+                <p class="m-0 mt-2 text-xs text-slate-500">
+                  {{ availabilityDateLabel(vehicle) }}
+                  @if (vehicle.nextAvailableDate) {
+                    {{ vehicle.nextAvailableDate | date:'d MMM y' }}
+                  }
+                </p>
+              }
+              <h3 class="vehicle-detail-card__title">{{ vehicle.make }} {{ vehicle.model }}</h3>
+              <p class="vehicle-detail-card__subtitle">{{ vehicle.year }} model in {{ vehicle.location }}</p>
             </div>
-            <h3 class="vehicle-detail-card__title">{{ vehicle.make }} {{ vehicle.model }}</h3>
-            <p class="vehicle-detail-card__subtitle">{{ vehicle.year }} model in {{ vehicle.location }}</p>
-          </div>
           <div class="vehicle-detail-card__hero-actions">
             <button pButton type="button" label="Edit Vehicle" icon="pi pi-pencil" outlined (click)="previewVisible.set(false); openEdit(vehicle)"></button>
           </div>

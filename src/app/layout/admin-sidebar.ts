@@ -23,7 +23,7 @@ interface SidebarItem {
 })
 export class AdminSidebar {
   @Input() roleLabel = 'Administrator';
-  @Input() brandSubtitle = 'Rental Organizer';
+  @Input() brandSubtitle = 'Your Vehicles Dashboard';
   @Input() newBookingRoute = '/dealer/bookings';
   @Input() showNewBookingShortcut = true;
   @Input() userName = 'Admin User';
