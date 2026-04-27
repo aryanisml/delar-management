@@ -86,6 +86,8 @@ type NotificationInput = {
 export class SupabaseService {
   private readonly vehiclesTable = 'vehicle';
   readonly gstRate = 0.18;
+  readonly advanceRate = 0.3;
+  readonly blockingBookingStatuses = ['pending', 'approved', 'in_service'];
 
   supabase = createClient(environment.supabaseUrl, environment.supabaseKey);
 
@@ -202,6 +204,11 @@ export class SupabaseService {
         }
       }
 
+      const bookingWindows = await this.getActiveVehicleBookingWindows();
+      if (bookingWindows.error) {
+        return { data: null, error: bookingWindows.error };
+      }
+
       const normalized = (data ?? []).map((row: any) => ({
         ...row,
         brand: row.brand ?? row.Brand ?? row.make ?? '',
@@ -218,8 +225,8 @@ export class SupabaseService {
         registration_no: row.registration_no ?? row.registrationNo ?? null,
         image_url: row.image_url ?? row.imageUrl ?? null,
         booked: Boolean(row.booked),
-        vehicle_status: row.vehicle_status ?? row.status ?? 'available',
-        next_available_date: row.next_available_date ?? null,
+        vehicle_status: this.resolveVehicleStatus(row, bookingWindows.data),
+        next_available_date: this.resolveVehicleNextAvailableDate(row, bookingWindows.data),
         tier_id: row.tier_id ?? null,
       }));
 
@@ -279,7 +286,18 @@ export class SupabaseService {
   async getBookingWithVehicle(bookingId: string) {
     return await this.supabase
       .from('bookings')
-      .select(`*, vehicle (*)`)
+      .select(`
+        *,
+        vehicle (
+          *,
+          vehicle_tiers (
+            daily_rate,
+            security_deposit,
+            extra_mileage_rate,
+            included_km_per_day
+          )
+        )
+      `)
       .eq('id', bookingId)
       .single();
   }
@@ -609,24 +627,41 @@ export class SupabaseService {
         return { data: [], error };
       }
 
+      const bookingWindows = await this.getActiveVehicleBookingWindows();
+      if (bookingWindows.error) {
+        return { data: [], error: bookingWindows.error };
+      }
+
       let conflictVehicleIds = new Set<string>();
+      let selectedRangeNextAvailable = new Map<string, string>();
       if (filters.pickup_date && filters.end_date) {
         const conflicts = await this.supabase
           .from('bookings')
-          .select('vehicle_id')
+          .select('vehicle_id, end_date')
           .lte('start_date', filters.end_date)
           .gte('end_date', filters.pickup_date)
-          .not('status', 'in', '("cancelled","rejected")');
+          .in('status', this.blockingBookingStatuses);
 
         if (conflicts.error) {
           return { data: [], error: conflicts.error };
         }
 
         conflictVehicleIds = new Set((conflicts.data ?? []).map((row: any) => row.vehicle_id).filter(Boolean));
+        selectedRangeNextAvailable = (conflicts.data ?? []).reduce((map: Map<string, string>, row: any) => {
+          const vehicleId = String(row.vehicle_id ?? '');
+          const endDate = String(row.end_date ?? '');
+          if (!vehicleId || !endDate) {
+            return map;
+          }
+          const current = map.get(vehicleId);
+          if (!current || new Date(endDate).getTime() > new Date(current).getTime()) {
+            map.set(vehicleId, endDate);
+          }
+          return map;
+        }, new Map<string, string>());
       }
 
       const filtered = (data ?? [])
-        .filter((row: any) => !conflictVehicleIds.has(row.id))
         .filter((row: any) => String(row.vehicle_status ?? '').toLowerCase() !== 'deleted')
         .filter((row: any) => !filters.type || row.type === filters.type)
         .filter((row: any) => !filters.capacity || Number(row.capacity ?? 0) >= Number(filters.capacity))
@@ -635,10 +670,28 @@ export class SupabaseService {
         .map((row: any) => {
           const primaryImage = (row.vehicle_images ?? []).find((image: any) => image.is_primary) ?? null;
           const imageUrl = typeof row.image_url === 'string' && row.image_url.trim() ? row.image_url.trim() : null;
+          const effectiveStatus = this.resolveVehicleStatus(row, bookingWindows.data);
+          const effectiveNextAvailableDate = this.resolveVehicleNextAvailableDate(row, bookingWindows.data);
+          const blockedForSelectedDates = conflictVehicleIds.has(row.id);
+          const selectedRangeAvailableFrom = selectedRangeNextAvailable.get(String(row.id)) ?? effectiveNextAvailableDate;
           return {
             ...row,
+            vehicle_status: effectiveStatus,
+            next_available_date: effectiveNextAvailableDate,
             thumbnail_url: primaryImage?.url ?? imageUrl ?? '/assets/car-placeholder.svg',
             tier: row.vehicle_tiers ?? null,
+            is_available_for_selected_dates: !blockedForSelectedDates,
+            availability_status: blockedForSelectedDates ? 'booked' : effectiveStatus,
+            availability_detail: blockedForSelectedDates
+              ? selectedRangeAvailableFrom
+                ? `Available from ${selectedRangeAvailableFrom}`
+                : 'Date TBD'
+              : effectiveStatus === 'available'
+                ? 'Available now'
+                : effectiveNextAvailableDate
+                  ? `Available from ${effectiveNextAvailableDate}`
+                  : 'Date TBD',
+            availability_date: blockedForSelectedDates ? selectedRangeAvailableFrom ?? null : effectiveNextAvailableDate,
           };
         });
 
@@ -655,7 +708,7 @@ export class SupabaseService {
       .eq('vehicle_id', vehicleId)
       .lte('start_date', endDate)
       .gte('end_date', pickupDate)
-      .not('status', 'in', '("cancelled","rejected")');
+      .in('status', this.blockingBookingStatuses);
 
     if (excludeBookingId) {
       query = query.neq('id', excludeBookingId);
@@ -675,63 +728,16 @@ export class SupabaseService {
       return { data: existing.data, error: null };
     }
 
-    if (!existing.data) {
-      const quotationPayload = {
-        booking_id: input.bookingId,
-        advisor_id: input.advisorId,
-        status: 'draft',
-        customer_name: input.customer.full_name,
-        mobile: input.customer.mobile,
-        email: input.customer.email,
-        license: input.customer.license_no,
-        license_expiry: input.customer.license_expiry,
-        customer_type: input.customer.customer_type,
-        business_name: input.customer.business_name ?? null,
-        gst_number: input.customer.gst_number ?? null,
-        id_proof_url: input.customer.id_proof_url ?? null,
-      };
-
-      const insert = await this.supabase.from('quotations').insert([quotationPayload]);
-      if (insert.error) {
-        console.error('Quotation insert failed', insert.error);
-        return { data: null, error: insert.error };
-      }
-    }
-
-    const priced = await this.pollForPricing(input.bookingId);
-    if (priced.data) {
-      return { data: priced.data, error: null };
-    }
-    if (priced.error) {
-      return { data: null, error: priced.error };
-    }
-
-    return await this.applyFrontendPricingFallback(input);
-  }
-
-  private async pollForPricing(bookingId: string, maxAttempts = 6, intervalMs = 1500) {
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      await this.delay(intervalMs);
-      const { data, error } = await this.supabase.from('quotations').select('*').eq('booking_id', bookingId).single();
-      if (error) {
-        return { data: null, error };
-      }
-      if (this.hasResolvedPricing(data)) {
-        return { data, error: null };
-      }
-    }
-
-    return { data: null, error: null };
-  }
-
-  private async applyFrontendPricingFallback(input: CreateQuotationInput) {
     const vehicleResult = await this.supabase
       .from('vehicle')
       .select(`
+        daily_rate,
         tier_id,
         vehicle_tiers (
           daily_rate,
-          security_deposit
+          security_deposit,
+          extra_mileage_rate,
+          included_km_per_day
         )
       `)
       .eq('id', input.vehicleId)
@@ -741,33 +747,38 @@ export class SupabaseService {
       return { data: null, error: vehicleResult.error };
     }
 
-    const tier = Array.isArray((vehicleResult.data as any).vehicle_tiers)
-      ? (vehicleResult.data as any).vehicle_tiers[0]
-      : (vehicleResult.data as any).vehicle_tiers;
-    if (!tier) {
-      return { data: null, error: new Error('Vehicle tier pricing is unavailable') };
-    }
+    const pricing = this.buildQuotationPricingPreview(vehicleResult.data, input.startDate, input.endDate);
+    const quoteReference = existing.data?.quote_reference || await this.generateQuoteReference();
+    const quotationPayload = {
+      booking_id: input.bookingId,
+      advisor_id: input.advisorId,
+      status: existing.data?.status ?? 'draft',
+      quote_reference: quoteReference,
+      customer_name: input.customer.full_name,
+      mobile: input.customer.mobile,
+      email: input.customer.email,
+      license: input.customer.license_no,
+      license_expiry: input.customer.license_expiry,
+      customer_type: input.customer.customer_type,
+      business_name: input.customer.business_name ?? null,
+      gst_number: input.customer.gst_number ?? null,
+      id_proof_url: input.customer.id_proof_url ?? null,
+      rate: pricing.rate,
+      days: pricing.days,
+      base_cost: pricing.base_cost,
+      gst: pricing.gst,
+      advance: pricing.advance,
+      security_deposit: pricing.security_deposit,
+      final_amount: pricing.final_amount,
+      fuel_policy: pricing.fuel_policy,
+      extra_mileage_rate: pricing.extra_mileage_rate,
+      extra_mileage_charge: 0,
+      discount_amount: 0,
+    };
 
-    const days = this.calculateBookingDays(input.startDate, input.endDate);
-    const rate = Number(tier.daily_rate ?? 0);
-    const baseCost = rate * days;
-    const gst = baseCost * 0.18;
-    const finalAmount = baseCost + gst;
-    const advance = baseCost * 0.3;
-
-    // FALLBACK: DB trigger did not return pricing in time. Frontend computed pricing and wrote it back.
     return await this.supabase
       .from('quotations')
-      .update({
-        rate,
-        days,
-        base_cost: baseCost,
-        gst,
-        final_amount: finalAmount,
-        advance,
-        security_deposit: Number(tier.security_deposit ?? 0),
-      })
-      .eq('booking_id', input.bookingId)
+      .upsert(quotationPayload, { onConflict: 'booking_id' })
       .select()
       .single();
   }
@@ -783,8 +794,97 @@ export class SupabaseService {
     return Math.max(1, diff || 1);
   }
 
-  private delay(ms: number) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+  buildQuotationPricingPreview(
+    vehicle: any,
+    startDate: string,
+    endDate: string,
+    options?: {
+      discountAmount?: number;
+      extraMileageCharge?: number;
+      fuelPolicy?: string | null;
+    }
+  ) {
+    const tier = Array.isArray(vehicle?.vehicle_tiers)
+      ? vehicle.vehicle_tiers[0] ?? null
+      : vehicle?.vehicle_tiers ?? vehicle?.tier ?? null;
+    const rate = Number(tier?.daily_rate ?? vehicle?.daily_rate ?? vehicle?.dailyRate ?? 0);
+    const days = this.calculateBookingDays(startDate, endDate);
+    const baseCost = rate * days;
+    const discountAmount = Math.min(baseCost, Math.max(0, Number(options?.discountAmount ?? 0)));
+    const taxableAmount = Math.max(0, baseCost - discountAmount);
+    const gst = taxableAmount * this.gstRate;
+    const extraMileageCharge = Math.max(0, Number(options?.extraMileageCharge ?? 0));
+    const finalAmount = taxableAmount + gst + extraMileageCharge;
+    const securityDeposit = Number(tier?.security_deposit ?? vehicle?.security_deposit ?? vehicle?.securityDeposit ?? 0);
+    const extraMileageRate = Number(tier?.extra_mileage_rate ?? vehicle?.extra_mileage_rate ?? vehicle?.extraMileageRate ?? 0);
+
+    return {
+      rate,
+      days,
+      base_cost: baseCost,
+      gst,
+      advance: taxableAmount * this.advanceRate,
+      security_deposit: securityDeposit,
+      final_amount: finalAmount,
+      extra_mileage_rate: extraMileageRate,
+      extra_mileage_charge: extraMileageCharge,
+      discount_amount: discountAmount,
+      fuel_policy: options?.fuelPolicy ?? vehicle?.fuel_policy ?? vehicle?.fuelPolicy ?? 'Full-to-Full',
+    };
+  }
+
+  private async getActiveVehicleBookingWindows() {
+    const today = new Date().toISOString().slice(0, 10);
+    const { data, error } = await this.supabase
+      .from('bookings')
+      .select('vehicle_id, end_date')
+      .in('status', this.blockingBookingStatuses)
+      .gte('end_date', today);
+
+    if (error) {
+      return { data: null, error };
+    }
+
+    const latestByVehicle = new Map<string, string>();
+    for (const row of data ?? []) {
+      const vehicleId = String(row.vehicle_id ?? '');
+      const endDate = String(row.end_date ?? '');
+      if (!vehicleId || !endDate) {
+        continue;
+      }
+
+      const current = latestByVehicle.get(vehicleId);
+      if (!current || new Date(endDate).getTime() > new Date(current).getTime()) {
+        latestByVehicle.set(vehicleId, endDate);
+      }
+    }
+
+    return { data: latestByVehicle, error: null };
+  }
+
+  private resolveVehicleStatus(row: any, bookingWindows: Map<string, string> | null) {
+    const rawStatus = String(row?.vehicle_status ?? row?.status ?? 'available').toLowerCase();
+    if (rawStatus === 'deleted') {
+      return 'deleted';
+    }
+    if (rawStatus === 'maintenance' || rawStatus === 'in_service' || rawStatus === 'dirty' || rawStatus === 'inactive') {
+      return rawStatus === 'dirty' ? 'maintenance' : rawStatus;
+    }
+
+    const bookingEndDate = bookingWindows?.get(String(row?.id ?? ''));
+    return bookingEndDate ? 'booked' : 'available';
+  }
+
+  private resolveVehicleNextAvailableDate(row: any, bookingWindows: Map<string, string> | null) {
+    const bookingEndDate = bookingWindows?.get(String(row?.id ?? '')) ?? null;
+    const rowDate = row?.next_available_date ?? null;
+    if (!bookingEndDate) {
+      return rowDate;
+    }
+    if (!rowDate) {
+      return bookingEndDate;
+    }
+    return new Date(bookingEndDate).getTime() > new Date(rowDate).getTime() ? bookingEndDate : rowDate;
   }
 
   async createWalkInQuotation(input: WalkInQuotationInput) {
@@ -937,7 +1037,7 @@ export class SupabaseService {
 
     const quotationUpdate = await this.supabase
       .from('quotations')
-      .update({ status: 'approved', sent_at: new Date().toISOString() })
+      .update({ status: 'submitted', sent_at: new Date().toISOString() })
       .eq('booking_id', bookingId)
       .select()
       .single();
@@ -958,7 +1058,7 @@ export class SupabaseService {
     }
 
     await this.notifyAdminsOfBookingRequest(bookingUpdate.data, quotationUpdate.data, request.data.vehicle, request.data.advisor_name);
-    await this.logAudit(`walk_in_booking_approved:${customerChannel || 'manual'}`, bookingId);
+    await this.logAudit(`walk_in_booking_submitted:${customerChannel || 'manual'}`, bookingId);
 
     return {
       data: {
@@ -1156,7 +1256,7 @@ export class SupabaseService {
         return { data: null, error: bookingUpdate.error };
       }
 
-      const quotationUpdate = await this.supabase.from('quotations').update({ status: 'cancelled' }).eq('booking_id', bookingId);
+      const quotationUpdate = await this.supabase.from('quotations').update({ status: 'rejected' }).eq('booking_id', bookingId);
       if (quotationUpdate.error) {
         return { data: null, error: quotationUpdate.error };
       }

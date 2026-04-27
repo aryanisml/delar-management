@@ -65,7 +65,7 @@
         <div class="quote-card__header">
           <div>
             <h3>Pricing Breakdown</h3>
-            <p>Calculated from vehicle tier and trip duration.</p>
+            <p>Calculated from the shared pricing rules, vehicle pricing data, and trip duration.</p>
           </div>
           <p-tag value="GST Applied" severity="info"></p-tag>
         </div>
@@ -88,7 +88,7 @@
             <strong>{{ securityDeposit() | currency:'INR':'symbol':'1.0-0' }}</strong>
           </div>
           <div class="pricing-row">
-            <span>Advance Payment Required <small>50% of base cost</small></span>
+            <span>Advance Payment Required <small>30% of taxable amount</small></span>
             <strong>{{ advance() | currency:'INR':'symbol':'1.0-0' }}</strong>
           </div>
           <div class="pricing-row">

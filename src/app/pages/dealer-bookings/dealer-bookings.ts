@@ -231,6 +231,14 @@ export class DealerBookings {
   }
 
   selectVehicle(vehicle: any) {
+    if (!this.canBookVehicle(vehicle)) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Vehicle unavailable',
+        detail: this.vehicleAvailabilityCaption(vehicle),
+      });
+      return;
+    }
     this.selectedVehicle.set(vehicle);
     this.step.set(2);
     this.generatedBooking.set(null);
@@ -262,6 +270,16 @@ export class DealerBookings {
   continueToCustomer() {
     if (this.tripInvalid()) {
       this.messageService.add({ severity: 'warn', summary: 'Trip details incomplete', detail: 'Enter all trip details with valid dates and times.' });
+      return;
+    }
+
+    if (!this.selectedVehicle() || !this.canBookVehicle(this.selectedVehicle())) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Vehicle unavailable',
+        detail: this.selectedVehicle() ? this.vehicleAvailabilityCaption(this.selectedVehicle()) : 'Please choose an available vehicle.',
+      });
+      this.step.set(1);
       return;
     }
 
@@ -514,7 +532,7 @@ export class DealerBookings {
 
     this.messageService.add({
       severity: 'success',
-      summary: 'Booking approved',
+      summary: 'Booking submitted',
       detail: `Advance payment recorded in workflow${this.paymentMode() ? ` via ${this.paymentMode()}` : ''}. Admin has been notified for approval.`,
     });
     await this.router.navigateByUrl('/dealer/my-bookings');
@@ -688,8 +706,68 @@ export class DealerBookings {
   }
 
   isVehicleUnavailable(vehicle: any) {
-    const status = String(vehicle?.vehicle_status ?? vehicle?.vehicleStatus ?? '').toLowerCase();
-    return status === 'booked' || status === 'in_service';
+    return !this.canBookVehicle(vehicle);
+  }
+
+  canBookVehicle(vehicle: any) {
+    const status = String(vehicle?.availability_status ?? vehicle?.vehicle_status ?? vehicle?.vehicleStatus ?? '').toLowerCase();
+    return status === 'available' && vehicle?.is_available_for_selected_dates !== false;
+  }
+
+  vehicleStatusLabel(vehicle: any, fallbackStatus?: string) {
+    const status = String(vehicle?.availability_status ?? vehicle?.vehicle_status ?? vehicle?.vehicleStatus ?? '').toLowerCase();
+    switch (status) {
+      case 'booked':
+        return 'Booked';
+      case 'in_service':
+        return 'In Service';
+      case 'maintenance':
+      case 'dirty':
+        return 'In Maintenance';
+      case 'deleted':
+      case 'inactive':
+        return 'Inactive';
+      default:
+        return fallbackStatus || 'Available';
+    }
+  }
+
+  vehicleStatusTone(vehicle: any) {
+    const status = String(vehicle?.availability_status ?? vehicle?.vehicle_status ?? vehicle?.vehicleStatus ?? '').toLowerCase();
+    if (status === 'booked') {
+      return 'booked';
+    }
+    if (status === 'in_service') {
+      return 'in-service';
+    }
+    if (status === 'maintenance' || status === 'dirty' || status === 'inactive' || status === 'deleted') {
+      return 'maintenance';
+    }
+    return 'available';
+  }
+
+  vehicleAvailabilityCaption(vehicle: any) {
+    if (!vehicle) {
+      return 'Availability information is unavailable.';
+    }
+
+    if (vehicle?.is_available_for_selected_dates === false) {
+      return vehicle?.availability_date
+        ? `Available from ${new Date(vehicle.availability_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} for the selected dates.`
+        : 'This vehicle is booked for the selected dates.';
+    }
+
+    const status = String(vehicle?.availability_status ?? vehicle?.vehicle_status ?? vehicle?.vehicleStatus ?? '').toLowerCase();
+    if (status === 'available') {
+      return 'Available now';
+    }
+
+    const nextDate = vehicle?.availability_date ?? vehicle?.next_available_date ?? null;
+    if (nextDate) {
+      return `Available from ${new Date(nextDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+    }
+
+    return status === 'in_service' ? 'Currently in service' : status === 'maintenance' ? 'Currently in maintenance' : 'Date TBD';
   }
 
   private async ensureExistingCustomerForMobile() {

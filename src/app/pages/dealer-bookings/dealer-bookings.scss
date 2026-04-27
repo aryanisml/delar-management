@@ -517,6 +517,10 @@
   background: rgba(59, 130, 246, 0.9);
 }
 
+.status-badge--maintenance {
+  background: rgba(245, 158, 11, 0.92);
+}
+
 .vehicle-grid-card__rate-pill {
   right: 14px;
   background: rgba(15, 23, 42, 0.75);
@@ -642,6 +646,13 @@
   background: var(--wizard-teal-dark);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(0, 182, 155, 0.3);
+}
+
+:host ::ng-deep .vehicle-grid-card__action.p-button:disabled {
+  background: #cbd5e1;
+  color: #475569;
+  box-shadow: none;
+  transform: none;
 }
 
 .summary-card {

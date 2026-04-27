@@ -163,18 +163,15 @@
               <img [src]="displayVehicle.imageUrl" [alt]="displayVehicle.make" class="vehicle-grid-card__image" />
               <div
                 class="vehicle-grid-card__status-badge"
-                [class.status-badge--available]="displayVehicle.status === 'Available'"
-                [class.status-badge--booked]="displayVehicle.status === 'Booked'"
-                [class.status-badge--in-service]="displayVehicle.status === 'Maintenance' || displayVehicle.status === 'Inactive' || vehicle.vehicle_status === 'in_service'">
-                {{ vehicle.vehicle_status === 'in_service' ? 'In Service' : displayVehicle.status }}
+                [class.status-badge--available]="vehicleStatusTone(vehicle) === 'available'"
+                [class.status-badge--booked]="vehicleStatusTone(vehicle) === 'booked'"
+                [class.status-badge--in-service]="vehicleStatusTone(vehicle) === 'in-service'"
+                [class.status-badge--maintenance]="vehicleStatusTone(vehicle) === 'maintenance'">
+                {{ vehicleStatusLabel(vehicle, displayVehicle.status) }}
               </div>
               @if (isVehicleUnavailable(vehicle)) {
                 <div class="vehicle-grid-card__date-chip">
-                  @if (vehicle.next_available_date) {
-                    Available from {{ vehicle.next_available_date | date:'d MMM y' }}
-                  } @else {
-                    Date TBD
-                  }
+                  {{ vehicleAvailabilityCaption(vehicle) }}
                 </div>
               }
               <div class="vehicle-grid-card__rate-pill">
@@ -213,15 +210,16 @@
                 <p-message severity="error" text="Insurance expires within 30 days."></p-message>
               }
 
-              @if (displayVehicle.status === 'Booked' && displayVehicle.nextAvailableDate) {
-                <p class="vehicle-grid-card__availability-note">Available from {{ displayVehicle.nextAvailableDate | date:'mediumDate' }}</p>
+              @if (isVehicleUnavailable(vehicle)) {
+                <p class="vehicle-grid-card__availability-note">{{ vehicleAvailabilityCaption(vehicle) }}</p>
               }
 
               <button
                 pButton
                 type="button"
-                label="Book Now"
+                [label]="canBookVehicle(vehicle) ? 'Book Now' : 'Unavailable'"
                 class="vehicle-grid-card__action"
+                [disabled]="!canBookVehicle(vehicle)"
                 (click)="$event.stopPropagation(); selectVehicle(vehicle)"></button>
             </div>
           </article>
@@ -463,7 +461,7 @@
         <div class="card-heading">
           <div>
             <h3>Quotation Generation</h3>
-            <p>Pricing is calculated by the database after the quotation record is created.</p>
+            <p>Pricing is calculated from vehicle pricing data and trip duration as soon as the quotation is created.</p>
           </div>
           <p-tag [value]="generatedQuotation()?.status || 'Draft quotation'" severity="info"></p-tag>
         </div>
@@ -518,7 +516,7 @@
         <div class="card-heading">
           <div>
             <h3>Booking Confirmation & Payment</h3>
-            <p>Quotation is already stored. Confirming now marks the quotation approved and notifies admins for approval.</p>
+            <p>Quotation is already stored. Confirming now submits it for admin approval and keeps the vehicle reserved.</p>
           </div>
           <p-tag [value]="generatedQuotation()?.quote_reference || 'Quotation'" severity="success"></p-tag>
         </div>

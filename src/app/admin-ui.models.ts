@@ -64,9 +64,11 @@ export function normalizeVehicle(vehicle: Vehicle, index: number) {
   const mappedStatus =
     statusSource === 'deleted'
       ? 'Inactive'
+      : statusSource === 'inservice' || statusSource === 'in_service'
+        ? 'In Service'
       : statusSource === 'inactive' || statusSource === 'maintenance' || statusSource === 'dirty'
         ? 'Maintenance'
-        : statusSource === 'booked'
+      : statusSource === 'booked'
           ? 'Booked'
         : 'Available';
 
@@ -92,7 +94,7 @@ export function normalizeVehicle(vehicle: Vehicle, index: number) {
     dailyRate: Number(raw['daily_rate'] || raw['dailyRate'] || 2800 + index * 450),
     stock: Number(raw['stock'] || 1 + (index % 5)),
     location: raw['location'] || ['Delhi', 'Gurugram', 'Noida', 'Bengaluru'][index % 4],
-    status: mappedStatus as 'Available' | 'Booked' | 'Maintenance' | 'Inactive',
+    status: mappedStatus as 'Available' | 'Booked' | 'Maintenance' | 'Inactive' | 'In Service',
     rawStatus: statusSource,
     vehicleStatus: statusSource,
     nextAvailableDate: raw['next_available_date'] || null,
@@ -185,9 +187,12 @@ export function tagSeverityForStatus(status: string): 'success' | 'warn' | 'dang
       return 'success';
     case 'booked':
     case 'pending':
+    case 'submitted':
       return 'warn';
+    case 'in service':
     case 'inservice':
     case 'in_service':
+    case 'sent':
     case 'in progress':
     case 'inprogress':
       return 'info';
