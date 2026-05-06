@@ -26,27 +26,52 @@ serve(async (req) => {
     const booking = body.booking || {};
     const vehicle = body.vehicle || {};
     const dealer = body.dealer || {};
+    const mode = body.mode || 'booking';
     const quoteReference = body.quoteReference || quotation.quote_reference || quotation.quotation_ref || booking.id;
     const vehicleName = `${vehicle.make || vehicle.brand || ''} ${vehicle.model || ''} ${vehicle.year || ''}`.trim();
 
-    const text = [
-      `Hello ${body.customerName || quotation.customer_name || 'Customer'},`,
-      '',
-      `Your rental booking has been initiated for quotation ${quoteReference}.`,
-      '',
-      `Vehicle: ${vehicleName || 'Selected vehicle'}`,
-      `Pickup: ${formatDate(booking.start_date)} at ${booking.pickup_location || '-'}`,
-      `Drop: ${formatDate(booking.end_date)} at ${booking.drop_location || '-'}`,
-      `Total quoted amount: Rs ${Number(quotation.final_amount || booking.total_price || 0).toLocaleString('en-IN')}`,
-      '',
-      'Your rental process has been initiated. Our dealer will contact you shortly to complete the next steps.',
-      '',
-      'Dealer contact:',
-      `${dealer.company_name || 'Dealer team'}`,
-      `${dealer.phone || dealer.mobile || 'Phone not available'}`,
-      '',
-      `Quote reference: ${quoteReference}`,
-    ].join('\n');
+    const subject = mode === 'quotation'
+      ? `Your Quotation - ${quoteReference}`
+      : `Your Rental Booking has been Initiated - ${quoteReference}`;
+
+    const text = mode === 'quotation'
+      ? [
+          `Hello ${body.customerName || quotation.customer_name || 'Customer'},`,
+          '',
+          `Please find attached your quotation ${quoteReference}.`,
+          '',
+          `Vehicle: ${vehicleName || 'Selected vehicle'}`,
+          `Pickup: ${booking.pickup_location || '-'}`,
+          `Drop: ${booking.drop_location || '-'}`,
+          `Trip dates: ${formatDate(booking.start_date)} to ${formatDate(booking.end_date)}`,
+          `Final quoted amount: Rs ${Number(quotation.final_amount || booking.total_price || 0).toLocaleString('en-IN')}`,
+          '',
+          'Please review the attached PDF for the full cost breakdown and booking details.',
+          '',
+          'Dealer contact:',
+          `${dealer.company_name || 'Dealer team'}`,
+          `${dealer.phone || dealer.mobile || 'Phone not available'}`,
+          '',
+          `Quote reference: ${quoteReference}`,
+        ].join('\n')
+      : [
+          `Hello ${body.customerName || quotation.customer_name || 'Customer'},`,
+          '',
+          `Your rental booking has been initiated for quotation ${quoteReference}.`,
+          '',
+          `Vehicle: ${vehicleName || 'Selected vehicle'}`,
+          `Pickup: ${formatDate(booking.start_date)} at ${booking.pickup_location || '-'}`,
+          `Drop: ${formatDate(booking.end_date)} at ${booking.drop_location || '-'}`,
+          `Total quoted amount: Rs ${Number(quotation.final_amount || booking.total_price || 0).toLocaleString('en-IN')}`,
+          '',
+          'Your rental process has been initiated. Our dealer will contact you shortly to complete the next steps.',
+          '',
+          'Dealer contact:',
+          `${dealer.company_name || 'Dealer team'}`,
+          `${dealer.phone || dealer.mobile || 'Phone not available'}`,
+          '',
+          `Quote reference: ${quoteReference}`,
+        ].join('\n');
 
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -57,8 +82,9 @@ serve(async (req) => {
       body: JSON.stringify({
         from: fromEmail,
         to,
-        subject: `Your Rental Booking has been Initiated - ${quoteReference}`,
+        subject,
         text,
+        attachments: Array.isArray(body.attachments) ? body.attachments : [],
       }),
     });
 

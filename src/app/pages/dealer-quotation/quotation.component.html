@@ -168,32 +168,18 @@
 </div>
 
 <p-dialog
-  header="Printable Quotation"
+  header="Quotation PDF Preview"
   [visible]="previewVisible()"
   (visibleChange)="previewVisible.set($event)"
   [modal]="true"
   [draggable]="false"
   [style]="{ width: '760px' }">
-  <div class="print-quote">
-    <div class="print-quote__header">
-      <div>
-        <h3>{{ referenceNumber() }}</h3>
-        <p>{{ advisor().name }} · {{ advisor().id }}</p>
-      </div>
-      <strong>{{ grandTotal() | currency:'INR':'symbol':'1.0-0' }}</strong>
-    </div>
-    <div class="summary-grid">
-      <div><span>Customer</span><strong>{{ customer().fullName }}</strong></div>
-      <div><span>Vehicle</span><strong>{{ vehicle()?.make || vehicle()?.brand }} {{ vehicle()?.model }}</strong></div>
-      <div><span>Duration</span><strong>{{ durationLabel() }}</strong></div>
-      <div><span>Base</span><strong>{{ baseCost() | currency:'INR':'symbol':'1.0-0' }}</strong></div>
-      <div><span>GST</span><strong>{{ gst() | currency:'INR':'symbol':'1.0-0' }}</strong></div>
-      <div><span>Advance</span><strong>{{ advance() | currency:'INR':'symbol':'1.0-0' }}</strong></div>
-    </div>
-  </div>
+  @if (previewUrl()) {
+    <iframe [src]="previewResource()" class="pdf-frame" title="Quotation PDF"></iframe>
+  }
 
   <ng-template pTemplate="footer">
     <button pButton type="button" label="Close" text (click)="previewVisible.set(false)"></button>
-    <button pButton type="button" label="Print" icon="pi pi-print" (click)="printPreview()"></button>
+    <button pButton type="button" label="Open PDF" icon="pi pi-print" (click)="printPreview()"></button>
   </ng-template>
 </p-dialog>

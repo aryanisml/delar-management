@@ -1,6 +1,7 @@
 import { CommonModule, CurrencyPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
@@ -10,6 +11,8 @@ import { InputTextModule } from 'primeng/inputtext';
 import { TagModule } from 'primeng/tag';
 import { ToastModule } from 'primeng/toast';
 import { BookingFlowService } from '../../services/booking-flow';
+import { QuotationEmailService } from '../../services/quotation-email.service';
+import { QuotationPdfService } from '../../services/quotation-pdf';
 import { SupabaseService } from '../../services/supabase';
 
 @Component({
@@ -35,6 +38,9 @@ export class QuotationComponent {
   private router = inject(Router);
   private supabase = inject(SupabaseService);
   private messageService = inject(MessageService);
+  private sanitizer = inject(DomSanitizer);
+  private quotationPdf = inject(QuotationPdfService);
+  private quotationEmail = inject(QuotationEmailService);
   readonly flow = inject(BookingFlowService);
 
   readonly loading = signal(false);
@@ -42,8 +48,10 @@ export class QuotationComponent {
   readonly promoMessage = signal('');
   readonly discount = signal(0);
   readonly previewVisible = signal(false);
+  readonly previewUrl = signal<string | null>(null);
+  readonly previewResource = signal<SafeResourceUrl | null>(null);
   readonly termsOpen = signal(false);
-  readonly advisor = signal<{ name: string; id: string }>({ name: 'Rental Advisor', id: 'advisor' });
+  readonly advisor = signal<{ name: string; id: string; email: string }>({ name: 'Rental Advisor', id: 'advisor', email: 'advisor@autoflow.in' });
 
   readonly booking = this.flow.booking;
   readonly vehicle = this.flow.vehicle;
@@ -96,6 +104,7 @@ export class QuotationComponent {
     this.advisor.set({
       name: (user?.user_metadata as Record<string, string> | undefined)?.['full_name'] || user?.email?.split('@')[0] || 'Rental Advisor',
       id: user?.id || 'advisor',
+      email: user?.email || 'advisor@autoflow.in',
     });
   }
 
@@ -188,8 +197,44 @@ export class QuotationComponent {
       return;
     }
 
-    await this.supabase.updateBookingQuoteStatus(this.booking().id, 'sent');
-    this.messageService.add({ severity: 'success', summary: 'Quotation sent', detail: `Sent via ${channel}.` });
+    if (channel === 'Email') {
+      if (!this.customer().email?.trim()) {
+        this.messageService.add({ severity: 'warn', summary: 'Email missing', detail: 'Customer email is required before sending the quotation.' });
+        return;
+      }
+
+      const pdfInput = this.buildPdfInput();
+      const { error } = await this.quotationEmail.sendQuotationEmail({
+        to: this.customer().email,
+        customerName: this.customer().fullName,
+        quoteReference: pdfInput.quoteReference,
+        advisorName: pdfInput.advisorName,
+        advisorEmail: pdfInput.advisorEmail,
+        finalAmount: pdfInput.amounts.finalAmount,
+        pdfBase64: this.quotationPdf.buildPdfBase64(pdfInput),
+        fileName: this.quotationPdf.buildFileName(pdfInput.quoteReference),
+      });
+
+      if (error) {
+        this.messageService.add({ severity: 'error', summary: 'Email failed', detail: (error as any).message || 'Could not send quotation email.' });
+        return;
+      }
+
+      await this.supabase.markQuotationSent(this.booking().id);
+      await this.supabase.updateBookingQuoteStatus(this.booking().id, 'sent');
+      this.messageService.add({ severity: 'success', summary: 'Quotation sent', detail: `Quotation sent to ${this.customer().email}.` });
+      return;
+    } else {
+      const message = encodeURIComponent(this.buildCustomerShareMessage());
+      const mobile = this.normalizedMobileWithCountryCode();
+      if (channel === 'SMS') {
+        window.open(`sms:${mobile}?body=${message}`, '_blank');
+      } else {
+        window.open(`https://wa.me/${mobile}?text=${message}`, '_blank');
+      }
+    }
+
+    this.messageService.add({ severity: 'success', summary: 'Quotation sent', detail: `Prepared ${channel} handoff.` });
   }
 
   async confirmBooking() {
@@ -239,14 +284,100 @@ export class QuotationComponent {
   }
 
   openPreview() {
+    const previousUrl = this.previewUrl();
+    if (previousUrl) {
+      URL.revokeObjectURL(previousUrl);
+    }
+
+    const blob = this.quotationPdf.buildPdfBlob(this.buildPdfInput());
+    const url = URL.createObjectURL(blob);
+    this.previewUrl.set(url);
+    this.previewResource.set(this.sanitizer.bypassSecurityTrustResourceUrl(url));
     this.previewVisible.set(true);
   }
 
   printPreview() {
-    window.print();
+    const url = this.previewUrl();
+    if (url) {
+      window.open(url, '_blank');
+    }
   }
 
   async backToCustomer() {
     await this.router.navigate(['/dealer/booking', this.booking().id, 'customer-details']);
+  }
+
+  private buildPdfInput() {
+    return {
+      companyName: 'AUTOFLOW',
+      companySubtitle: 'Fleet Operations',
+      quoteReference: this.referenceNumber(),
+      bookingId: this.booking()?.id || '-',
+      issueDate: this.formatDocumentDate(this.booking()?.created_at || new Date().toISOString()),
+      validUntil: this.formatDocumentDate(this.addDays(this.booking()?.created_at || new Date().toISOString(), 7)),
+      advisorName: this.advisor().name,
+      advisorEmail: this.advisor().email,
+      customerName: this.customer().fullName || '-',
+      customerMobile: this.normalizeMobile(this.customer().mobile) || '-',
+      customerEmail: this.customer().email || '-',
+      customerLicenseNo: this.customer().licenceNumber || '-',
+      customerType: this.customer().customerType || '-',
+      vehicleName: `${this.vehicle()?.make || this.vehicle()?.brand || ''} ${this.vehicle()?.model || ''}`.trim() || 'Vehicle',
+      vehicleFuelType: this.vehicle()?.fuel || this.vehicle()?.fuel_type || '-',
+      vehicleTransmission: this.vehicle()?.transmission || '-',
+      vehicleYear: String(this.vehicle()?.year || '-'),
+      pickupLocation: this.booking()?.pickup_location || '-',
+      dropLocation: this.booking()?.drop_location || '-',
+      pickupDateTime: `${this.formatDocumentDate(this.booking()?.start_date)} ${this.booking()?.pickup_time || ''}`.trim(),
+      dropDateTime: `${this.formatDocumentDate(this.booking()?.end_date)} ${this.booking()?.dropoff_time || ''}`.trim(),
+      durationLabel: this.durationLabel(),
+      purpose: this.booking()?.purpose || '-',
+      passengers: String(this.booking()?.number_of_passengers || '-'),
+      paymentStatusLabel: this.booking()?.payment_status || 'pending',
+      fuelPolicy: this.fuelPolicy(),
+      amounts: {
+        dailyRate: this.rate(),
+        days: this.billableDays(),
+        baseCost: this.baseCost(),
+        gst: this.gst(),
+        discountAmount: this.discount(),
+        advance: this.advance(),
+        securityDeposit: this.securityDeposit(),
+        finalAmount: this.grandTotal(),
+        extraMileageRate: this.extraMileageRate(),
+      },
+    };
+  }
+
+  private buildCustomerShareMessage() {
+    return `Hi ${this.customer().fullName}, here is your quotation ${this.referenceNumber()} from AUTOFLOW Fleet Operations. Amount: ${new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(this.grandTotal())}. Please contact us to confirm your booking.`;
+  }
+
+  private normalizedMobileWithCountryCode() {
+    const mobile = this.normalizeMobile(this.customer().mobile);
+    return mobile.startsWith('91') && mobile.length > 10 ? mobile : `91${mobile}`;
+  }
+
+  private normalizeMobile(value: string) {
+    let normalized = String(value ?? '').replace(/[\s-]/g, '');
+    if (normalized.startsWith('+91')) {
+      normalized = normalized.slice(3);
+    } else if (normalized.startsWith('91') && normalized.length > 10) {
+      normalized = normalized.slice(2);
+    }
+    return normalized;
+  }
+
+  private formatDocumentDate(value: string | Date | null | undefined) {
+    if (!value) {
+      return '-';
+    }
+    return new Date(value).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+
+  private addDays(value: string | Date, days: number) {
+    const date = new Date(value);
+    date.setDate(date.getDate() + days);
+    return date.toISOString();
   }
 }

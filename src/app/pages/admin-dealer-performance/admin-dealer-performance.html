@@ -2,12 +2,30 @@
 <p-confirmDialog></p-confirmDialog>
 
 <div class="admin-page-shell">
-  <div class="flex flex-wrap items-start justify-between gap-4">
+  <div class="flex flex-wrap items-start justify-between gap-4 mb-4">
     <div>
-      <h2 class="admin-page-title m-0">Pending Booking Approvals</h2>
-      <p class="admin-page-subtitle mt-1 mb-0">Every detail view is loaded fresh from Supabase before the admin approves or rejects.</p>
+      <h2 class="admin-page-title m-0">Booking Ledger</h2>
+      <p class="admin-page-subtitle mt-1 mb-0">Full lifecycle view of all bookings across every status.</p>
     </div>
-    <input pInputText [ngModel]="search()" (ngModelChange)="search.set($event)" placeholder="Search booking, customer, or quote" class="w-full md:w-72" />
+    <input pInputText [ngModel]="search()" (ngModelChange)="search.set($event)" placeholder="Search booking, customer, vehicle or quote" class="w-full md:w-72" />
+  </div>
+
+  <div class="flex flex-wrap gap-2 mb-4">
+    @for (tab of tabs; track tab.key) {
+      <button
+        pButton
+        type="button"
+        [label]="tab.label"
+        [outlined]="activeTab() !== tab.key"
+        size="small"
+        (click)="activeTab.set(tab.key)">
+        @if (tabCounts()[tab.key] > 0) {
+          <span class="ml-1.5 inline-flex items-center justify-center rounded-full bg-gray-200 px-1.5 py-0.5 text-xs font-semibold text-gray-700 leading-none">
+            {{ tabCounts()[tab.key] }}
+          </span>
+        }
+      </button>
+    }
   </div>
 
   <p-card styleClass="booking-table-card">
@@ -17,9 +35,10 @@
           <th>Booking Reference</th>
           <th>Customer</th>
           <th>Vehicle</th>
-          <th>Pickup Date</th>
-          <th>Total Price</th>
-          <th>Created At</th>
+          <th>Dates</th>
+          <th>Total</th>
+          <th>Quote Ref</th>
+          <th>Payment</th>
           <th>Status</th>
           <th>Actions</th>
         </tr>
@@ -33,17 +52,36 @@
             <p class="m-0 text-xs text-gray-500">{{ row.mobile }} | {{ row.customer_type }}</p>
           </td>
           <td>{{ row.vehicle_name }}</td>
-          <td>{{ row.pickup_date | date:'mediumDate' }}</td>
-          <td>{{ row.total_price | currency:'INR':'symbol':'1.0-0' }}</td>
-          <td>{{ row.created_at | date:'medium' }}</td>
-          <td><p-tag [value]="row.status | titlecase" [severity]="statusSeverity(row.status)"></p-tag></td>
+          <td class="text-sm">
+            <span>{{ row.start_date | date:'d MMM y' }}</span>
+            <span class="text-gray-400 mx-1">-></span>
+            <span>{{ row.end_date | date:'d MMM y' }}</span>
+          </td>
+          <td>
+            @if (row.final_amount > 0) {
+              {{ row.final_amount | currency:'INR':'symbol':'1.0-0' }}
+            } @else {
+              <span class="italic text-slate-400">-</span>
+            }
+          </td>
+          <td class="font-mono text-xs text-slate-600">{{ row.quote_reference }}</td>
+          <td><p-tag [value]="paymentBadgeLabel(row.latest_payment)" [severity]="paymentBadgeSeverity(row.latest_payment)"></p-tag></td>
+          <td><p-tag [value]="statusLabel(row.status)" [severity]="statusSeverity(row.status)"></p-tag></td>
           <td>
             <div class="booking-action-row">
-              <button pButton type="button" text icon="pi pi-eye" (click)="viewDetails(row)"></button>
-              <button pButton type="button" text severity="success" icon="pi pi-check" (click)="approveBooking(row)"></button>
-              <button pButton type="button" text severity="danger" icon="pi pi-times" (click)="openRejectDialog(row)"></button>
+              <button pButton type="button" text icon="pi pi-eye" pTooltip="View Details" (click)="viewDetails(row)"></button>
+              @if (row.status === 'pending') {
+                <button pButton type="button" text severity="success" icon="pi pi-check" pTooltip="Approve" (click)="approveBooking(row)"></button>
+                <button pButton type="button" text severity="danger" icon="pi pi-times" pTooltip="Reject" (click)="openRejectDialog(row)"></button>
+              }
             </div>
           </td>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="9" class="text-center py-8 text-gray-400 italic">No bookings found for this filter.</td>
         </tr>
       </ng-template>
     </p-table>
@@ -64,8 +102,7 @@
         <p class="admin-section-label mb-3">Booking</p>
         <div class="summary-list">
           <div><span>ID</span><strong>{{ detail.id }}</strong></div>
-          <div><span>Vehicle ID</span><strong>{{ detail.vehicle_id }}</strong></div>
-          <div><span>Customer ID</span><strong>{{ detail.customer_id }}</strong></div>
+          <div><span>Status</span><strong><p-tag [value]="statusLabel(detail.status)" [severity]="statusSeverity(detail.status)"></p-tag></strong></div>
           <div><span>Pickup Location</span><strong>{{ detail.pickup_location }}</strong></div>
           <div><span>Drop Location</span><strong>{{ detail.drop_location }}</strong></div>
           <div><span>Start Date</span><strong>{{ detail.start_date | date:'mediumDate' }}</strong></div>
@@ -75,11 +112,12 @@
           <div><span>Purpose</span><strong>{{ detail.purpose || '-' }}</strong></div>
           <div><span>Passengers</span><strong>{{ detail.number_of_passengers || '-' }}</strong></div>
           <div><span>Special Instructions</span><strong>{{ detail.special_instructions || '-' }}</strong></div>
-          <div><span>Status</span><strong>{{ detail.status }}</strong></div>
           <div><span>Created At</span><strong>{{ detail.created_at | date:'medium' }}</strong></div>
           <div><span>Approved By</span><strong>{{ detail.approved_by || '-' }}</strong></div>
           <div><span>Approved At</span><strong>{{ detail.approved_at ? (detail.approved_at | date:'medium') : '-' }}</strong></div>
-          <div><span>Rejection Reason</span><strong>{{ detail.rejection_reason || '-' }}</strong></div>
+          @if (detail.rejection_reason) {
+            <div><span>Rejection Reason</span><strong class="text-red-600">{{ detail.rejection_reason }}</strong></div>
+          }
         </div>
       </p-card>
 
@@ -101,19 +139,18 @@
       <p-card>
         <p class="admin-section-label mb-3">Quotation</p>
         <div class="summary-list">
-          <div><span>Rate</span><strong>{{ detail.quotation?.rate | currency:'INR':'symbol':'1.0-0' }}</strong></div>
+          <div><span>Quote Reference</span><strong>{{ detail.quotation?.quote_reference || '-' }}</strong></div>
+          <div><span>Rate / Day</span><strong>{{ detail.quotation?.rate | currency:'INR':'symbol':'1.0-0' }}</strong></div>
           <div><span>Days</span><strong>{{ detail.quotation?.days || '-' }}</strong></div>
           <div><span>Base Cost</span><strong>{{ detail.quotation?.base_cost | currency:'INR':'symbol':'1.0-0' }}</strong></div>
           <div><span>GST</span><strong>{{ detail.quotation?.gst | currency:'INR':'symbol':'1.0-0' }}</strong></div>
+          <div><span>Final Amount</span><strong>{{ detail.quotation?.final_amount | currency:'INR':'symbol':'1.0-0' }}</strong></div>
           <div><span>Advance</span><strong>{{ detail.quotation?.advance | currency:'INR':'symbol':'1.0-0' }}</strong></div>
           <div><span>Security Deposit</span><strong>{{ detail.quotation?.security_deposit | currency:'INR':'symbol':'1.0-0' }}</strong></div>
-          <div><span>Final Amount</span><strong>{{ detail.quotation?.final_amount | currency:'INR':'symbol':'1.0-0' }}</strong></div>
-          <div><span>Quote Reference</span><strong>{{ detail.quotation?.quote_reference || '-' }}</strong></div>
           <div><span>Fuel Policy</span><strong>{{ detail.quotation?.fuel_policy || '-' }}</strong></div>
           <div><span>Extra Mileage Rate</span><strong>{{ detail.quotation?.extra_mileage_rate | currency:'INR':'symbol':'1.0-0' }}</strong></div>
           <div><span>Promo Code</span><strong>{{ detail.quotation?.promo_code || '-' }}</strong></div>
-          <div><span>Discount Amount</span><strong>{{ detail.quotation?.discount_amount | currency:'INR':'symbol':'1.0-0' }}</strong></div>
-          <div><span>Status</span><strong>{{ detail.quotation?.status || '-' }}</strong></div>
+          <div><span>Discount</span><strong>{{ detail.quotation?.discount_amount | currency:'INR':'symbol':'1.0-0' }}</strong></div>
           <div><span>Advisor</span><strong>{{ detail.advisor_name }}</strong></div>
           <div><span>Sent At</span><strong>{{ detail.quotation?.sent_at ? (detail.quotation?.sent_at | date:'medium') : '-' }}</strong></div>
         </div>
@@ -129,14 +166,39 @@
           <div><span>Transmission</span><strong>{{ detail.vehicle?.transmission || '-' }}</strong></div>
           <div><span>Capacity</span><strong>{{ detail.vehicle?.capacity || '-' }}</strong></div>
           <div><span>Year</span><strong>{{ detail.vehicle?.year || '-' }}</strong></div>
-          <div><span>Daily Rate Column</span><strong>{{ detail.vehicle?.daily_rate | currency:'INR':'symbol':'1.0-0' }}</strong></div>
+          <div><span>Daily Rate</span><strong>{{ detail.vehicle?.daily_rate | currency:'INR':'symbol':'1.0-0' }}</strong></div>
         </div>
+      </p-card>
+
+      <p-card class="lg:col-span-2">
+        <p class="admin-section-label mb-3">Payment</p>
+        @if (selectedPayment(); as payment) {
+          <div class="summary-list">
+            <div>
+              <span>Status</span>
+              <strong><p-tag [value]="paymentBadgeLabel(payment)" [severity]="paymentBadgeSeverity(payment)"></p-tag></strong>
+            </div>
+            <div><span>Amount</span><strong>{{ payment.amount | currency:'INR':'symbol':'1.0-0' }}</strong></div>
+            <div><span>Type</span><strong>{{ payment.payment_type | titlecase }}</strong></div>
+            <div><span>Mode</span><strong>{{ payment.payment_mode || '-' }}</strong></div>
+            <div><span>Cashfree Order ID</span><strong class="font-mono text-xs">{{ payment.cf_order_id || '-' }}</strong></div>
+            <div><span>Transaction ID</span><strong class="font-mono text-xs">{{ payment.cf_payment_id || '-' }}</strong></div>
+            <div><span>Initiated At</span><strong>{{ payment.created_at | date:'medium' }}</strong></div>
+          </div>
+        } @else {
+          <p-tag [value]="paymentBadgeLabel(null)" [severity]="paymentBadgeSeverity(null)"></p-tag>
+        }
       </p-card>
     </div>
 
     <div class="mt-4 flex justify-end gap-2">
-      <button pButton type="button" label="Reject" severity="danger" outlined (click)="openRejectDialog(detail)"></button>
-      <button pButton type="button" label="Approve" severity="success" (click)="approveBooking(detail)"></button>
+      @if (detail.status === 'pending') {
+        <button pButton type="button" label="Reject" severity="danger" outlined (click)="openRejectDialog(detail)"></button>
+        <button pButton type="button" label="Approve" severity="success" (click)="approveBooking(detail)"></button>
+      }
+      @if (detail.status === 'payment_received') {
+        <button pButton type="button" label="Mark as In Service" icon="pi pi-car" severity="info" (click)="markInService(detail)"></button>
+      }
     </div>
   }
 </p-dialog>

@@ -178,11 +178,25 @@ export function buildActionItems(): ActionItem[] {
   ];
 }
 
+export function labelForStatus(status: string): string {
+  switch (status.toLowerCase()) {
+    case 'payment_received': return 'Advance Payment Received';
+    case 'in_service': return 'In Service';
+    case 'pending': return 'Pending';
+    case 'approved': return 'Approved';
+    case 'completed': return 'Completed';
+    case 'rejected': return 'Rejected';
+    case 'cancelled': return 'Cancelled';
+    default: return status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+}
+
 export function tagSeverityForStatus(status: string): 'success' | 'warn' | 'danger' | 'info' | 'secondary' | 'contrast' {
   const normalized = status.toLowerCase();
   switch (normalized) {
     case 'available':
     case 'approved':
+    case 'payment_received':
     case 'completed':
       return 'success';
     case 'booked':

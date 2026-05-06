@@ -40,8 +40,8 @@ export class BookingFlowService {
     return `${duration.days} days ${duration.hours} hours`;
   });
 
-  async loadBooking(bookingId: string) {
-    if (this.bookingId() === bookingId && this.booking()) {
+  async loadBooking(bookingId: string, forceRefresh = false) {
+    if (!forceRefresh && this.bookingId() === bookingId && this.booking()) {
       return this.booking();
     }
 

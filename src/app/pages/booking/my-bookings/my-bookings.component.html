@@ -24,12 +24,13 @@
             <th>Pickup</th>
             <th>Dates</th>
             <th>Total</th>
+            <th>Payment</th>
             <th>Status</th>
             <th>Actions</th>
           </tr>
         </ng-template>
         <ng-template pTemplate="body" let-row>
-          <tr>
+          <tr [class]="row.status === 'payment_received' ? 'bg-green-50' : ''">
             <td class="font-mono text-sm text-blue-700">{{ row.id }}</td>
             <td class="font-mono text-xs text-slate-600">{{ quoteReference(row) }}</td>
             <td>{{ row.vehicle_display }}</td>
@@ -42,9 +43,10 @@
                 <span class="italic text-slate-400">Pricing pending...</span>
               }
             </td>
-            <td><p-tag [value]="row.status | uppercase" [severity]="statusSeverity(row.status)"></p-tag></td>
+            <td><p-tag [value]="paymentBadgeLabel(row.latest_payment)" [severity]="paymentBadgeSeverity(row.latest_payment)"></p-tag></td>
+            <td><p-tag [value]="statusLabel(row.status)" [severity]="statusSeverity(row.status)"></p-tag></td>
             <td>
-              <div class="flex gap-1">
+              <div class="flex gap-1 items-center">
                 <button pButton type="button" icon="pi pi-eye" text (click)="openDetail(row)"></button>
 
                 @if (row.status === 'pending') {
@@ -52,7 +54,11 @@
                 }
 
                 @if (row.status === 'approved') {
-                  <button pButton type="button" icon="pi pi-credit-card" text severity="success" (click)="openPayment(row)"></button>
+                  <button pButton type="button" icon="pi pi-credit-card" text severity="success" title="Make Payment" (click)="openPayment(row)"></button>
+                }
+
+                @if (row.status === 'payment_received') {
+                  <button pButton type="button" label="View Details" icon="pi pi-arrow-right" iconPos="right" text severity="success" size="small" (click)="openDetail(row)"></button>
                 }
               </div>
             </td>
@@ -75,7 +81,7 @@
         <ng-template pTemplate="body" let-row>
           <tr>
             <td class="font-mono text-sm text-blue-700">{{ row.id }}</td>
-            <td><p-tag [value]="row.status | uppercase" [severity]="statusSeverity(row.status)"></p-tag></td>
+            <td><p-tag [value]="statusLabel(row.status)" [severity]="statusSeverity(row.status)"></p-tag></td>
             <td>{{ row.itemCount }}</td>
             <td>{{ row.summary || '-' }}</td>
             <td>{{ row.created_at | date:'medium' }}</td>
@@ -92,42 +98,186 @@
   (visibleChange)="detailVisible.set($event)"
   [modal]="true"
   [draggable]="false"
-  [style]="{ width: '560px' }">
+  [style]="{ width: '780px', maxWidth: '95vw' }">
   @if (selectedBooking(); as booking) {
-    <div class="space-y-4">
-      <div class="grid grid-cols-2 gap-4">
-        <div class="rounded-xl border border-gray-200 p-3">
-          <p class="m-0 text-xs uppercase tracking-wide text-gray-400">Vehicle</p>
-          <p class="m-0 mt-1 font-medium text-gray-900">{{ booking.vehicle_display }}</p>
+    <!-- Header row -->
+    <div class="flex items-start justify-between gap-4 mb-5">
+      <div>
+        <p class="m-0 text-xs uppercase tracking-wide text-gray-400">{{ booking.vehicle_display }}</p>
+        <p class="m-0 mt-1 font-mono text-xs text-slate-500">{{ quoteReference(booking) }}</p>
+      </div>
+      <div class="flex items-center gap-3 flex-wrap justify-end">
+        <p-tag [value]="statusLabel(booking.status)" [severity]="statusSeverity(booking.status)"></p-tag>
+        <p-tag [value]="paymentBadgeLabel(selectedPayment() || booking.latest_payment)" [severity]="paymentBadgeSeverity(selectedPayment() || booking.latest_payment)"></p-tag>
+        @if (hasPaidPayment(selectedPayment() || booking.latest_payment)) {
+          <button pButton type="button" label="Download Receipt" icon="pi pi-download" outlined size="small" (click)="downloadPaymentConfirmation(booking)"></button>
+        }
+      </div>
+    </div>
+
+    <div class="grid gap-4" style="grid-template-columns: 1fr 1fr">
+
+      <!-- Trip Details -->
+      <div class="rounded-xl border border-gray-200 p-4">
+        <p class="m-0 text-xs uppercase tracking-wide text-gray-400 font-semibold mb-3">Trip Details</p>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <p class="m-0 text-xs text-gray-400">Pickup</p>
+            <p class="m-0 font-medium text-gray-900 mt-0.5">{{ booking.pickup_location || '-' }}</p>
+            <p class="m-0 text-xs text-gray-500 mt-0.5">{{ booking.start_date | date:'d MMM y' }}{{ booking.pickup_time ? ' · ' + booking.pickup_time : '' }}</p>
+          </div>
+          <div>
+            <p class="m-0 text-xs text-gray-400">Drop</p>
+            <p class="m-0 font-medium text-gray-900 mt-0.5">{{ booking.drop_location || '-' }}</p>
+            <p class="m-0 text-xs text-gray-500 mt-0.5">{{ booking.end_date | date:'d MMM y' }}{{ booking.dropoff_time ? ' · ' + booking.dropoff_time : '' }}</p>
+          </div>
+          <div>
+            <p class="m-0 text-xs text-gray-400">Purpose</p>
+            <p class="m-0 font-medium mt-0.5">{{ booking.purpose || '-' }}</p>
+          </div>
+          <div>
+            <p class="m-0 text-xs text-gray-400">Passengers</p>
+            <p class="m-0 font-medium mt-0.5">{{ booking.number_of_passengers || '-' }}</p>
+          </div>
         </div>
-        <div class="rounded-xl border border-gray-200 p-3">
-          <p class="m-0 text-xs uppercase tracking-wide text-gray-400">Status</p>
-          <p-tag [value]="booking.status | uppercase" [severity]="statusSeverity(booking.status)" styleClass="mt-2"></p-tag>
-        </div>
-        <div class="rounded-xl border border-gray-200 p-3">
-          <p class="m-0 text-xs uppercase tracking-wide text-gray-400">Pickup</p>
-          <p class="m-0 mt-1 font-medium text-gray-900">{{ booking.pickup_location }}</p>
-        </div>
-        <div class="rounded-xl border border-gray-200 p-3">
-          <p class="m-0 text-xs uppercase tracking-wide text-gray-400">Drop</p>
-          <p class="m-0 mt-1 font-medium text-gray-900">{{ booking.drop_location }}</p>
-        </div>
-        <div class="rounded-xl border border-gray-200 p-3">
-          <p class="m-0 text-xs uppercase tracking-wide text-gray-400">Dates</p>
-          <p class="m-0 mt-1 font-medium text-gray-900">{{ booking.start_date | date:'mediumDate' }} - {{ booking.end_date | date:'mediumDate' }}</p>
-        </div>
-        <div class="rounded-xl border border-gray-200 p-3">
-          <p class="m-0 text-xs uppercase tracking-wide text-gray-400">Quote Ref</p>
-          <p class="m-0 mt-1 font-medium text-gray-900">{{ quoteReference(booking) }}</p>
+        @if (booking.special_instructions) {
+          <div class="mt-3 pt-3 border-t border-gray-100">
+            <p class="m-0 text-xs text-gray-400">Special Instructions</p>
+            <p class="m-0 text-sm mt-0.5">{{ booking.special_instructions }}</p>
+          </div>
+        }
+      </div>
+
+      <!-- Countdown Timer -->
+      <div class="rounded-xl border p-4 text-center flex flex-col justify-center" [ngClass]="timerClasses(booking)">
+        <p class="m-0 text-xs uppercase tracking-wide font-semibold mb-2">Days Remaining</p>
+        <p class="m-0 font-bold" style="font-size: 3.5rem; line-height: 1">
+          {{ daysRemaining(booking) > 0 ? daysRemaining(booking) : (daysRemaining(booking) === 0 ? 0 : '--') }}
+        </p>
+        <p class="m-0 text-sm mt-1">{{ timerLabel(booking) }}</p>
+        <div class="mt-3 pt-3 border-t border-current/20">
+          <p class="m-0 text-xs opacity-70 mb-0.5">Drop Location</p>
+          <p class="m-0 font-semibold">{{ booking.drop_location || '-' }}</p>
         </div>
       </div>
 
+      <!-- Financial Summary -->
+      @if (booking.quotation) {
+        <div class="rounded-xl border border-gray-200 p-4" style="grid-column: 1 / -1">
+          <p class="m-0 text-xs uppercase tracking-wide text-gray-400 font-semibold mb-3">Financial Summary</p>
+          <div class="grid gap-3" style="grid-template-columns: repeat(4, 1fr)">
+            <div>
+              <p class="m-0 text-xs text-gray-400">Rate / Day</p>
+              <p class="m-0 font-medium mt-0.5">{{ booking.quotation.rate | currency:'INR':'symbol':'1.0-0' }}</p>
+            </div>
+            <div>
+              <p class="m-0 text-xs text-gray-400">Days</p>
+              <p class="m-0 font-medium mt-0.5">{{ booking.quotation.days }}</p>
+            </div>
+            <div>
+              <p class="m-0 text-xs text-gray-400">Base Cost</p>
+              <p class="m-0 font-medium mt-0.5">{{ booking.quotation.base_cost | currency:'INR':'symbol':'1.0-0' }}</p>
+            </div>
+            <div>
+              <p class="m-0 text-xs text-gray-400">GST</p>
+              <p class="m-0 font-medium mt-0.5">{{ booking.quotation.gst | currency:'INR':'symbol':'1.0-0' }}</p>
+            </div>
+            <div>
+              <p class="m-0 text-xs text-gray-400">Security Deposit</p>
+              <p class="m-0 font-medium mt-0.5">{{ booking.quotation.security_deposit | currency:'INR':'symbol':'1.0-0' }}</p>
+            </div>
+            <div>
+              <p class="m-0 text-xs text-gray-400">Advance</p>
+              <p class="m-0 font-medium mt-0.5">{{ booking.quotation.advance | currency:'INR':'symbol':'1.0-0' }}</p>
+            </div>
+            <div>
+              <p class="m-0 text-xs text-gray-400">Final Amount</p>
+              <p class="m-0 font-bold text-lg mt-0.5">{{ booking.quotation.final_amount | currency:'INR':'symbol':'1.0-0' }}</p>
+            </div>
+            <div>
+              <p class="m-0 text-xs text-gray-400">Balance Remaining</p>
+              <p class="m-0 font-bold text-lg mt-0.5">{{ (booking.quotation.final_amount - booking.quotation.advance) | currency:'INR':'symbol':'1.0-0' }}</p>
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- Payment Status -->
+      <div
+        class="rounded-xl p-4"
+        [class.border-green-200]="paymentBadgeSeverity(selectedPayment() || booking.latest_payment) === 'success'"
+        [class.bg-green-50]="paymentBadgeSeverity(selectedPayment() || booking.latest_payment) === 'success'"
+        [class.border-gray-200]="paymentBadgeSeverity(selectedPayment() || booking.latest_payment) === 'secondary'"
+        [class.bg-gray-50]="paymentBadgeSeverity(selectedPayment() || booking.latest_payment) === 'secondary'"
+        style="grid-column: 1 / -1">
+          <div class="flex items-center gap-2 mb-3">
+            <i
+              class="pi text-xl"
+              [class.pi-check-circle]="paymentBadgeSeverity(selectedPayment() || booking.latest_payment) === 'success'"
+              [class.pi-minus-circle]="paymentBadgeSeverity(selectedPayment() || booking.latest_payment) === 'secondary'"
+              [class.text-green-600]="paymentBadgeSeverity(selectedPayment() || booking.latest_payment) === 'success'"
+              [class.text-gray-500]="paymentBadgeSeverity(selectedPayment() || booking.latest_payment) === 'secondary'"></i>
+            <p
+              class="m-0 font-semibold"
+              [class.text-green-700]="paymentBadgeSeverity(selectedPayment() || booking.latest_payment) === 'success'"
+              [class.text-gray-700]="paymentBadgeSeverity(selectedPayment() || booking.latest_payment) === 'secondary'">
+              {{ paymentBadgeLabel(selectedPayment() || booking.latest_payment) }}
+            </p>
+          </div>
+          @if (selectedPayment(); as payment) {
+            <div class="grid gap-3" style="grid-template-columns: repeat(3, 1fr)">
+              <div>
+                <p class="m-0 text-xs text-gray-400">Payment Mode</p>
+                <p class="m-0 font-medium mt-0.5">{{ payment.payment_mode || 'Online' }}</p>
+              </div>
+              <div>
+                <p class="m-0 text-xs text-gray-400">Transaction Ref</p>
+                <p class="m-0 font-mono text-xs mt-0.5">{{ payment.cf_payment_id || payment.cf_order_id || '-' }}</p>
+              </div>
+              <div>
+                <p class="m-0 text-xs text-gray-400">Paid At</p>
+                <p class="m-0 text-sm mt-0.5">{{ payment.created_at | date:'medium' }}</p>
+              </div>
+            </div>
+          } @else {
+            <p class="m-0 text-sm text-gray-700">No payment transaction has been initiated for this booking yet.</p>
+          }
+      </div>
+
+      @if (booking.status === 'approved') {
+        <div style="grid-column: 1 / -1">
+          <button pButton type="button" label="Make Advance Payment" icon="pi pi-credit-card" severity="success"
+            (click)="detailVisible.set(false); openPayment(booking)"></button>
+        </div>
+      }
+
+      @if (booking.status === 'in_service') {
+        <div class="rounded-xl border border-blue-200 bg-blue-50 p-3" style="grid-column: 1 / -1">
+          <div class="flex items-center gap-2">
+            <i class="pi pi-car text-blue-600"></i>
+            <p class="m-0 text-xs uppercase tracking-wide text-blue-600 font-semibold">Vehicle In Service</p>
+          </div>
+          <p class="m-0 mt-1 text-sm text-blue-700">Vehicle has been handed over and the trip is in progress.</p>
+        </div>
+      }
+
+      @if (booking.status === 'completed') {
+        <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-3" style="grid-column: 1 / -1">
+          <div class="flex items-center gap-2">
+            <i class="pi pi-check text-emerald-600"></i>
+            <p class="m-0 text-xs uppercase tracking-wide text-emerald-600 font-semibold">Trip Completed</p>
+          </div>
+          <p class="m-0 mt-1 text-sm text-emerald-700">This booking has been successfully completed.</p>
+        </div>
+      }
+
       @if (booking.rejection_reason) {
-        <div class="rounded-xl border border-red-200 bg-red-50 p-3">
+        <div class="rounded-xl border border-red-200 bg-red-50 p-3" style="grid-column: 1 / -1">
           <p class="m-0 text-xs uppercase tracking-wide text-red-500">Rejection Reason</p>
           <p class="m-0 mt-1 text-sm text-red-700">{{ booking.rejection_reason }}</p>
         </div>
       }
+
     </div>
   }
 </p-dialog>

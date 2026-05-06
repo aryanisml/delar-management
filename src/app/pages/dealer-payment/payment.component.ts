@@ -1,5 +1,5 @@
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
@@ -9,6 +9,7 @@ import { MessageModule } from 'primeng/message';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TagModule } from 'primeng/tag';
 import { ToastModule } from 'primeng/toast';
+import { environment } from '../../../environments/environment';
 import { BookingFlowService } from '../../services/booking-flow';
 import { SupabaseService } from '../../services/supabase';
 
@@ -31,7 +32,7 @@ import { SupabaseService } from '../../services/supabase';
   styleUrl: './payment.component.scss',
   providers: [MessageService],
 })
-export class PaymentComponent {
+export class PaymentComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private supabase = inject(SupabaseService);
@@ -40,8 +41,10 @@ export class PaymentComponent {
 
   readonly loading = signal(true);
   readonly quotation = signal<any | null>(null);
+  readonly existingPayment = signal<any | null>(null);
   readonly pricingSource = signal<'database' | 'local'>('database');
   readonly paymentDialogVisible = signal(false);
+  readonly processingPayment = signal(false);
 
   readonly booking = this.flow.booking;
   readonly vehicle = this.flow.vehicle;
@@ -63,7 +66,6 @@ export class PaymentComponent {
         fuel_policy: quotation.fuel_policy ?? 'Full-to-Full',
       };
     }
-
     return this.supabase.buildQuotationPricingPreview(
       this.vehicle(),
       this.booking()?.start_date || '',
@@ -71,9 +73,17 @@ export class PaymentComponent {
     );
   });
 
-  readonly amountDueNow = computed(() => Number(this.resolvedPricing().advance ?? 0));
+  readonly amountDueNow = computed(() => {
+    const p = this.resolvedPricing();
+    return Number(p.final_amount ?? 0) - Number(p.advance ?? 0);
+  });
   readonly vehicleName = computed(() => `${this.vehicle()?.brand || this.vehicle()?.make || ''} ${this.vehicle()?.model || ''}`.trim() || 'Vehicle');
   readonly quoteReference = computed(() => this.quotation()?.quote_reference || `QT-${String(this.booking()?.id || '').replace(/-/g, '').slice(0, 8).toUpperCase()}`);
+  readonly isAlreadyPaid = computed(() =>
+    Boolean(this.existingPayment())
+    || this.booking()?.status === 'payment_received'
+    || this.booking()?.payment_status === 'payment_received'
+  );
 
   async ngOnInit() {
     const bookingId = this.route.snapshot.paramMap.get('bookingId');
@@ -91,9 +101,14 @@ export class PaymentComponent {
       return;
     }
 
-    const quotation = await this.supabase.getQuotationByBooking(bookingId);
-    this.quotation.set(quotation.data ?? null);
-    this.pricingSource.set(quotation.data?.final_amount ? 'database' : 'local');
+    const [quotationResult, paymentResult] = await Promise.all([
+      this.supabase.getQuotationByBooking(bookingId),
+      this.supabase.getPaymentByBooking(bookingId),
+    ]);
+
+    this.quotation.set(quotationResult.data ?? null);
+    this.existingPayment.set(paymentResult.data ?? null);
+    this.pricingSource.set(quotationResult.data?.final_amount ? 'database' : 'local');
     this.loading.set(false);
   }
 
@@ -102,12 +117,41 @@ export class PaymentComponent {
   }
 
   async proceedToGateway() {
+    const bookingId = this.booking()?.id;
+    const quotationId = this.quotation()?.id;
+    const amount = this.amountDueNow();
+
+    if (!bookingId || !amount) {
+      this.messageService.add({ severity: 'error', summary: 'Cannot proceed', detail: 'Booking or amount not available.' });
+      return;
+    }
+
+    this.processingPayment.set(true);
     this.paymentDialogVisible.set(false);
-    this.messageService.add({
-      severity: 'info',
-      summary: 'Payment workflow ready',
-      detail: 'Connect your payment gateway flow from this confirmation step.',
-    });
+
+    const { data, error } = await this.supabase.createCashfreeOrder(bookingId, quotationId || '', amount);
+
+    if (error || !data?.payment_session_id) {
+      this.processingPayment.set(false);
+      const detail = (error as any)?.message || data?.error || 'Could not initiate payment.';
+      this.messageService.add({ severity: 'error', summary: 'Payment initiation failed', detail });
+      return;
+    }
+
+    try {
+      const cashfree = window.Cashfree({ mode: environment.cashfreeMode });
+      await cashfree.checkout({
+        paymentSessionId: data.payment_session_id,
+        redirectTarget: '_self',
+      });
+
+      const paymentResult = await this.supabase.getPaymentByBooking(bookingId);
+      this.existingPayment.set(paymentResult.data ?? null);
+      this.processingPayment.set(false);
+    } catch (sdkErr: any) {
+      this.processingPayment.set(false);
+      this.messageService.add({ severity: 'error', summary: 'Payment error', detail: sdkErr?.message || 'Cashfree SDK error.' });
+    }
   }
 
   async backToBookings() {
@@ -115,36 +159,52 @@ export class PaymentComponent {
   }
 
   downloadQuotationPdf() {
-    const blob = this.buildPdfBlob();
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${this.quoteReference() || 'quotation'}.pdf`;
-    link.click();
-    URL.revokeObjectURL(url);
-  }
-
-  private buildPdfBlob() {
     const pricing = this.resolvedPricing();
     const lines = [
       `Quotation ${this.quoteReference()}`,
       `Vehicle: ${this.vehicleName()}`,
-      `Pickup: ${this.booking()?.pickup_location || '-'} ${this.formatDate(this.booking()?.start_date)} ${this.booking()?.pickup_time || ''}`.trim(),
-      `Drop: ${this.booking()?.drop_location || '-'} ${this.formatDate(this.booking()?.end_date)} ${this.booking()?.dropoff_time || ''}`.trim(),
+      `Pickup: ${this.booking()?.pickup_location || '-'} | ${this.formatDate(this.booking()?.start_date)} ${this.booking()?.pickup_time || ''}`.trim(),
+      `Drop: ${this.booking()?.drop_location || '-'} | ${this.formatDate(this.booking()?.end_date)} ${this.booking()?.dropoff_time || ''}`.trim(),
       `Daily Rate: ${this.formatCurrency(pricing.rate)}`,
       `Days: ${pricing.days}`,
       `Base Cost: ${this.formatCurrency(pricing.base_cost)}`,
       `GST: ${this.formatCurrency(pricing.gst)}`,
       `Final Amount: ${this.formatCurrency(pricing.final_amount)}`,
       `Security Deposit: ${this.formatCurrency(pricing.security_deposit)}`,
-      `Advance Due Now: ${this.formatCurrency(pricing.advance)}`,
+      `Advance Due: ${this.formatCurrency(pricing.advance)}`,
     ];
+    this.triggerPdfDownload(lines, `${this.quoteReference() || 'quotation'}.pdf`);
+  }
 
+  downloadReceiptPdf() {
+    const payment = this.existingPayment();
+    const booking = this.booking();
+    const lines = [
+      `PAYMENT RECEIPT`,
+      ``,
+      `Quote Reference: ${this.quoteReference()}`,
+      `Booking ID: ${booking?.id || '-'}`,
+      `Vehicle: ${this.vehicleName()}`,
+      `Pickup: ${booking?.pickup_location || '-'} | ${this.formatDate(booking?.start_date)}`,
+      `Drop: ${booking?.drop_location || '-'} | ${this.formatDate(booking?.end_date)}`,
+      ``,
+      `Amount Paid: ${this.formatCurrency(payment?.amount || this.amountDueNow())}`,
+      `Payment Type: Balance Payment`,
+      `Payment Mode: ${payment?.payment_mode || 'Online'}`,
+      `Transaction Ref: ${payment?.cf_payment_id || payment?.cf_order_id || '-'}`,
+      `Paid On: ${payment?.created_at ? new Date(payment.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '-'}`,
+      ``,
+      `Status: ADVANCE PAYMENT CONFIRMED`,
+    ];
+    this.triggerPdfDownload(lines, `receipt-${this.quoteReference() || 'payment'}.pdf`);
+  }
+
+  private triggerPdfDownload(lines: string[], filename: string) {
     const content = [
       'BT',
       '/F1 12 Tf',
       '40 800 Td',
-      ...lines.flatMap((line, index) => [`(${this.escapePdf(line)}) Tj`, index === lines.length - 1 ? '' : 'T*']),
+      ...lines.flatMap((line, i) => [`(${this.escapePdf(line)}) Tj`, i === lines.length - 1 ? '' : 'T*']),
       'ET',
     ]
       .filter(Boolean)
@@ -161,25 +221,23 @@ export class PaymentComponent {
 
     let pdf = '%PDF-1.4\n';
     const offsets: number[] = [];
-    for (const object of objects) {
-      offsets.push(pdf.length);
-      pdf += `${object}\n`;
-    }
-
+    for (const obj of objects) { offsets.push(pdf.length); pdf += `${obj}\n`; }
     const xrefOffset = pdf.length;
     pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
-    pdf += offsets.map((offset) => `${String(offset).padStart(10, '0')} 00000 n \n`).join('');
+    pdf += offsets.map((o) => `${String(o).padStart(10, '0')} 00000 n \n`).join('');
     pdf += `trailer << /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
 
-    return new Blob([pdf], { type: 'application/pdf' });
+    const blob = new Blob([pdf], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   private formatCurrency(value: number) {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0,
-    }).format(Number(value ?? 0));
+    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(value ?? 0));
   }
 
   private formatDate(value?: string | null) {

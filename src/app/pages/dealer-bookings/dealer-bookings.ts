@@ -18,6 +18,8 @@ import { TagModule } from 'primeng/tag';
 import { TextareaModule } from 'primeng/textarea';
 import { ToastModule } from 'primeng/toast';
 import { normalizeVehicle, tagSeverityForStatus } from '../../admin-ui.models';
+import { QuotationEmailService } from '../../services/quotation-email.service';
+import { QuotationPdfService } from '../../services/quotation-pdf';
 import { SupabaseService } from '../../services/supabase';
 
 type VehicleFilters = {
@@ -90,6 +92,8 @@ export class DealerBookings {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private sanitizer = inject(DomSanitizer);
+  private quotationPdf = inject(QuotationPdfService);
+  private quotationEmail = inject(QuotationEmailService);
 
   readonly step = signal(1);
   readonly loadingVehicles = signal(false);
@@ -146,10 +150,17 @@ export class DealerBookings {
     whatsapp: false,
   });
   readonly paymentMode = signal<'UPI' | 'Card' | 'Cash' | null>(null);
+  readonly advisorContact = signal<{ name: string; email: string }>({ name: 'Rental Advisor', email: 'advisor@autoflow.in' });
 
   readonly purposeOptions = ['Corporate', 'Airport Transfer', 'Personal', 'Business Visit', 'Event']
     .map((value) => ({ label: value, value }));
   readonly paymentOptions = ['UPI', 'Card', 'Cash'].map((value) => ({ label: value, value }));
+  readonly locationOptions = [
+    'Hyderabad Airport (RGIA)', 'Hyderabad City Centre', 'Gachibowli', 'Hitech City', 'Madhapur',
+    'Secunderabad', 'Banjara Hills', 'Jubilee Hills', 'Ameerpet', 'Kukatpally',
+    'Begumpet', 'Kondapur', 'Manikonda', 'Miyapur', 'LB Nagar', 'Dilsukhnagar',
+    'Warangal', 'Vijayawada', 'Visakhapatnam', 'Bangalore', 'Mumbai', 'Delhi',
+  ].map((value) => ({ label: value, value }));
 
   readonly totalDays = computed(() => this.calculateDays(this.trip().pickup_date, this.trip().end_date));
   readonly insuranceStatus = computed(() => {
@@ -180,6 +191,11 @@ export class DealerBookings {
     return { label: 'Licence valid', severity: 'success' as const };
   });
   async ngOnInit() {
+    const user = await this.supabase.getCurrentUser();
+    this.advisorContact.set({
+      name: (user?.user_metadata as Record<string, string> | undefined)?.['full_name'] || user?.email?.split('@')[0] || 'Rental Advisor',
+      email: user?.email || 'advisor@autoflow.in',
+    });
     await this.loadVehicles();
     const vehicleId = this.route.snapshot.queryParamMap.get('vehicleId');
     if (vehicleId) {
@@ -485,26 +501,49 @@ export class DealerBookings {
       return;
     }
 
-    const blob = this.buildPdfBlob();
-    if (blob) {
-      const url = URL.createObjectURL(blob);
-      const quoteRef = this.generatedQuotation()?.quote_reference || 'Quotation';
-      const message = encodeURIComponent(
-        `Quotation ${quoteRef} for ${this.customer().full_name}. Pickup ${this.trip().pickup_location}, drop ${this.trip().drop_location}, total ${this.formatCurrency(this.quotationAmount('final_amount'))}.`
-      );
-
-      if (channel === 'email') {
-        window.open(`mailto:${this.customer().email || ''}?subject=${encodeURIComponent(quoteRef)}&body=${message}`, '_blank');
-      } else if (channel === 'sms') {
-        window.open(`sms:${this.customer().mobile}?body=${message}`, '_blank');
-      } else {
-        window.open(`https://wa.me/91${this.customer().mobile}?text=${message}`, '_blank');
-      }
-
-      setTimeout(() => URL.revokeObjectURL(url), 30000);
+    const pdfInput = this.buildPdfInput();
+    if (!pdfInput) {
+      this.messageService.add({ severity: 'warn', summary: 'Quotation unavailable', detail: 'Could not build the quotation PDF.' });
+      return;
     }
 
-    await this.supabase.markQuotationSent(this.generatedBooking().id);
+    if (channel === 'email') {
+      if (!this.customer().email?.trim()) {
+        this.messageService.add({ severity: 'warn', summary: 'Email missing', detail: 'Customer email is required before sending the quotation.' });
+        return;
+      }
+
+      const { error } = await this.quotationEmail.sendQuotationEmail({
+        to: this.customer().email,
+        customerName: this.customer().full_name,
+        quoteReference: pdfInput.quoteReference,
+        advisorName: pdfInput.advisorName,
+        advisorEmail: pdfInput.advisorEmail,
+        finalAmount: pdfInput.amounts.finalAmount,
+        pdfBase64: this.quotationPdf.buildPdfBase64(pdfInput),
+        fileName: this.quotationPdf.buildFileName(pdfInput.quoteReference),
+      });
+
+      if (error) {
+        this.messageService.add({ severity: 'error', summary: 'Email failed', detail: (error as any).message || 'Could not send quotation email.' });
+        return;
+      }
+
+      await this.supabase.markQuotationSent(this.generatedBooking().id);
+      this.sendState.update((current) => ({ ...current, [channel]: true }));
+      this.messageService.add({ severity: 'success', summary: 'Quotation sent', detail: `Quotation sent to ${this.customer().email}.` });
+      return;
+    } else {
+      const message = encodeURIComponent(this.buildCustomerShareMessage());
+      const mobile = this.normalizedMobileWithCountryCode();
+
+      if (channel === 'sms') {
+        window.open(`sms:${mobile}?body=${message}`, '_blank');
+      } else {
+        window.open(`https://wa.me/${mobile}?text=${message}`, '_blank');
+      }
+    }
+
     this.sendState.update((current) => ({ ...current, [channel]: true }));
     this.messageService.add({ severity: 'success', summary: 'Quotation shared', detail: `Prepared ${channel.toUpperCase()} handoff for the quotation.` });
   }
@@ -549,64 +588,12 @@ export class DealerBookings {
   }
 
   private buildPdfBlob() {
-    const quotation = this.generatedQuotation();
-    if (!quotation) {
+    const input = this.buildPdfInput();
+    if (!input) {
       return null;
     }
 
-    const lines = [
-      `Quotation ${quotation?.quote_reference || 'DRAFT'}`,
-      `Customer: ${this.customer().full_name}`,
-      `Mobile: ${this.customer().mobile}`,
-      `Vehicle: ${this.selectedVehicle()?.brand || ''} ${this.selectedVehicle()?.model || ''}`.trim(),
-      `Pickup: ${this.trip().pickup_location} on ${this.toDateOnly(this.trip().pickup_date)}`,
-      `Drop: ${this.trip().drop_location} on ${this.toDateOnly(this.trip().end_date)}`,
-      `Rate per day: ${this.formatCurrency(this.quotationAmount('rate'))}`,
-      `Days: ${quotation.days ?? '-'}`,
-      `Base cost: ${this.formatCurrency(this.quotationAmount('base_cost'))}`,
-      `GST: ${this.formatCurrency(this.quotationAmount('gst'))}`,
-      `Advance: ${this.formatCurrency(this.quotationAmount('advance'))}`,
-      `Security deposit: ${this.formatCurrency(this.quotationAmount('security_deposit'))}`,
-      `Final amount: ${this.formatCurrency(this.quotationAmount('final_amount'))}`,
-      `Extra mileage rate: ${this.formatCurrency(this.quotationAmount('extra_mileage_rate'))} per km`,
-    ];
-
-    const content = [
-      'BT',
-      '/F1 12 Tf',
-      '40 800 Td',
-      ...lines.flatMap((line, index) => [`(${this.escapePdf(line)}) Tj`, index === lines.length - 1 ? '' : 'T*']),
-      'ET',
-    ]
-      .filter(Boolean)
-      .join('\n');
-
-    const stream = `<< /Length ${content.length} >>\nstream\n${content}\nendstream`;
-    const objects = [
-      '1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj',
-      '2 0 obj << /Type /Pages /Count 1 /Kids [3 0 R] >> endobj',
-      '3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >> endobj',
-      `4 0 obj ${stream} endobj`,
-      '5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj',
-    ];
-
-    let pdf = '%PDF-1.4\n';
-    const offsets: number[] = [];
-    for (const object of objects) {
-      offsets.push(pdf.length);
-      pdf += `${object}\n`;
-    }
-
-    const xrefOffset = pdf.length;
-    pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
-    pdf += offsets.map((offset) => `${String(offset).padStart(10, '0')} 00000 n \n`).join('');
-    pdf += `trailer << /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
-
-    return new Blob([pdf], { type: 'application/pdf' });
-  }
-
-  private escapePdf(value: string) {
-    return value.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+    return this.quotationPdf.buildPdfBlob(input);
   }
 
   private calculateDays(start: Date | null, end: Date | null) {
@@ -657,6 +644,77 @@ export class DealerBookings {
 
   quotationAmount(field: string) {
     return Number(this.generatedQuotation()?.[field] ?? 0);
+  }
+
+  private buildPdfInput() {
+    const quotation = this.generatedQuotation();
+    const booking = this.generatedBooking();
+    const vehicle = this.selectedVehicle();
+    if (!quotation || !booking || !vehicle) {
+      return null;
+    }
+
+    return {
+      companyName: 'AUTOFLOW',
+      companySubtitle: 'Fleet Operations',
+      quoteReference: quotation.quote_reference || 'DRAFT',
+      bookingId: booking.id || '-',
+      issueDate: this.formatDocumentDate(quotation.created_at || booking.created_at || new Date().toISOString()),
+      validUntil: this.formatDocumentDate(this.addDays(quotation.created_at || booking.created_at || new Date().toISOString(), 7)),
+      advisorName: this.advisorContact().name,
+      advisorEmail: this.advisorContact().email,
+      customerName: this.customer().full_name || '-',
+      customerMobile: this.normalizeMobile(this.customer().mobile) || '-',
+      customerEmail: this.customer().email || '-',
+      customerLicenseNo: this.customer().license_no || '-',
+      customerType: this.customer().customer_type || '-',
+      vehicleName: `${vehicle.brand || ''} ${vehicle.model || ''}`.trim() || 'Vehicle',
+      vehicleFuelType: vehicle.fuel || vehicle.fuel_type || '-',
+      vehicleTransmission: vehicle.transmission || '-',
+      vehicleYear: String(vehicle.year || '-'),
+      pickupLocation: this.trip().pickup_location || '-',
+      dropLocation: this.trip().drop_location || '-',
+      pickupDateTime: `${this.formatDocumentDate(this.trip().pickup_date)} ${this.trip().pickup_time || ''}`.trim(),
+      dropDateTime: `${this.formatDocumentDate(this.trip().end_date)} ${this.trip().dropoff_time || ''}`.trim(),
+      durationLabel: `${quotation.days || this.totalDays()} day(s)`,
+      purpose: this.trip().purpose || '-',
+      passengers: String(this.trip().number_of_passengers || '-'),
+      paymentStatusLabel: booking.payment_status || 'pending',
+      fuelPolicy: quotation.fuel_policy || 'Full-to-Full',
+      amounts: {
+        dailyRate: this.quotationAmount('rate'),
+        days: Number(quotation.days || this.totalDays()),
+        baseCost: this.quotationAmount('base_cost'),
+        gst: this.quotationAmount('gst'),
+        discountAmount: this.quotationAmount('discount_amount'),
+        advance: this.quotationAmount('advance'),
+        securityDeposit: this.quotationAmount('security_deposit'),
+        finalAmount: this.quotationAmount('final_amount'),
+        extraMileageRate: this.quotationAmount('extra_mileage_rate'),
+      },
+    };
+  }
+
+  private buildCustomerShareMessage() {
+    return `Hi ${this.customer().full_name}, here is your quotation ${this.generatedQuotation()?.quote_reference || 'Quotation'} from AUTOFLOW Fleet Operations. Amount: ${this.formatCurrency(this.quotationAmount('final_amount'))}. Please contact us to confirm your booking.`;
+  }
+
+  private normalizedMobileWithCountryCode() {
+    const mobile = this.normalizeMobile(this.customer().mobile);
+    return mobile.startsWith('91') && mobile.length > 10 ? mobile : `91${mobile}`;
+  }
+
+  private formatDocumentDate(value: string | Date | null | undefined) {
+    if (!value) {
+      return '-';
+    }
+    return new Date(value).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+
+  private addDays(value: string | Date, days: number) {
+    const date = new Date(value);
+    date.setDate(date.getDate() + days);
+    return date.toISOString();
   }
 
   pricingResolved() {

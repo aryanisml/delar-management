@@ -87,7 +87,7 @@ export class SupabaseService {
   private readonly vehiclesTable = 'vehicle';
   readonly gstRate = 0.18;
   readonly advanceRate = 0.3;
-  readonly blockingBookingStatuses = ['pending', 'approved', 'in_service'];
+  readonly blockingBookingStatuses = ['pending', 'approved', 'payment_received', 'in_service'];
 
   supabase = createClient(environment.supabaseUrl, environment.supabaseKey);
 
@@ -284,7 +284,7 @@ export class SupabaseService {
   }
 
   async getBookingWithVehicle(bookingId: string) {
-    return await this.supabase
+    const result = await this.supabase
       .from('bookings')
       .select(`
         *,
@@ -300,6 +300,11 @@ export class SupabaseService {
       `)
       .eq('id', bookingId)
       .single();
+
+    return {
+      ...result,
+      data: this.normalizeBookingPaymentState(result.data),
+    };
   }
 
   async addVehicle(vehicle: any) {
@@ -351,16 +356,22 @@ export class SupabaseService {
       return { data: [], error: result.error };
     }
 
+    const latestPayments = await this.getLatestPaymentsForBookings((result.data ?? []).map((booking: any) => booking.id));
+    if (latestPayments.error) {
+      return { data: [], error: latestPayments.error };
+    }
+
     return {
       data: (result.data ?? []).map((booking: any) => {
         const quotation = Array.isArray(booking.quotation) ? booking.quotation[0] ?? null : booking.quotation ?? null;
-        return {
+        return this.normalizeBookingPaymentState({
           ...booking,
           quotation,
           quote_status: quotation?.status ?? null,
           quote_reference: quotation?.quote_reference ?? null,
           total_price: quotation?.final_amount ?? booking.total_price ?? null,
-        };
+          latest_payment: latestPayments.data.get(booking.id) ?? null,
+        });
       }),
       error: null,
     };
@@ -1340,6 +1351,7 @@ export class SupabaseService {
         number_of_passengers,
         special_instructions,
         status,
+        payment_status,
         created_at,
         approved_by,
         approved_at,
@@ -1385,7 +1397,7 @@ export class SupabaseService {
 
     return {
       data: {
-        ...data,
+        ...this.normalizeBookingPaymentState(data),
         quotation: quotation.data,
         advisor_name: advisorName,
       },
@@ -1486,6 +1498,20 @@ export class SupabaseService {
       .subscribe();
   }
 
+  subscribeToAllBookingChanges(callback: () => void) {
+    return this.supabase
+      .channel('admin-bookings-rt')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, callback)
+      .subscribe();
+  }
+
+  subscribeToMyBookingChanges(userId: string, callback: () => void) {
+    return this.supabase
+      .channel(`dealer-bookings-rt-${userId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings', filter: `user_id=eq.${userId}` }, callback)
+      .subscribe();
+  }
+
   async releaseExpiredBookings() {
     const today = new Date().toISOString().slice(0, 10);
     const { data, error } = await this.supabase
@@ -1528,6 +1554,44 @@ export class SupabaseService {
         booking,
         quotation,
         dealer,
+      },
+    });
+  }
+
+  async sendQuotationEmail(payload: {
+    to: string;
+    customerName: string;
+    quoteReference: string;
+    booking: any;
+    quotation: any;
+    vehicle: any;
+    pdfBase64: string;
+    fileName: string;
+  }) {
+    if (!payload.to?.trim()) {
+      return { data: null, error: new Error('Customer email address is missing') };
+    }
+
+    const user = await this.getCurrentUser();
+    const { data: dealer } = user?.id ? await this.getDealerProfile(user.id) : { data: null };
+
+    return await this.supabase.functions.invoke('send-booking-confirmation', {
+      body: {
+        mode: 'quotation',
+        to: payload.to.trim(),
+        quoteReference: payload.quoteReference,
+        customerName: payload.customerName,
+        vehicle: payload.vehicle,
+        booking: payload.booking,
+        quotation: payload.quotation,
+        dealer,
+        attachments: [
+          {
+            filename: payload.fileName,
+            content: payload.pdfBase64,
+            type: 'application/pdf',
+          },
+        ],
       },
     });
   }
@@ -1626,6 +1690,232 @@ export class SupabaseService {
     return `Advisor ${advisorId.slice(0, 8)}`;
   }
 
+  async createCashfreeOrder(bookingId: string, quotationId: string, amount: number) {
+    switch (environment.cashfreeApiStyle) {
+      case 'vercel': return await this.createViaVercelApi(bookingId, quotationId, amount);
+      case 'edge': {
+        const { data, error } = await this.supabase.functions.invoke('create-cashfree-order', {
+          body: { booking_id: bookingId, quotation_id: quotationId, amount },
+        });
+        return { data, error };
+      }
+      default: return await this.createCashfreeOrderLocal(bookingId, quotationId, amount);
+    }
+  }
+
+  async markBookingInService(bookingId: string) {
+    return await this.supabase
+      .from('bookings')
+      .update({ status: 'in_service', updated_at: new Date().toISOString() })
+      .eq('id', bookingId);
+  }
+
+  async getPaymentByBooking(bookingId: string) {
+    const result = await this.supabase
+      .from('payments')
+      .select('id, cf_order_id, cf_payment_id, amount, payment_type, status, payment_mode, created_at')
+      .eq('booking_id', bookingId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    return {
+      ...result,
+      data: this.normalizePaymentState(result.data),
+    };
+  }
+
+  async getAdminBookingLedger() {
+    const result = await this.supabase
+      .from('bookings')
+      .select(`
+        id, status, payment_status, start_date, end_date, pickup_location, drop_location, created_at, user_id, total_price,
+        customers(full_name, mobile, customer_type),
+        vehicle(brand, model),
+        quotations!quotations_booking_id_fkey(quote_reference, final_amount)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (result.error) {
+      return result;
+    }
+
+    const latestPayments = await this.getLatestPaymentsForBookings((result.data ?? []).map((row: any) => row.id));
+    if (latestPayments.error) {
+      return { data: [], error: latestPayments.error };
+    }
+
+    return {
+      ...result,
+      data: (result.data ?? []).map((row: any) => this.normalizeBookingPaymentState({
+        ...row,
+        latest_payment: latestPayments.data.get(row.id) ?? null,
+      })),
+    };
+  }
+
+  private async createViaVercelApi(bookingId: string, quotationId: string, amount: number) {
+    const freshCutoff = new Date(Date.now() - 25 * 60 * 1000).toISOString();
+    const { data: existing } = await this.supabase
+      .from('payments')
+      .select('cf_order_id, cf_payment_session_id')
+      .eq('booking_id', bookingId)
+      .eq('status', 'initiated')
+      .gte('created_at', freshCutoff)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existing?.cf_payment_session_id) {
+      return { data: { cf_order_id: existing.cf_order_id, payment_session_id: existing.cf_payment_session_id }, error: null };
+    }
+
+    const { data: booking } = await this.supabase
+      .from('bookings')
+      .select('id, status, customer_id, vehicle_id, user_id, customers(full_name, mobile, email)')
+      .eq('id', bookingId)
+      .single();
+
+    if (!booking) return { data: null, error: new Error('Booking not found') };
+    if ((booking as any).status !== 'approved') {
+      return { data: null, error: new Error(`Booking must be approved (current: ${(booking as any).status})`) };
+    }
+
+    const cfOrderId = `CF-${bookingId.replace(/-/g, '').slice(0, 16).toUpperCase()}-${Date.now()}`;
+    const customer = (booking as any).customers;
+    const returnUrl = `${window.location.origin}/dealer/booking/${bookingId}/payments?cf_order_id=${cfOrderId}`;
+
+    let paymentSessionId: string;
+    try {
+      const response = await fetch('/api/create-cashfree-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          order_id: cfOrderId,
+          order_amount: Number(amount),
+          customer_id: String((booking as any).customer_id),
+          customer_name: customer?.full_name || 'Customer',
+          customer_email: customer?.email || 'noreply@example.com',
+          customer_phone: String(customer?.mobile || '9999999999').replace(/\D/g, '').slice(-10).padStart(10, '9'),
+          return_url: returnUrl,
+        }),
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        return { data: null, error: new Error(`Cashfree error: ${errText}`) };
+      }
+      const result = await response.json();
+      paymentSessionId = result.payment_session_id;
+    } catch (fetchErr: any) {
+      return { data: null, error: new Error(`Network error: ${fetchErr?.message}`) };
+    }
+
+    const { error: insertError } = await this.supabase.rpc('insert_payment_record', {
+      p_booking_id: bookingId,
+      p_quotation_id: quotationId || null,
+      p_customer_id: (booking as any).customer_id,
+      p_vehicle_id: (booking as any).vehicle_id,
+      p_advisor_id: (booking as any).user_id,
+      p_cf_order_id: cfOrderId,
+      p_cf_payment_session_id: paymentSessionId,
+      p_amount: Number(amount),
+      p_payment_type: 'balance',
+    });
+
+    if (insertError) {
+      return { data: null, error: new Error(`Payment record creation failed: ${insertError.message}`) };
+    }
+
+    return { data: { cf_order_id: cfOrderId, payment_session_id: paymentSessionId }, error: null };
+  }
+
+  private async createCashfreeOrderLocal(bookingId: string, quotationId: string, amount: number) {
+    const freshCutoff = new Date(Date.now() - 25 * 60 * 1000).toISOString();
+    const { data: existing } = await this.supabase
+      .from('payments')
+      .select('cf_order_id, cf_payment_session_id')
+      .eq('booking_id', bookingId)
+      .eq('status', 'initiated')
+      .gte('created_at', freshCutoff)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existing?.cf_payment_session_id) {
+      return { data: { cf_order_id: existing.cf_order_id, payment_session_id: existing.cf_payment_session_id }, error: null };
+    }
+
+    const { data: booking } = await this.supabase
+      .from('bookings')
+      .select('id, status, customer_id, vehicle_id, user_id, customers(full_name, mobile, email)')
+      .eq('id', bookingId)
+      .single();
+
+    if (!booking) return { data: null, error: new Error('Booking not found') };
+    if (booking.status !== 'approved') {
+      return { data: null, error: new Error(`Booking must be approved to initiate payment (current: ${(booking as any).status})`) };
+    }
+
+    const cfOrderId = `CF-${bookingId.replace(/-/g, '').slice(0, 16).toUpperCase()}-${Date.now()}`;
+    const customer = (booking as any).customers;
+
+    const cfPayload = {
+      order_id: cfOrderId,
+      order_amount: Number(amount),
+      order_currency: 'INR',
+      customer_details: {
+        customer_id: String((booking as any).customer_id),
+        customer_name: customer?.full_name || 'Customer',
+        customer_email: customer?.email || 'noreply@example.com',
+        customer_phone: String(customer?.mobile || '9999999999').replace(/\D/g, '').slice(-10).padStart(10, '9'),
+      },
+      order_meta: {
+        return_url: `${window.location.origin}/dealer/booking/${bookingId}/payments?cf_order_id={order_id}`,
+      },
+    };
+
+    let cfOrder: any;
+    try {
+      const cfResponse = await fetch('/cashfree-proxy/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-version': '2023-08-01',
+          'x-client-id': environment.cashfreeAppId,
+          'x-client-secret': environment.cashfreeSecretKey,
+        },
+        body: JSON.stringify(cfPayload),
+      });
+
+      if (!cfResponse.ok) {
+        const errText = await cfResponse.text();
+        return { data: null, error: new Error(`Cashfree error: ${errText}`) };
+      }
+      cfOrder = await cfResponse.json();
+    } catch (fetchErr: any) {
+      return { data: null, error: new Error(`Network error calling Cashfree: ${fetchErr?.message}`) };
+    }
+
+    const { error: insertError } = await this.supabase.rpc('insert_payment_record', {
+      p_booking_id: bookingId,
+      p_quotation_id: quotationId || null,
+      p_customer_id: (booking as any).customer_id,
+      p_vehicle_id: (booking as any).vehicle_id,
+      p_advisor_id: (booking as any).user_id,
+      p_cf_order_id: cfOrderId,
+      p_cf_payment_session_id: cfOrder.payment_session_id,
+      p_amount: Number(amount),
+      p_payment_type: 'balance',
+    });
+
+    if (insertError) {
+      return { data: null, error: new Error(`Payment record creation failed: ${insertError.message}`) };
+    }
+
+    return { data: { cf_order_id: cfOrderId, payment_session_id: cfOrder.payment_session_id }, error: null };
+  }
+
   private fileToDataUrl(file: File) {
     return new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
@@ -1633,5 +1923,69 @@ export class SupabaseService {
       reader.onerror = () => reject(reader.error);
       reader.readAsDataURL(file);
     });
+  }
+
+  private async getLatestPaymentsForBookings(bookingIds: string[]) {
+    const uniqueIds = [...new Set((bookingIds ?? []).filter(Boolean))];
+    if (!uniqueIds.length) {
+      return { data: new Map<string, any>(), error: null };
+    }
+
+    const result = await this.supabase
+      .from('payments')
+      .select('booking_id, status, payment_type, amount, cf_payment_id, cf_order_id, payment_mode, created_at')
+      .in('booking_id', uniqueIds)
+      .order('created_at', { ascending: false });
+
+    if (result.error) {
+      return { data: new Map<string, any>(), error: result.error };
+    }
+
+    const latestByBooking = new Map<string, any>();
+    for (const payment of result.data ?? []) {
+      const bookingId = String(payment['booking_id'] ?? '');
+      if (!bookingId || latestByBooking.has(bookingId)) {
+        continue;
+      }
+      latestByBooking.set(bookingId, this.normalizePaymentState(payment));
+    }
+
+    return { data: latestByBooking, error: null };
+  }
+
+  private normalizeBookingPaymentState<T extends Record<string, any> | null>(booking: T): T {
+    if (!booking) {
+      return booking;
+    }
+
+    const status = String(booking['status'] ?? '').toLowerCase();
+    const paymentStatus = String(booking['payment_status'] ?? '').toLowerCase();
+    const hasReceivedAdvance = status === 'payment_received'
+      || paymentStatus === 'payment_received'
+      || paymentStatus === 'paid';
+
+    if (!hasReceivedAdvance || booking['status'] === 'payment_received') {
+      return booking;
+    }
+
+    return {
+      ...booking,
+      status: 'payment_received',
+    } as T;
+  }
+
+  private normalizePaymentState<T extends Record<string, any> | null>(payment: T): T {
+    if (!payment) {
+      return payment;
+    }
+
+    if (String(payment['status'] ?? '').toLowerCase() !== 'success') {
+      return payment;
+    }
+
+    return {
+      ...payment,
+      status: 'paid',
+    } as T;
   }
 }

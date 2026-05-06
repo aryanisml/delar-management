@@ -12,7 +12,11 @@
           <p class="payment-eyebrow">Trip Snapshot</p>
           <h2 class="snapshot-card__title">{{ vehicleName() }}</h2>
         </div>
-        <p-tag [value]="(booking()?.status || 'approved') | uppercase" severity="success"></p-tag>
+        @if (isAlreadyPaid()) {
+          <p-tag value="ADVANCE PAYMENT RECEIVED" severity="success"></p-tag>
+        } @else {
+          <p-tag [value]="(booking()?.status || 'approved') | uppercase" severity="success"></p-tag>
+        }
       </div>
 
       <div class="snapshot-card__route">
@@ -52,7 +56,7 @@
         @if (pricingSource() === 'local') {
           <p-message
             severity="warn"
-            text="Pricing is temporarily calculated locally. Contact administrator if issue persists."></p-message>
+            text="Pricing is temporarily calculated locally. Contact administrator if this persists."></p-message>
         }
 
         <p-card styleClass="payment-card">
@@ -90,52 +94,99 @@
               <strong>{{ resolvedPricing().security_deposit | currency:'INR':'symbol':'1.0-0' }}</strong>
             </div>
             <div class="pricing-row">
-              <span>Advance Paid</span>
+              <span>Advance (Collected)</span>
               <strong>{{ resolvedPricing().advance | currency:'INR':'symbol':'1.0-0' }}</strong>
+            </div>
+            <div class="pricing-row" style="border-top: 2px solid var(--p-primary-color); margin-top: 4px; padding-top: 8px;">
+              <span style="font-weight: 600;">Balance Due</span>
+              <strong style="color: var(--p-primary-color);">{{ amountDueNow() | currency:'INR':'symbol':'1.0-0' }}</strong>
             </div>
           </div>
 
           <div class="amount-due">
-            <span>Amount Due Now</span>
+            <span>Balance Due Now</span>
             <strong>{{ amountDueNow() | currency:'INR':'symbol':'1.0-0' }}</strong>
-            <small>Advance collection is separated from the refundable security deposit.</small>
+            <small>This is the remaining balance after deducting the advance already collected.</small>
           </div>
         </p-card>
       </div>
 
       <aside class="payment-side">
-        <p-card styleClass="payment-card payment-card--action">
-          <div class="payment-action">
-            <p class="payment-eyebrow">Payment Action</p>
-            <h3>{{ amountDueNow() | currency:'INR':'symbol':'1.0-0' }}</h3>
-            <p>Collect the advance securely, then continue through the dedicated payment step.</p>
-
-            <div class="trust-list">
-              <div class="trust-item">
-                <i class="pi pi-shield"></i>
-                <span>Booking-linked payment summary</span>
+        @if (isAlreadyPaid()) {
+          <p-card styleClass="payment-card payment-card--action">
+            <div class="payment-action">
+              <p class="payment-eyebrow">Payment Status</p>
+              <div class="flex items-center gap-2 mb-3">
+                <i class="pi pi-check-circle text-green-600 text-2xl"></i>
+                <h3 class="m-0 text-green-700">Advance Payment Received</h3>
               </div>
-              <div class="trust-item">
-                <i class="pi pi-lock"></i>
-                <span>Quotation values locked to this trip</span>
-              </div>
-              <div class="trust-item">
-                <i class="pi pi-check-circle"></i>
-                <span>Clean handoff to payment workflow</span>
+              <p class="text-sm text-gray-500 mb-4">
+                Payment of {{ existingPayment()?.amount ? (existingPayment().amount | currency:'INR':'symbol':'1.0-0') : (amountDueNow() | currency:'INR':'symbol':'1.0-0') }} has been received.
+                The booking status is updated and ready for handover.
+              </p>
+              @if (existingPayment(); as payment) {
+                <div class="gateway-dialog__summary mb-4">
+                  <div>
+                    <span>Payment Mode</span>
+                    <strong>{{ payment.payment_mode || 'Online' }}</strong>
+                  </div>
+                  <div>
+                    <span>Transaction Ref</span>
+                    <strong class="font-mono text-xs">{{ payment.cf_payment_id || payment.cf_order_id || '-' }}</strong>
+                  </div>
+                  <div>
+                    <span>Paid At</span>
+                    <strong>{{ payment.created_at | date:'medium' }}</strong>
+                  </div>
+                </div>
+              }
+              <div class="flex gap-2 flex-col">
+                <button pButton type="button" label="Download Receipt" icon="pi pi-download" outlined (click)="downloadReceiptPdf()"></button>
+                <button pButton type="button" label="Back to My Bookings" text (click)="backToBookings()"></button>
               </div>
             </div>
+          </p-card>
+        } @else {
+          <p-card styleClass="payment-card payment-card--action">
+            <div class="payment-action">
+              <p class="payment-eyebrow">Payment Action</p>
+              <h3>{{ amountDueNow() | currency:'INR':'symbol':'1.0-0' }}</h3>
+              <p>Collect the balance payment securely via Cashfree, then continue through to the trip handover.</p>
 
-            <button pButton type="button" label="Complete Payment" icon="pi pi-credit-card" class="payment-action__cta" (click)="openPaymentDialog()"></button>
-            <button pButton type="button" label="Back to My Bookings" text (click)="backToBookings()"></button>
-          </div>
-        </p-card>
+              <div class="trust-list">
+                <div class="trust-item">
+                  <i class="pi pi-shield"></i>
+                  <span>Booking-linked payment summary</span>
+                </div>
+                <div class="trust-item">
+                  <i class="pi pi-lock"></i>
+                  <span>Quotation values locked to this trip</span>
+                </div>
+                <div class="trust-item">
+                  <i class="pi pi-check-circle"></i>
+                  <span>Auto-confirms booking on success</span>
+                </div>
+              </div>
+
+              <button
+                pButton
+                type="button"
+                label="Complete Balance Payment"
+                icon="pi pi-credit-card"
+                class="payment-action__cta"
+                [loading]="processingPayment()"
+                (click)="openPaymentDialog()"></button>
+              <button pButton type="button" label="Back to My Bookings" text (click)="backToBookings()"></button>
+            </div>
+          </p-card>
+        }
       </aside>
     </section>
   </div>
 }
 
 <p-dialog
-  header="Complete Payment"
+  header="Complete Balance Payment"
   [visible]="paymentDialogVisible()"
   (visibleChange)="paymentDialogVisible.set($event)"
   [modal]="true"
@@ -143,7 +194,7 @@
   [style]="{ width: '440px' }">
   <div class="gateway-dialog">
     <p class="gateway-dialog__amount">{{ amountDueNow() | currency:'INR':'symbol':'1.0-0' }}</p>
-    <p class="gateway-dialog__copy">Move into your payment gateway or dedicated payment step from here. Keep the collection flow isolated from quotation review.</p>
+    <p class="gateway-dialog__copy">You will be redirected to Cashfree's secure payment page. After completing the payment you'll return here automatically.</p>
 
     <div class="gateway-dialog__summary">
       <div>
@@ -163,6 +214,13 @@
 
   <ng-template pTemplate="footer">
     <button pButton type="button" label="Close" text (click)="paymentDialogVisible.set(false)"></button>
-    <button pButton type="button" label="Proceed to Gateway" icon="pi pi-arrow-right" iconPos="right" (click)="proceedToGateway()"></button>
+    <button
+      pButton
+      type="button"
+      label="Proceed to Cashfree"
+      icon="pi pi-arrow-right"
+      iconPos="right"
+      [loading]="processingPayment()"
+      (click)="proceedToGateway()"></button>
   </ng-template>
 </p-dialog>

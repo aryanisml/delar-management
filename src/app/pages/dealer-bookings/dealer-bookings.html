@@ -248,11 +248,11 @@
         <div class="filter-grid trip-detail-grid">
           <div class="field">
             <label>Pickup Location</label>
-            <input pInputText [ngModel]="trip().pickup_location" (ngModelChange)="updateTrip('pickup_location', $event)" />
+            <p-select [options]="locationOptions" [ngModel]="trip().pickup_location" (ngModelChange)="updateTrip('pickup_location', $event)" [editable]="true" placeholder="Select or type location" appendTo="body"></p-select>
           </div>
           <div class="field">
             <label>Drop Location</label>
-            <input pInputText [ngModel]="trip().drop_location" (ngModelChange)="updateTrip('drop_location', $event)" />
+            <p-select [options]="locationOptions" [ngModel]="trip().drop_location" (ngModelChange)="updateTrip('drop_location', $event)" [editable]="true" placeholder="Select or type location" appendTo="body"></p-select>
           </div>
           <div class="field">
             <label>Pickup Date</label>

@@ -1,5 +1,5 @@
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
-import { Component, ElementRef, ViewChild, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ConfirmationService, MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
@@ -7,12 +7,16 @@ import { CardModule } from 'primeng/card';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { DialogModule } from 'primeng/dialog';
 import { InputTextModule } from 'primeng/inputtext';
+import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
+import { TooltipModule } from 'primeng/tooltip';
 import { TextareaModule } from 'primeng/textarea';
 import { ToastModule } from 'primeng/toast';
-import { tagSeverityForStatus } from '../../admin-ui.models';
+import { labelForStatus, tagSeverityForStatus } from '../../admin-ui.models';
 import { SupabaseService } from '../../services/supabase';
+
+type LedgerTab = 'all' | 'pending' | 'approved' | 'payment_received' | 'in_service' | 'completed' | 'rejected' | 'cancelled';
 
 @Component({
   selector: 'app-admin-dealer-performance',
@@ -27,77 +31,117 @@ import { SupabaseService } from '../../services/supabase';
     DatePipe,
     DialogModule,
     InputTextModule,
+    ProgressSpinnerModule,
     TableModule,
     TagModule,
     TextareaModule,
     ToastModule,
+    TooltipModule,
   ],
   templateUrl: './admin-dealer-performance.html',
   styleUrl: './admin-dealer-performance.scss',
   providers: [ConfirmationService, MessageService],
 })
-export class AdminDealerPerformance {
+export class AdminDealerPerformance implements OnInit, OnDestroy {
   @ViewChild('detailDialogContent') detailDialogContent?: ElementRef<HTMLElement>;
 
   private supabase = inject(SupabaseService);
   private confirmationService = inject(ConfirmationService);
   private messageService = inject(MessageService);
 
+  private bookingChannel: any = null;
+
   readonly loading = signal(false);
+  readonly activeTab = signal<LedgerTab>('pending');
   readonly search = signal('');
-  readonly bookings = signal<any[]>([]);
+  readonly allBookings = signal<any[]>([]);
   readonly detailVisible = signal(false);
   readonly selectedDetail = signal<any | null>(null);
+  readonly selectedPayment = signal<any | null>(null);
   readonly rejectDialogVisible = signal(false);
   readonly rejectDialogBooking = signal<any | null>(null);
   readonly rejectReason = signal('');
 
-  readonly filteredBookings = computed(() => {
-    const query = this.search().trim().toLowerCase();
-    return this.bookings().filter((row) => {
-      if (!query) {
-        return true;
-      }
+  readonly tabs: { key: LedgerTab; label: string }[] = [
+    { key: 'all', label: 'All' },
+    { key: 'pending', label: 'Pending' },
+    { key: 'approved', label: 'Approved' },
+    { key: 'payment_received', label: 'Payment Received' },
+    { key: 'in_service', label: 'In Service' },
+    { key: 'completed', label: 'Completed' },
+    { key: 'rejected', label: 'Rejected' },
+    { key: 'cancelled', label: 'Cancelled' },
+  ];
 
-      return [
-        row.id,
-        row.customer_name,
-        row.mobile,
-        row.vehicle_name,
-        row.quote_reference,
-      ]
-        .join(' ')
-        .toLowerCase()
-        .includes(query);
-    });
+  readonly tabCounts = computed(() => {
+    const b = this.allBookings();
+    return {
+      all: b.length,
+      pending: b.filter((r) => r.status === 'pending').length,
+      approved: b.filter((r) => r.status === 'approved').length,
+      payment_received: b.filter((r) => r.status === 'payment_received').length,
+      in_service: b.filter((r) => r.status === 'in_service').length,
+      completed: b.filter((r) => r.status === 'completed').length,
+      rejected: b.filter((r) => r.status === 'rejected').length,
+      cancelled: b.filter((r) => r.status === 'cancelled').length,
+    };
+  });
+
+  readonly filteredBookings = computed(() => {
+    const tab = this.activeTab();
+    const query = this.search().trim().toLowerCase();
+    let rows = tab === 'all' ? this.allBookings() : this.allBookings().filter((r) => r.status === tab);
+    if (query) {
+      rows = rows.filter((r) =>
+        [r.id, r.customer_name, r.mobile, r.vehicle_name, r.quote_reference]
+          .join(' ')
+          .toLowerCase()
+          .includes(query)
+      );
+    }
+    return rows;
   });
 
   async ngOnInit() {
-    await this.loadRequests();
+    this.bookingChannel = this.supabase.subscribeToAllBookingChanges(() => this.loadLedger());
+    await this.loadLedger();
   }
 
-  async loadRequests() {
+  ngOnDestroy() {
+    this.bookingChannel?.unsubscribe();
+  }
+
+  async loadLedger() {
     this.loading.set(true);
-    const { data, error } = await this.supabase.getPendingBookingRequests();
+    const { data, error } = await this.supabase.getAdminBookingLedger();
     this.loading.set(false);
 
     if (error) {
-      this.messageService.add({ severity: 'error', summary: 'Bookings unavailable', detail: (error as any)?.message || 'Could not load pending bookings.' });
+      this.messageService.add({ severity: 'error', summary: 'Bookings unavailable', detail: (error as any)?.message || 'Could not load bookings.' });
       return;
     }
 
-    this.bookings.set(
-      (data ?? []).map((row: any) => ({
-        id: row.id,
-        customer_name: row.customers?.full_name || '-',
-        mobile: row.customers?.mobile || '-',
-        customer_type: row.customers?.customer_type || '-',
-        vehicle_name: `${row.vehicle?.brand || ''} ${row.vehicle?.model || ''}`.trim() || '-',
-        pickup_date: row.start_date,
-        total_price: Number(row.total_price ?? 0),
-        created_at: row.created_at,
-        status: row.status,
-      }))
+    this.allBookings.set(
+      (data ?? []).map((row: any) => {
+        // quotations is a has-many join → returns array; take the first
+        const q = Array.isArray(row.quotations) ? row.quotations[0] : null;
+        return {
+          id: row.id,
+          status: row.status,
+          payment_status: row.payment_status || null,
+          latest_payment: row.latest_payment ?? null,
+          customer_name: row.customers?.full_name || '-',
+          mobile: row.customers?.mobile || '-',
+          customer_type: row.customers?.customer_type || '-',
+          vehicle_name: `${row.vehicle?.brand || ''} ${row.vehicle?.model || ''}`.trim() || '-',
+          start_date: row.start_date,
+          end_date: row.end_date,
+          pickup_location: row.pickup_location,
+          final_amount: Number(q?.final_amount ?? row.total_price ?? 0),
+          quote_reference: q?.quote_reference || '-',
+          created_at: row.created_at,
+        };
+      })
     );
   }
 
@@ -105,15 +149,52 @@ export class AdminDealerPerformance {
     return tagSeverityForStatus(status);
   }
 
+  statusLabel(status: string) {
+    return labelForStatus(status);
+  }
+
+  paymentBadgeLabel(payment: any) {
+    if (payment) return 'Advance Paid';
+    return 'Not Initiated';
+  }
+
+  paymentBadgeSeverity(payment: any): 'success' | 'secondary' {
+    if (payment) return 'success';
+    return 'secondary';
+  }
+
   async viewDetails(row: any) {
-    const { data, error } = await this.supabase.getAdminBookingDetails(row.id);
-    if (error || !data) {
-      this.messageService.add({ severity: 'error', summary: 'Details unavailable', detail: (error as any)?.message || 'Could not load booking details.' });
+    const [detailResult, paymentResult] = await Promise.all([
+      this.supabase.getAdminBookingDetails(row.id),
+      this.supabase.getPaymentByBooking(row.id),
+    ]);
+    if (detailResult.error || !detailResult.data) {
+      this.messageService.add({ severity: 'error', summary: 'Details unavailable', detail: (detailResult.error as any)?.message || 'Could not load booking details.' });
       return;
     }
-
-    this.selectedDetail.set(data);
+    this.selectedDetail.set(detailResult.data);
+    this.selectedPayment.set(paymentResult.data ?? null);
     this.detailVisible.set(true);
+  }
+
+  markInService(row: any) {
+    this.confirmationService.confirm({
+      header: 'Mark as In Service',
+      message: `Confirm vehicle handover for booking ${row.id}? This will move it to In Service status.`,
+      icon: 'pi pi-car',
+      acceptButtonStyleClass: 'p-button-info',
+      rejectButtonStyleClass: 'p-button-text',
+      accept: async () => {
+        const { error } = await this.supabase.markBookingInService(row.id);
+        if (error) {
+          this.messageService.add({ severity: 'error', summary: 'Failed', detail: (error as any)?.message || 'Could not update booking.' });
+          return;
+        }
+        this.messageService.add({ severity: 'success', summary: 'In Service', detail: `Booking ${row.id} is now in service.` });
+        this.detailVisible.set(false);
+        await this.loadLedger();
+      },
+    });
   }
 
   onDetailDialogShow() {
@@ -125,19 +206,12 @@ export class AdminDealerPerformance {
   }
 
   idProofLabel(value: string | null | undefined) {
-    if (!value) {
-      return '-';
-    }
-
-    if (value.startsWith('data:')) {
-      return 'Uploaded (inline)';
-    }
-
+    if (!value) return '-';
+    if (value.startsWith('data:')) return 'Uploaded (inline)';
     if (value.startsWith('https://')) {
       const path = value.split('?')[0];
       return decodeURIComponent(path.split('/').filter(Boolean).pop() || '-');
     }
-
     return value;
   }
 
@@ -154,10 +228,9 @@ export class AdminDealerPerformance {
           this.messageService.add({ severity: 'error', summary: 'Approval failed', detail: (error as any)?.message || 'Could not approve the booking.' });
           return;
         }
-
         this.messageService.add({ severity: 'success', summary: 'Booking approved', detail: `Booking ${row.id} is now approved.` });
         this.detailVisible.set(false);
-        await this.loadRequests();
+        await this.loadLedger();
       },
     });
   }
@@ -175,16 +248,14 @@ export class AdminDealerPerformance {
       this.messageService.add({ severity: 'warn', summary: 'Reason required', detail: 'Enter a rejection reason before continuing.' });
       return;
     }
-
     const { error } = await this.supabase.rejectBookingRequest(row.id, reason);
     if (error) {
       this.messageService.add({ severity: 'error', summary: 'Rejection failed', detail: (error as any)?.message || 'Could not reject the booking.' });
       return;
     }
-
     this.rejectDialogVisible.set(false);
     this.detailVisible.set(false);
     this.messageService.add({ severity: 'info', summary: 'Booking rejected', detail: `Booking ${row.id} has been rejected.` });
-    await this.loadRequests();
+    await this.loadLedger();
   }
 }

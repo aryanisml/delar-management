@@ -36,7 +36,7 @@
 
           <p-tag
             *ngSwitchCase="'status'"
-            [value]="rowData.status | uppercase"
+            [value]="getStatusLabel(rowData.status)"
             [severity]="getStatusSeverity(rowData.status)"
             class="custom-pill">
           </p-tag>

@@ -4,6 +4,7 @@ import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
 import { TagModule } from 'primeng/tag';
 import { InputTextModule } from 'primeng/inputtext';
+import { labelForStatus } from '../../admin-ui.models';
 
 // Define the structure for our columns
 export interface TableColumn {
@@ -33,10 +34,15 @@ export class ReusableTableComponent {
     this.onCancel.emit(id);
   }
 
+  getStatusLabel(status: string) {
+    return labelForStatus(status ?? '');
+  }
+
   getStatusSeverity(status: string) {
     switch (status?.toLowerCase()) {
       case 'approved':
       case 'available':
+      case 'payment_received':
         return 'success';
       case 'pending':
         return 'warn';

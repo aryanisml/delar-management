@@ -15,7 +15,7 @@ export interface Booking {
   approved_at?: string;
   rejection_reason?: string;
   dealer_notes?: string;
-  status?: 'pending' | 'approved' | 'rejected' | 'in_service' | 'completed' | 'cancelled';
+  status?: 'pending' | 'approved' | 'payment_received' | 'rejected' | 'in_service' | 'completed' | 'cancelled';
   quote_status?: 'draft' | 'sent' | 'submitted' | 'approved' | 'cancelled' | 'rejected';
   customer_id?: string;
   pickup_time?: string;
