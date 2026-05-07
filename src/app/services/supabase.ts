@@ -80,6 +80,22 @@ type NotificationInput = {
   is_read?: boolean;
 };
 
+type InspectionCompletionInput = {
+  bookingId: string;
+  vehicleId: string;
+  customerId: string;
+  inspectorId: string;
+  odometerReading: number;
+  fuelLevel: string;
+  tyreCondition: string;
+  bodyCondition: string;
+  interiorCondition: string;
+  damageNotes?: string | null;
+  specialRemarks?: string | null;
+  licenceVerified: boolean;
+  customerAcknowledged: boolean;
+};
+
 @Injectable({
   providedIn: 'root',
 })
@@ -245,39 +261,32 @@ export class SupabaseService {
     try {
       const { data, error } = await this.supabase
         .from('bookings')
-        .select(`
-          id,
-          vehicle_id,
-          customer_id,
-          pickup_location,
-          drop_location,
-          start_date,
-          end_date,
-          pickup_time,
-          dropoff_time,
-          purpose,
-          number_of_passengers,
-          special_instructions,
-          status,
-          created_at,
-          approved_by,
-          approved_at,
-          rejection_reason,
-          total_price,
-          customers (
-            full_name,
-            mobile,
-            customer_type
-          ),
-          vehicle (
-            brand,
-            model
-          )
-        `)
+        .select('id, vehicle_id, customer_id, pickup_location, drop_location, start_date, end_date, pickup_time, dropoff_time, purpose, number_of_passengers, special_instructions, status, created_at, approved_by, approved_at, rejection_reason, total_price')
         .eq('status', 'pending')
         .order('created_at', { ascending: false });
 
-      return { data: data ?? [], error };
+      if (error) {
+        return { data: [], error };
+      }
+
+      const customerMap = await this.getCustomersByIds((data ?? []).map((row: any) => row.customer_id));
+      if (customerMap.error) {
+        return { data: [], error: customerMap.error };
+      }
+
+      const vehicleMap = await this.getVehiclesByIds((data ?? []).map((row: any) => row.vehicle_id));
+      if (vehicleMap.error) {
+        return { data: [], error: vehicleMap.error };
+      }
+
+      return {
+        data: (data ?? []).map((row: any) => ({
+          ...row,
+          customers: customerMap.data.get(row.customer_id) ?? null,
+          vehicle: vehicleMap.data.get(row.vehicle_id) ?? null,
+        })),
+        error: null,
+      };
     } catch (error) {
       return { data: [], error };
     }
@@ -286,24 +295,52 @@ export class SupabaseService {
   async getBookingWithVehicle(bookingId: string) {
     const result = await this.supabase
       .from('bookings')
-      .select(`
-        *,
-        vehicle (
-          *,
-          vehicle_tiers (
-            daily_rate,
-            security_deposit,
-            extra_mileage_rate,
-            included_km_per_day
-          )
-        )
-      `)
+      .select('*')
       .eq('id', bookingId)
       .single();
 
+    if (result.error || !result.data) {
+      return {
+        ...result,
+        data: this.normalizeBookingPaymentState(result.data),
+      };
+    }
+
+    const vehicleResult = result.data.vehicle_id
+      ? await this.supabase.from('vehicle').select('*').eq('id', result.data.vehicle_id).maybeSingle()
+      : { data: null, error: null };
+
+    if (vehicleResult.error) {
+      return { data: null, error: vehicleResult.error };
+    }
+
+    let tier: any = null;
+    const tierId = (vehicleResult.data as any)?.tier_id;
+    if (tierId) {
+      const tierResult = await this.supabase
+        .from('vehicle_tiers')
+        .select('daily_rate, security_deposit, extra_mileage_rate, included_km_per_day')
+        .eq('id', tierId)
+        .maybeSingle();
+
+      if (tierResult.error) {
+        return { data: null, error: tierResult.error };
+      }
+
+      tier = tierResult.data ?? null;
+    }
+
     return {
       ...result,
-      data: this.normalizeBookingPaymentState(result.data),
+      data: this.normalizeBookingPaymentState({
+        ...result.data,
+        vehicle: vehicleResult.data
+          ? {
+              ...vehicleResult.data,
+              vehicle_tiers: tier,
+            }
+          : null,
+      }),
     };
   }
 
@@ -337,23 +374,30 @@ export class SupabaseService {
 
     const result = await this.supabase
       .from('bookings')
-      .select(`
-        *,
-        vehicle:vehicle_id (
-          id, brand, model, image_url, location, vehicle_status
-        ),
-        customer:customer_id (
-          id, full_name, mobile, email
-        ),
-        quotation:quotations!quotations_booking_id_fkey (
-          id, quote_reference, final_amount, rate, days, status, base_cost, gst, advance, security_deposit
-        )
-      `)
+      .select('*')
       .or(filters.join(','))
       .order('created_at', { ascending: false });
 
     if (result.error) {
       return { data: [], error: result.error };
+    }
+
+    const [vehicleMap, customerMap, quotationMap] = await Promise.all([
+      this.getVehiclesByIds((result.data ?? []).map((booking: any) => booking.vehicle_id)),
+      this.getCustomersByIds((result.data ?? []).map((booking: any) => booking.customer_id)),
+      this.getQuotationsByBookingIds((result.data ?? []).map((booking: any) => booking.id)),
+    ]);
+
+    if (vehicleMap.error) {
+      return { data: [], error: vehicleMap.error };
+    }
+
+    if (customerMap.error) {
+      return { data: [], error: customerMap.error };
+    }
+
+    if (quotationMap.error) {
+      return { data: [], error: quotationMap.error };
     }
 
     const latestPayments = await this.getLatestPaymentsForBookings((result.data ?? []).map((booking: any) => booking.id));
@@ -363,9 +407,11 @@ export class SupabaseService {
 
     return {
       data: (result.data ?? []).map((booking: any) => {
-        const quotation = Array.isArray(booking.quotation) ? booking.quotation[0] ?? null : booking.quotation ?? null;
+        const quotation = quotationMap.data.get(booking.id) ?? null;
         return this.normalizeBookingPaymentState({
           ...booking,
+          vehicle: vehicleMap.data.get(booking.vehicle_id) ?? null,
+          customer: customerMap.data.get(booking.customer_id) ?? null,
           quotation,
           quote_status: quotation?.status ?? null,
           quote_reference: quotation?.quote_reference ?? null,
@@ -1139,29 +1185,7 @@ export class SupabaseService {
     const bulkIds = bulkResult.data.map((bulk: any) => bulk.id);
     const bookingsResult = await this.supabase
       .from('bookings')
-      .select(`
-          id,
-          vehicle_id,
-          user_id,
-          pickup_location,
-          drop_location,
-          start_date,
-          end_date,
-          purpose,
-          quantity,
-          status,
-          rejection_reason,
-          created_at,
-          bulk_booking_id,
-          vehicle (
-            id,
-            brand,
-            model,
-            location,
-            daily_rate,
-            image_url
-          )
-      `)
+      .select('id, vehicle_id, user_id, pickup_location, drop_location, start_date, end_date, purpose, quantity, status, rejection_reason, created_at, bulk_booking_id')
       .in('bulk_booking_id', bulkIds)
       .order('created_at', { ascending: false });
 
@@ -1169,10 +1193,21 @@ export class SupabaseService {
       return { data: bulkResult.data, error: bookingsResult.error };
     }
 
+    const vehicleMap = await this.getVehiclesByIds((bookingsResult.data ?? []).map((booking: any) => booking.vehicle_id));
+    if (vehicleMap.error) {
+      return { data: bulkResult.data, error: vehicleMap.error };
+    }
+
     const bookingsByBulkId = new Map<string, any[]>();
     for (const booking of bookingsResult.data ?? []) {
       const key = booking.bulk_booking_id;
-      bookingsByBulkId.set(key, [...(bookingsByBulkId.get(key) ?? []), booking]);
+      bookingsByBulkId.set(key, [
+        ...(bookingsByBulkId.get(key) ?? []),
+        {
+          ...booking,
+          vehicle: vehicleMap.data.get(booking.vehicle_id) ?? null,
+        },
+      ]);
     }
 
     return {
@@ -1312,12 +1347,20 @@ export class SupabaseService {
   async getBookingRequestDetails(bookingId: string) {
     const { data, error } = await this.supabase
       .from('bookings')
-      .select(`*, vehicle (*)`)
+      .select('*')
       .eq('id', bookingId)
       .maybeSingle();
 
     if (error || !data) {
       return { data: null, error };
+    }
+
+    const vehicleResult = data.vehicle_id
+      ? await this.supabase.from('vehicle').select('*').eq('id', data.vehicle_id).maybeSingle()
+      : { data: null, error: null };
+
+    if (vehicleResult.error) {
+      return { data: null, error: vehicleResult.error };
     }
 
     const quotation = await this.getQuotationByBooking(bookingId);
@@ -1328,6 +1371,7 @@ export class SupabaseService {
     return {
       data: {
         ...data,
+        vehicle: vehicleResult.data ?? null,
         quotation: quotation.data,
       },
       error: null,
@@ -1337,50 +1381,7 @@ export class SupabaseService {
   async getAdminBookingDetails(bookingId: string) {
     const { data, error } = await this.supabase
       .from('bookings')
-      .select(`
-        id,
-        vehicle_id,
-        customer_id,
-        pickup_location,
-        drop_location,
-        start_date,
-        end_date,
-        pickup_time,
-        dropoff_time,
-        purpose,
-        number_of_passengers,
-        special_instructions,
-        status,
-        payment_status,
-        created_at,
-        approved_by,
-        approved_at,
-        rejection_reason,
-        user_id,
-        total_price,
-        customers (
-          full_name,
-          mobile,
-          email,
-          license_no,
-          license_expiry,
-          customer_type,
-          business_name,
-          gst_number,
-          id_proof_url
-        ),
-        vehicle (
-          brand,
-          model,
-          registration_no,
-          fuel,
-          transmission,
-          capacity,
-          year,
-          daily_rate,
-          tier_id
-        )
-      `)
+      .select('id, vehicle_id, customer_id, pickup_location, drop_location, start_date, end_date, pickup_time, dropoff_time, purpose, number_of_passengers, special_instructions, status, payment_status, created_at, approved_by, approved_at, rejection_reason, user_id, total_price')
       .eq('id', bookingId)
       .maybeSingle();
 
@@ -1388,9 +1389,22 @@ export class SupabaseService {
       return { data: null, error };
     }
 
-    const quotation = await this.getQuotationByBooking(bookingId);
+    const [quotation, customerResult, vehicleResult] = await Promise.all([
+      this.getQuotationByBooking(bookingId),
+      data.customer_id ? this.supabase.from('customers').select('*').eq('id', data.customer_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
+      data.vehicle_id ? this.supabase.from('vehicle').select('*').eq('id', data.vehicle_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
+    ]);
+
     if (quotation.error) {
       return { data: null, error: quotation.error };
+    }
+
+    if (customerResult.error) {
+      return { data: null, error: customerResult.error };
+    }
+
+    if (vehicleResult.error) {
+      return { data: null, error: vehicleResult.error };
     }
 
     const advisorName = await this.resolveAdvisorDisplayName(quotation.data?.advisor_id);
@@ -1398,6 +1412,8 @@ export class SupabaseService {
     return {
       data: {
         ...this.normalizeBookingPaymentState(data),
+        customers: customerResult.data ?? null,
+        vehicle: vehicleResult.data ?? null,
         quotation: quotation.data,
         advisor_name: advisorName,
       },
@@ -1728,7 +1744,7 @@ export class SupabaseService {
 
     const { data: booking, error } = await this.supabase
       .from('bookings')
-      .select('id, customer_id, vehicle_id, user_id, customers(full_name, mobile, email)')
+      .select('id, customer_id, vehicle_id, user_id')
       .eq('id', bookingId)
       .single();
 
@@ -1736,10 +1752,23 @@ export class SupabaseService {
       return { data: null, error: error ?? new Error('Booking not found') };
     }
 
+    const customerResult = booking.customer_id
+      ? await this.supabase.from('customers').select('full_name, mobile, email').eq('id', booking.customer_id).maybeSingle()
+      : { data: null, error: null };
+
+    if (customerResult.error) {
+      return { data: null, error: customerResult.error };
+    }
+
+    const bookingWithCustomer = {
+      ...booking,
+      customers: customerResult.data ?? null,
+    };
+
     const cfOrderId = `ADV-${bookingId.replace(/-/g, '').slice(0, 16).toUpperCase()}-${Date.now()}`;
     const returnUrl = `${window.location.origin}/dealer/my-bookings?bookingId=${bookingId}&cf_order_id=${cfOrderId}`;
     const order = await this.requestCashfreeOrder({
-      booking,
+      booking: bookingWithCustomer,
       cfOrderId,
       amount,
       returnUrl,
@@ -1776,6 +1805,129 @@ export class SupabaseService {
     };
   }
 
+  async getInspectionBookingContext(bookingId: string) {
+    const bookingResult = await this.supabase
+      .from('bookings')
+      .select('*')
+      .eq('id', bookingId)
+      .single();
+
+    if (bookingResult.error || !bookingResult.data) {
+      return { data: null, error: bookingResult.error };
+    }
+
+    const booking = bookingResult.data;
+    const [quotationResult, customerResult, vehicleResult, paymentResult] = await Promise.all([
+      this.supabase.from('quotations').select('*').eq('booking_id', bookingId).maybeSingle(),
+      booking.customer_id ? this.supabase.from('customers').select('*').eq('id', booking.customer_id).single() : Promise.resolve({ data: null, error: null }),
+      booking.vehicle_id ? this.supabase.from('vehicle').select('*').eq('id', booking.vehicle_id).single() : Promise.resolve({ data: null, error: null }),
+      this.supabase
+        .from('payments')
+        .select('*')
+        .eq('booking_id', bookingId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
+
+    if (quotationResult.error) {
+      return { data: null, error: quotationResult.error };
+    }
+
+    if (customerResult.error) {
+      return { data: null, error: customerResult.error };
+    }
+
+    if (vehicleResult.error) {
+      return { data: null, error: vehicleResult.error };
+    }
+
+    if (paymentResult.error) {
+      return { data: null, error: paymentResult.error };
+    }
+
+    return {
+      data: {
+        booking: this.normalizeBookingPaymentState(booking),
+        quotation: quotationResult.data ?? null,
+        customer: customerResult.data ?? null,
+        vehicle: vehicleResult.data ?? null,
+        payment: this.normalizePaymentState(paymentResult.data),
+      },
+      error: null,
+    };
+  }
+
+  async completeCheckoutInspection(input: InspectionCompletionInput) {
+    const timestamp = new Date().toISOString();
+
+    const inspectionInsert = await this.supabase
+      .from('inspections')
+      .insert({
+        booking_id: input.bookingId,
+        vehicle_id: input.vehicleId,
+        customer_id: input.customerId,
+        inspector_id: input.inspectorId,
+        odometer_reading: Number(input.odometerReading ?? 0),
+        fuel_level: input.fuelLevel,
+        tyre_condition: input.tyreCondition,
+        body_condition: input.bodyCondition,
+        interior_condition: input.interiorCondition,
+        damage_notes: input.damageNotes || null,
+        special_remarks: input.specialRemarks || null,
+        license_verified: input.licenceVerified,
+        customer_acknowledged: input.customerAcknowledged,
+        inspection_type: 'checkout',
+        status: 'completed',
+        created_at: timestamp,
+        updated_at: timestamp,
+      })
+      .select('id')
+      .single();
+
+    if (inspectionInsert.error) {
+      return { data: null, error: inspectionInsert.error };
+    }
+
+    const bookingUpdate = await this.supabase
+      .from('bookings')
+      .update({
+        status: 'in_service',
+        updated_at: timestamp,
+      })
+      .eq('id', input.bookingId)
+      .select('id, status, updated_at')
+      .single();
+
+    if (bookingUpdate.error) {
+      return { data: null, error: bookingUpdate.error };
+    }
+
+    const vehicleUpdate = await this.supabase
+      .from('vehicle')
+      .update({
+        vehicle_status: 'rented',
+        mileage: Number(input.odometerReading ?? 0),
+        updated_at: timestamp,
+      })
+      .eq('id', input.vehicleId)
+      .select('id, vehicle_status, mileage, updated_at')
+      .single();
+
+    if (vehicleUpdate.error) {
+      return { data: null, error: vehicleUpdate.error };
+    }
+
+    return {
+      data: {
+        inspection: inspectionInsert.data,
+        booking: bookingUpdate.data,
+        vehicle: vehicleUpdate.data,
+      },
+      error: null,
+    };
+  }
+
   async createCashfreeOrderForPendingFullPayment(bookingId: string, amount: number) {
     const paymentResult = await this.supabase
       .from('payments')
@@ -1804,7 +1956,7 @@ export class SupabaseService {
 
     const { data: booking, error } = await this.supabase
       .from('bookings')
-      .select('id, customer_id, vehicle_id, user_id, customers(full_name, mobile, email)')
+      .select('id, customer_id, vehicle_id, user_id')
       .eq('id', bookingId)
       .single();
 
@@ -1812,10 +1964,23 @@ export class SupabaseService {
       return { data: null, error: error ?? new Error('Booking not found') };
     }
 
+    const customerResult = booking.customer_id
+      ? await this.supabase.from('customers').select('full_name, mobile, email').eq('id', booking.customer_id).maybeSingle()
+      : { data: null, error: null };
+
+    if (customerResult.error) {
+      return { data: null, error: customerResult.error };
+    }
+
+    const bookingWithCustomer = {
+      ...booking,
+      customers: customerResult.data ?? null,
+    };
+
     const cfOrderId = `FULL-${bookingId.replace(/-/g, '').slice(0, 16).toUpperCase()}-${Date.now()}`;
     const returnUrl = `${window.location.origin}/dealer/booking/${bookingId}/payments?cf_order_id=${cfOrderId}`;
     const order = await this.requestCashfreeOrder({
-      booking,
+      booking: bookingWithCustomer,
       cfOrderId,
       amount,
       returnUrl,
@@ -2002,16 +2167,29 @@ export class SupabaseService {
   async getAdminBookingLedger() {
     const result = await this.supabase
       .from('bookings')
-      .select(`
-        id, status, payment_status, start_date, end_date, pickup_location, drop_location, created_at, user_id, total_price,
-        customers(full_name, mobile, customer_type),
-        vehicle(brand, model),
-        quotations!quotations_booking_id_fkey(quote_reference, final_amount)
-      `)
+      .select('id, status, payment_status, start_date, end_date, pickup_location, drop_location, created_at, user_id, total_price, customer_id, vehicle_id')
       .order('created_at', { ascending: false });
 
     if (result.error) {
       return result;
+    }
+
+    const [customerMap, vehicleMap, quotationMap] = await Promise.all([
+      this.getCustomersByIds((result.data ?? []).map((row: any) => row.customer_id)),
+      this.getVehiclesByIds((result.data ?? []).map((row: any) => row.vehicle_id)),
+      this.getQuotationsByBookingIds((result.data ?? []).map((row: any) => row.id)),
+    ]);
+
+    if (customerMap.error) {
+      return { data: [], error: customerMap.error };
+    }
+
+    if (vehicleMap.error) {
+      return { data: [], error: vehicleMap.error };
+    }
+
+    if (quotationMap.error) {
+      return { data: [], error: quotationMap.error };
     }
 
     const latestPayments = await this.getLatestPaymentsForBookings((result.data ?? []).map((row: any) => row.id));
@@ -2023,6 +2201,9 @@ export class SupabaseService {
       ...result,
       data: (result.data ?? []).map((row: any) => this.normalizeBookingPaymentState({
         ...row,
+        customers: customerMap.data.get(row.customer_id) ?? null,
+        vehicle: vehicleMap.data.get(row.vehicle_id) ?? null,
+        quotations: quotationMap.data.get(row.id) ? [quotationMap.data.get(row.id)] : [],
         latest_payment: latestPayments.data.get(row.id) ?? null,
       })),
     };
@@ -2046,7 +2227,7 @@ export class SupabaseService {
 
     const { data: booking } = await this.supabase
       .from('bookings')
-      .select('id, status, customer_id, vehicle_id, user_id, customers(full_name, mobile, email)')
+      .select('id, status, customer_id, vehicle_id, user_id')
       .eq('id', bookingId)
       .single();
 
@@ -2055,8 +2236,16 @@ export class SupabaseService {
       return { data: null, error: new Error(`Booking must be approved (current: ${(booking as any).status})`) };
     }
 
+    const customerResult = (booking as any).customer_id
+      ? await this.supabase.from('customers').select('full_name, mobile, email').eq('id', (booking as any).customer_id).maybeSingle()
+      : { data: null, error: null };
+
+    if (customerResult.error) {
+      return { data: null, error: customerResult.error };
+    }
+
     const cfOrderId = `CF-${bookingId.replace(/-/g, '').slice(0, 16).toUpperCase()}-${Date.now()}`;
-    const customer = (booking as any).customers;
+    const customer = customerResult.data;
     const returnUrl = `${window.location.origin}/dealer/booking/${bookingId}/payments?cf_order_id=${cfOrderId}`;
 
     let paymentSessionId: string;
@@ -2190,7 +2379,7 @@ export class SupabaseService {
 
     const { data: booking } = await this.supabase
       .from('bookings')
-      .select('id, status, customer_id, vehicle_id, user_id, customers(full_name, mobile, email)')
+      .select('id, status, customer_id, vehicle_id, user_id')
       .eq('id', bookingId)
       .single();
 
@@ -2199,8 +2388,16 @@ export class SupabaseService {
       return { data: null, error: new Error(`Booking must be approved to initiate payment (current: ${(booking as any).status})`) };
     }
 
+    const customerResult = booking.customer_id
+      ? await this.supabase.from('customers').select('full_name, mobile, email').eq('id', booking.customer_id).maybeSingle()
+      : { data: null, error: null };
+
+    if (customerResult.error) {
+      return { data: null, error: customerResult.error };
+    }
+
     const cfOrderId = `CF-${bookingId.replace(/-/g, '').slice(0, 16).toUpperCase()}-${Date.now()}`;
-    const customer = (booking as any).customers;
+    const customer = customerResult.data;
 
     const cfPayload = {
       order_id: cfOrderId,
@@ -2293,6 +2490,57 @@ export class SupabaseService {
     }
 
     return { data: latestByBooking, error: null };
+  }
+
+  private async getCustomersByIds(customerIds: Array<string | null | undefined>) {
+    const ids = [...new Set((customerIds ?? []).filter(Boolean))] as string[];
+    if (!ids.length) {
+      return { data: new Map<string, any>(), error: null };
+    }
+
+    const result = await this.supabase.from('customers').select('*').in('id', ids);
+    if (result.error) {
+      return { data: new Map<string, any>(), error: result.error };
+    }
+
+    return {
+      data: new Map((result.data ?? []).map((row: any) => [row.id, row])),
+      error: null,
+    };
+  }
+
+  private async getVehiclesByIds(vehicleIds: Array<string | null | undefined>) {
+    const ids = [...new Set((vehicleIds ?? []).filter(Boolean))] as string[];
+    if (!ids.length) {
+      return { data: new Map<string, any>(), error: null };
+    }
+
+    const result = await this.supabase.from('vehicle').select('*').in('id', ids);
+    if (result.error) {
+      return { data: new Map<string, any>(), error: result.error };
+    }
+
+    return {
+      data: new Map((result.data ?? []).map((row: any) => [row.id, row])),
+      error: null,
+    };
+  }
+
+  private async getQuotationsByBookingIds(bookingIds: Array<string | null | undefined>) {
+    const ids = [...new Set((bookingIds ?? []).filter(Boolean))] as string[];
+    if (!ids.length) {
+      return { data: new Map<string, any>(), error: null };
+    }
+
+    const result = await this.supabase.from('quotations').select('*').in('booking_id', ids);
+    if (result.error) {
+      return { data: new Map<string, any>(), error: result.error };
+    }
+
+    return {
+      data: new Map((result.data ?? []).map((row: any) => [row.booking_id, row])),
+      error: null,
+    };
   }
 
   private normalizeBookingPaymentState<T extends Record<string, any> | null>(booking: T): T {

@@ -149,6 +149,7 @@ export class PaymentComponent implements OnInit {
               ? `Required advance paid successfully. Remaining ${this.formatCurrency(Math.max(0, this.resolvedPricing().final_amount - this.resolvedPricing().advance))} due after vehicle drop.`
               : `Payment of ${this.formatCurrency(Number(paymentResult.data?.amount ?? this.amountDueNow()))} collected successfully.`,
         });
+        await this.router.navigateByUrl('/dealer/my-bookings');
       } else if (paymentMode === 'online') {
         this.messageService.add({
           severity: 'warn',
@@ -243,6 +244,7 @@ export class PaymentComponent implements OnInit {
             : `Payment of ${this.formatCurrency(amount)} collected successfully.`,
       });
       this.processingPayment.set(false);
+      await this.router.navigateByUrl('/dealer/my-bookings');
     } catch (sdkErr: any) {
       this.processingPayment.set(false);
       this.messageService.add({ severity: 'error', summary: 'Payment error', detail: sdkErr?.message || 'Cashfree SDK error.' });

@@ -628,6 +628,7 @@ export class DealerBookings {
         summary: 'Advance payment complete',
         detail: `Required advance paid successfully. Remaining ${this.formatCurrency(this.remainingBalanceAmount())} due after vehicle drop.`,
       });
+      await this.router.navigateByUrl('/dealer/my-bookings');
     } catch (sdkErr: any) {
       this.processingOnlineAdvance.set(false);
       this.messageService.add({ severity: 'error', summary: 'Payment error', detail: sdkErr?.message || 'Cashfree SDK error.' });
@@ -666,6 +667,7 @@ export class DealerBookings {
       summary: 'Booking confirmed',
       detail: `Booking confirmed. Full payment of ${this.formatCurrency(this.fullAmount())} required after admin approval before inspection.`,
     });
+    await this.router.navigateByUrl('/dealer/my-bookings');
   }
 
   stepDone(target: number) {

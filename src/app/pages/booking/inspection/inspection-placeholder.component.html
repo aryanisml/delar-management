@@ -1,8 +1,338 @@
-<section class="inspection-placeholder">
-  <div class="inspection-placeholder__card">
-    <p class="inspection-placeholder__eyebrow">Inspection</p>
-    <h2>Pre-Trip Inspection</h2>
-    <p class="inspection-placeholder__meta">Booking ID: {{ bookingId }}</p>
-    <p class="inspection-placeholder__copy">Inspection form coming soon.</p>
-  </div>
-</section>
+<p-toast></p-toast>
+
+@if (loading()) {
+  <section class="inspection-page inspection-page--loading">
+    <p-progressSpinner ariaLabel="Loading inspection"></p-progressSpinner>
+  </section>
+} @else {
+  <section class="inspection-page">
+    <div class="inspection-page__header">
+      <div>
+        <p class="inspection-page__eyebrow">Step 6</p>
+        <h2 class="inspection-page__title">Pre-Trip Inspection</h2>
+        <p class="inspection-page__subtitle">Complete the checkout checklist before the vehicle is handed over.</p>
+      </div>
+      <button pButton type="button" label="Back to My Bookings" outlined icon="pi pi-arrow-left" (click)="backToBookings()"></button>
+    </div>
+
+    @if (!bookingReady()) {
+      <p-card styleClass="inspection-card inspection-card--guard">
+        <div class="inspection-guard">
+          <div>
+            <p class="inspection-page__eyebrow">Inspection Locked</p>
+            <h3>This booking is not ready for inspection.</h3>
+            <p>{{ notReadyMessage() }}</p>
+          </div>
+          <button pButton type="button" label="Back" icon="pi pi-arrow-left" (click)="backToBookings()"></button>
+        </div>
+      </p-card>
+    } @else {
+      <p-card styleClass="inspection-card inspection-card--summary">
+        <div class="inspection-summary">
+          <div class="inspection-summary__block">
+            <p class="inspection-summary__label">Customer</p>
+            <strong>{{ customer()?.full_name || '-' }}</strong>
+            <span>{{ customer()?.mobile || '-' }}</span>
+            <span>Licence: {{ customer()?.license_no || '-' }}</span>
+          </div>
+
+          <div class="inspection-summary__block">
+            <p class="inspection-summary__label">Vehicle</p>
+            <strong>{{ vehicle()?.brand || '-' }} {{ vehicle()?.model || '' }}</strong>
+            <span>{{ vehicle()?.registration_no || '-' }}</span>
+          </div>
+
+          <div class="inspection-summary__block">
+            <p class="inspection-summary__label">Trip</p>
+            <strong>{{ booking()?.pickup_location || '-' }} -> {{ booking()?.drop_location || '-' }}</strong>
+            <span>{{ booking()?.start_date | date:'d MMM y' }} -> {{ booking()?.end_date | date:'d MMM y' }}</span>
+            <span>{{ booking()?.purpose || '-' }}</span>
+          </div>
+
+          <div class="inspection-summary__block">
+            <p class="inspection-summary__label">Reference</p>
+            <strong>Booking: {{ booking()?.id || '-' }}</strong>
+            <span>Quote: {{ quotation()?.quote_reference || '-' }}</span>
+          </div>
+        </div>
+      </p-card>
+
+      <div class="inspection-layout">
+        <div class="inspection-main">
+          <p-card styleClass="inspection-card">
+            <div class="inspection-section__heading">
+              <div>
+                <p class="inspection-page__eyebrow">Section 1</p>
+                <h3>Driver Verification</h3>
+              </div>
+            </div>
+
+            @if (licenceExpired()) {
+              <div class="inspection-banner inspection-banner--danger">
+                <strong>⚠️ This licence has expired.</strong>
+                <span>Verify with the customer before proceeding.</span>
+              </div>
+            }
+
+            <div class="inspection-form-grid">
+              <div class="field">
+                <label>Licence Number</label>
+                <input
+                  pInputText
+                  [ngModel]="form().licenceNumber"
+                  (ngModelChange)="updateForm('licenceNumber', $event)"
+                  placeholder="Enter licence number" />
+              </div>
+
+              <div class="field">
+                <label>Licence Expiry</label>
+                <input
+                  pInputText
+                  type="date"
+                  [ngModel]="form().licenceExpiry"
+                  (ngModelChange)="updateForm('licenceExpiry', $event)" />
+              </div>
+
+              <div class="field field--full">
+                <label class="check-row">
+                  <input
+                    type="checkbox"
+                    [ngModel]="form().licenceVerified"
+                    (ngModelChange)="updateForm('licenceVerified', $event)" />
+                  <span>Licence details verified by advisor ✓</span>
+                </label>
+                @if (invalid('licenceVerified')) {
+                  <p-message severity="error" [text]="fieldError('licenceVerified')"></p-message>
+                }
+              </div>
+            </div>
+          </p-card>
+
+          <p-card styleClass="inspection-card">
+            <div class="inspection-section__heading">
+              <div>
+                <p class="inspection-page__eyebrow">Section 2</p>
+                <h3>Vehicle Condition at Checkout</h3>
+              </div>
+            </div>
+
+            <div class="inspection-form-grid">
+              <div class="field">
+                <label>Current Odometer Reading (km)</label>
+                <p-inputNumber
+                  [ngModel]="form().odometerReading"
+                  (ngModelChange)="updateForm('odometerReading', $event)"
+                  [min]="1"
+                  inputId="odometerReading"
+                  suffix=" km"></p-inputNumber>
+                @if (invalid('odometerReading')) {
+                  <p-message severity="error" [text]="fieldError('odometerReading')"></p-message>
+                }
+              </div>
+
+              <div class="field">
+                <label>Fuel Level</label>
+                <p-select
+                  [options]="fuelOptions"
+                  [ngModel]="form().fuelLevel"
+                  (ngModelChange)="updateForm('fuelLevel', $event)"
+                  optionLabel="label"
+                  optionValue="value"
+                  placeholder="Select fuel level"></p-select>
+                @if (invalid('fuelLevel')) {
+                  <p-message severity="error" [text]="fieldError('fuelLevel')"></p-message>
+                }
+              </div>
+
+              <div class="field">
+                <label>Tyre Condition</label>
+                <div class="choice-group">
+                  @for (option of tyreOptions; track option) {
+                    <label class="choice-pill" [class.choice-pill--active]="form().tyreCondition === option">
+                      <input
+                        type="radio"
+                        name="tyreCondition"
+                        [checked]="form().tyreCondition === option"
+                        (change)="updateForm('tyreCondition', option)" />
+                      <span>{{ option }}</span>
+                    </label>
+                  }
+                </div>
+                @if (invalid('tyreCondition')) {
+                  <p-message severity="error" [text]="fieldError('tyreCondition')"></p-message>
+                }
+              </div>
+
+              <div class="field">
+                <label>Body Condition</label>
+                <div class="choice-group">
+                  @for (option of bodyOptions; track option) {
+                    <label class="choice-pill" [class.choice-pill--active]="form().bodyCondition === option">
+                      <input
+                        type="radio"
+                        name="bodyCondition"
+                        [checked]="form().bodyCondition === option"
+                        (change)="updateForm('bodyCondition', option)" />
+                      <span>{{ option }}</span>
+                    </label>
+                  }
+                </div>
+                @if (invalid('bodyCondition')) {
+                  <p-message severity="error" [text]="fieldError('bodyCondition')"></p-message>
+                }
+              </div>
+
+              <div class="field field--full">
+                <label>Interior Condition</label>
+                <div class="choice-group">
+                  @for (option of interiorOptions; track option) {
+                    <label class="choice-pill" [class.choice-pill--active]="form().interiorCondition === option">
+                      <input
+                        type="radio"
+                        name="interiorCondition"
+                        [checked]="form().interiorCondition === option"
+                        (change)="updateForm('interiorCondition', option)" />
+                      <span>{{ option }}</span>
+                    </label>
+                  }
+                </div>
+                @if (invalid('interiorCondition')) {
+                  <p-message severity="error" [text]="fieldError('interiorCondition')"></p-message>
+                }
+              </div>
+
+              <div class="field field--full">
+                <label>Damage or Remarks (if any)</label>
+                <textarea
+                  pTextarea
+                  rows="4"
+                  [ngModel]="form().damageNotes"
+                  (ngModelChange)="updateForm('damageNotes', $event)"
+                  placeholder="Add any visible marks, damage, or advisor notes"></textarea>
+              </div>
+            </div>
+
+            <div class="photo-section">
+              <div class="inspection-section__heading inspection-section__heading--compact">
+                <div>
+                  <p class="inspection-page__eyebrow">Photos</p>
+                  <h4>Advisor Reference</h4>
+                </div>
+              </div>
+
+              <div class="photo-grid">
+                @for (slot of photoSlots; track slot.key) {
+                  <label class="photo-upload">
+                    <span class="photo-upload__title">{{ slot.label }}</span>
+                    <input type="file" accept="image/*" (change)="onPhotoSelected(slot.key, $event)" />
+
+                    @if (photoPreviews()[slot.key]) {
+                      <img [src]="photoPreviews()[slot.key]!" [alt]="slot.label + ' preview'" class="photo-upload__preview" />
+                    } @else {
+                      <div class="photo-upload__placeholder">
+                        <i class="pi pi-image"></i>
+                        <span>Select image</span>
+                      </div>
+                    }
+
+                    <small>{{ photoFileNames()[slot.key] || 'No file selected' }}</small>
+                  </label>
+                }
+              </div>
+
+              <p class="photo-section__note">Photos are captured for advisor reference only.</p>
+            </div>
+          </p-card>
+
+          <p-card styleClass="inspection-card">
+            <div class="inspection-section__heading">
+              <div>
+                <p class="inspection-page__eyebrow">Section 3</p>
+                <h3>Handover Confirmation</h3>
+              </div>
+            </div>
+
+            <div class="inspection-form-grid">
+              <div class="field field--full">
+                <label>Additional Notes for This Trip</label>
+                <textarea
+                  pTextarea
+                  rows="4"
+                  [ngModel]="form().additionalNotes"
+                  (ngModelChange)="updateForm('additionalNotes', $event)"
+                  placeholder="Optional handover notes"></textarea>
+              </div>
+
+              <div class="field field--full">
+                <div class="comparison-box">
+                  <p class="comparison-box__label">This record will be compared on vehicle return.</p>
+                  <div class="comparison-box__grid">
+                    <div>
+                      <span>Fuel Level</span>
+                      <strong>{{ handoverSummary().fuelLevel }}</strong>
+                    </div>
+                    <div>
+                      <span>Odometer</span>
+                      <strong>{{ handoverSummary().odometerReading }}</strong>
+                    </div>
+                    <div>
+                      <span>Body Condition</span>
+                      <strong>{{ handoverSummary().bodyCondition }}</strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="field field--full">
+                <label class="check-row">
+                  <input
+                    type="checkbox"
+                    [ngModel]="form().customerAcknowledged"
+                    (ngModelChange)="updateForm('customerAcknowledged', $event)" />
+                  <span>Customer has reviewed vehicle condition and agrees to the above ✓</span>
+                </label>
+                @if (invalid('customerAcknowledged')) {
+                  <p-message severity="error" [text]="fieldError('customerAcknowledged')"></p-message>
+                }
+              </div>
+            </div>
+          </p-card>
+        </div>
+
+        <aside class="inspection-side">
+          <p-card styleClass="inspection-card inspection-card--sticky">
+            <div class="sidebar-summary">
+              <p class="inspection-page__eyebrow">Ready to Submit</p>
+              <h3>Complete Handover & Start Trip</h3>
+              <p>The booking will move to <strong>In Service</strong> and the vehicle will be marked as rented.</p>
+
+              <div class="sidebar-summary__meta">
+                <div>
+                  <span>Customer</span>
+                  <strong>{{ customer()?.full_name || '-' }}</strong>
+                </div>
+                <div>
+                  <span>Vehicle</span>
+                  <strong>{{ vehicle()?.brand || '-' }} {{ vehicle()?.model || '' }}</strong>
+                </div>
+                <div>
+                  <span>Quote</span>
+                  <strong>{{ quotation()?.quote_reference || '-' }}</strong>
+                </div>
+              </div>
+
+              <button
+                pButton
+                type="button"
+                label="Complete Handover & Start Trip"
+                icon="pi pi-check-circle"
+                class="w-full"
+                [loading]="submitting()"
+                (click)="submitInspection()"></button>
+            </div>
+          </p-card>
+        </aside>
+      </div>
+    }
+  </section>
+}

@@ -175,26 +175,6 @@ export class AdminDealerPerformance implements OnInit, OnDestroy {
     this.detailVisible.set(true);
   }
 
-  markInService(row: any) {
-    this.confirmationService.confirm({
-      header: 'Mark as In Service',
-      message: `Confirm vehicle handover for booking ${row.id}? This will move it to In Service status.`,
-      icon: 'pi pi-car',
-      acceptButtonStyleClass: 'p-button-info',
-      rejectButtonStyleClass: 'p-button-text',
-      accept: async () => {
-        const { error } = await this.supabase.markBookingInService(row.id);
-        if (error) {
-          this.messageService.add({ severity: 'error', summary: 'Failed', detail: (error as any)?.message || 'Could not update booking.' });
-          return;
-        }
-        this.messageService.add({ severity: 'success', summary: 'In Service', detail: `Booking ${row.id} is now in service.` });
-        this.detailVisible.set(false);
-        await this.loadLedger();
-      },
-    });
-  }
-
   onDetailDialogShow() {
     setTimeout(() => {
       const content = this.detailDialogContent?.nativeElement;
@@ -264,10 +244,6 @@ export class AdminDealerPerformance implements OnInit, OnDestroy {
   paymentNotes(payment: any) {
     const notes = String(payment?.notes ?? '').trim();
     return notes || null;
-  }
-
-  canStartInspection(detail: any, payment: any) {
-    return String(detail?.status ?? '').toLowerCase() === 'approved' && String(payment?.status ?? '').toLowerCase() === 'paid';
   }
 
   private paymentPresentation(payment: any): { label: string; severity: 'success' | 'warn' | 'secondary'; detailLines: string[] } {
