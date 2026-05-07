@@ -538,24 +538,27 @@
 	          <div class="field">
 	            <label>How is advance being collected?</label>
 	            <div class="customer-type-toggle">
-	              <button type="button" [class.is-selected]="advanceCollectionMode() === 'online'" (click)="advanceCollectionMode.set('online')">Pay Online</button>
-	              <button type="button" [class.is-selected]="advanceCollectionMode() === 'offline'" (click)="advanceCollectionMode.set('offline')">Collected Offline</button>
+	              <button type="button" [class.is-selected]="advanceCollectionMode() === 'online'" (click)="setAdvanceCollectionMode('online')">Pay Advance Now</button>
+	              <button type="button" [class.is-selected]="advanceCollectionMode() === 'pending_full'" (click)="setAdvanceCollectionMode('pending_full')">Pay Full Amount After Approval</button>
 	            </div>
 	          </div>
+            <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+              <p class="m-0 text-xs uppercase tracking-wide text-emerald-700">Selected Payment Path</p>
+              <p class="m-0 mt-1 font-semibold text-emerald-950">{{ selectedPaymentTitle() }}</p>
+              <p class="m-0 mt-2 text-sm text-emerald-900">{{ selectedPaymentSubtitle() }}</p>
+              <div class="mt-4 rounded-xl border border-emerald-300 bg-white px-4 py-3 inline-flex flex-col">
+                <span class="text-xs uppercase tracking-wide text-slate-500">{{ advanceCollectionMode() === 'online' ? 'REQUIRED ADVANCE' : 'AMOUNT DUE' }}</span>
+                <strong class="text-2xl text-slate-950">{{ selectedPaymentAmount() | currency:'INR':'symbol':'1.0-0' }}</strong>
+              </div>
+              @if (advanceCollectionMode() === 'online') {
+                <p class="m-0 mt-3 text-sm text-amber-700">Please ensure the security deposit of {{ generatedQuotation()?.security_deposit | currency:'INR':'symbol':'1.0-0' }} has been physically collected before proceeding.</p>
+              }
+            </div>
 	          @if (advanceCollectionMode() === 'online') {
-	            <p-message severity="warn" text="Please ensure advance and security deposit have been physically collected before proceeding with online payment."></p-message>
+              <button pButton type="button" label="Pay Advance Now" icon="pi pi-credit-card" [loading]="processingOnlineAdvance()" (click)="payAdvanceNow()"></button>
 	          } @else {
-	            <button
-	              pButton
-	              type="button"
-	              label="Confirm Offline Collection"
-	              icon="pi pi-check-circle"
-	              severity="success"
-	              [loading]="recordingOfflinePayment()"
-	              [disabled]="offlinePaymentRecorded()"
-	              (click)="confirmOfflineCollection()"></button>
+              <button pButton type="button" label="Confirm Booking" icon="pi pi-check" [loading]="confirmingBooking()" (click)="confirmBookingWithFullPaymentPending()"></button>
 	          }
-	          <button pButton type="button" label="Confirm Booking" icon="pi pi-check" [loading]="confirmingBooking()" (click)="confirmBooking()"></button>
 	        </div>
 	      </p-card>
 

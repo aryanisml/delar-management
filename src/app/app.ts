@@ -19,6 +19,17 @@ export class App {
   private supabase = inject(SupabaseService);
 
   async ngOnInit() {
+    (window as any).fixPayments = async () => {
+      const result = await this.supabase.fixExistingInitiatedPayments();
+      if (result.error) {
+        console.error('[fixPayments] Failed to update initiated payments:', result.error);
+        return result;
+      }
+
+      console.log(`[fixPayments] Updated ${result.data?.updatedCount ?? 0} payment row(s).`);
+      return result;
+    };
+
     try {
       // Get the current user if authenticated
       const user = await this.auth.getCurrentUser();

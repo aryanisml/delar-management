@@ -261,6 +261,15 @@ export class AdminDealerPerformance implements OnInit, OnDestroy {
     return this.paymentPresentation(payment).detailLines;
   }
 
+  paymentNotes(payment: any) {
+    const notes = String(payment?.notes ?? '').trim();
+    return notes || null;
+  }
+
+  canStartInspection(detail: any, payment: any) {
+    return String(detail?.status ?? '').toLowerCase() === 'approved' && String(payment?.status ?? '').toLowerCase() === 'paid';
+  }
+
   private paymentPresentation(payment: any): { label: string; severity: 'success' | 'warn' | 'secondary'; detailLines: string[] } {
     if (!payment) {
       return {
@@ -294,6 +303,14 @@ export class AdminDealerPerformance implements OnInit, OnDestroy {
           `Paid At: ${this.formatDateTime(payment.updated_at || payment.created_at)}`,
           `Amount: ${amount}`,
         ],
+      };
+    }
+
+    if (status === 'initiated' && mode === 'pending_full') {
+      return {
+        label: 'Full Payment Pending',
+        severity: 'warn',
+        detailLines: [`Full payment of ${amount} must be completed after admin approval to begin inspection.`],
       };
     }
 

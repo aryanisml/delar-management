@@ -13,7 +13,11 @@
           <h2 class="snapshot-card__title">{{ vehicleName() }}</h2>
         </div>
         @if (isAlreadyPaid()) {
-          <p-tag value="ADVANCE PAYMENT RECEIVED" severity="success"></p-tag>
+          <p-tag value="PAYMENT RECEIVED" severity="success"></p-tag>
+        } @else if (canCollectFullPaymentNow()) {
+          <p-tag value="FULL PAYMENT DUE NOW" severity="warn"></p-tag>
+        } @else if (isPendingFullAwaitingApproval()) {
+          <p-tag value="WAITING FOR ADMIN APPROVAL" severity="secondary"></p-tag>
         } @else {
           <p-tag [value]="(booking()?.status || 'approved') | uppercase" severity="success"></p-tag>
         }
@@ -98,15 +102,15 @@
               <strong>{{ resolvedPricing().advance | currency:'INR':'symbol':'1.0-0' }}</strong>
             </div>
             <div class="pricing-row" style="border-top: 2px solid var(--p-primary-color); margin-top: 4px; padding-top: 8px;">
-              <span style="font-weight: 600;">Balance Due</span>
+              <span style="font-weight: 600;">{{ existingPayment()?.payment_mode === 'pending_full' ? 'Full Amount Due' : 'Balance Due' }}</span>
               <strong style="color: var(--p-primary-color);">{{ amountDueNow() | currency:'INR':'symbol':'1.0-0' }}</strong>
             </div>
           </div>
 
           <div class="amount-due">
-            <span>Balance Due Now</span>
+            <span>{{ existingPayment()?.payment_mode === 'pending_full' ? 'Full Amount Due Now' : 'Balance Due Now' }}</span>
             <strong>{{ amountDueNow() | currency:'INR':'symbol':'1.0-0' }}</strong>
-            <small>This is the remaining balance after deducting the advance already collected.</small>
+            <small>{{ existingPayment()?.payment_mode === 'pending_full' ? 'Admin approval is complete. Full rental payment must be collected before inspection can begin.' : 'This is the remaining balance after deducting the advance already collected.' }}</small>
           </div>
         </p-card>
       </div>
@@ -118,7 +122,7 @@
               <p class="payment-eyebrow">Payment Status</p>
               <div class="flex items-center gap-2 mb-3">
                 <i class="pi pi-check-circle text-green-600 text-2xl"></i>
-                <h3 class="m-0 text-green-700">Advance Payment Received</h3>
+                <h3 class="m-0 text-green-700">{{ existingPayment()?.payment_type === 'advance' ? 'Advance Payment Received' : 'Payment Received' }}</h3>
               </div>
               <p class="text-sm text-gray-500 mb-4">
                 Payment of {{ existingPayment()?.amount ? (existingPayment().amount | currency:'INR':'symbol':'1.0-0') : (amountDueNow() | currency:'INR':'symbol':'1.0-0') }} has been received.
@@ -146,12 +150,55 @@
               </div>
             </div>
           </p-card>
+        } @else if (canCollectFullPaymentNow()) {
+          <p-card styleClass="payment-card payment-card--action">
+            <div class="payment-action">
+              <p class="payment-eyebrow">Payment Action</p>
+              <h3>Full Payment Due Now</h3>
+              <p class="text-sm text-gray-500 mb-2">Amount: {{ resolvedPricing().final_amount | currency:'INR':'symbol':'1.0-0' }}</p>
+              <p>Admin has approved your booking. Collect the full rental amount before proceeding to inspection.</p>
+
+              <div class="trust-list">
+                <div class="trust-item">
+                  <i class="pi pi-shield"></i>
+                  <span>Booking-linked payment summary</span>
+                </div>
+                <div class="trust-item">
+                  <i class="pi pi-lock"></i>
+                  <span>Quotation values locked to this trip</span>
+                </div>
+                <div class="trust-item">
+                  <i class="pi pi-check-circle"></i>
+                  <span>Inspection unlocks after payment</span>
+                </div>
+              </div>
+
+              <button
+                pButton
+                type="button"
+                label="Collect Full Payment"
+                icon="pi pi-credit-card"
+                class="payment-action__cta"
+                [loading]="processingPayment()"
+                (click)="openPaymentDialog()"></button>
+              <button pButton type="button" label="Back to My Bookings" text (click)="backToBookings()"></button>
+            </div>
+          </p-card>
+        } @else if (isPendingFullAwaitingApproval()) {
+          <p-card styleClass="payment-card payment-card--action">
+            <div class="payment-action">
+              <p class="payment-eyebrow">Payment Status</p>
+              <h3>Waiting for admin approval</h3>
+              <p>Payment will be collected after approval.</p>
+              <button pButton type="button" label="Back to My Bookings" text (click)="backToBookings()"></button>
+            </div>
+          </p-card>
         } @else {
           <p-card styleClass="payment-card payment-card--action">
             <div class="payment-action">
               <p class="payment-eyebrow">Payment Action</p>
               <h3>{{ amountDueNow() | currency:'INR':'symbol':'1.0-0' }}</h3>
-              <p>Collect the balance payment securely via Cashfree, then continue through to the trip handover.</p>
+              <p>{{ existingPayment()?.payment_mode === 'pending_full' ? 'Collect the full rental payment securely via Cashfree before inspection begins.' : 'Collect the balance payment securely via Cashfree, then continue through to the trip handover.' }}</p>
 
               <div class="trust-list">
                 <div class="trust-item">
@@ -171,7 +218,7 @@
               <button
                 pButton
                 type="button"
-                label="Complete Balance Payment"
+                [label]="existingPayment()?.payment_mode === 'pending_full' ? 'Complete Full Payment' : 'Complete Balance Payment'"
                 icon="pi pi-credit-card"
                 class="payment-action__cta"
                 [loading]="processingPayment()"
@@ -186,7 +233,7 @@
 }
 
 <p-dialog
-  header="Complete Balance Payment"
+  [header]="canCollectFullPaymentNow() ? 'Collect Full Payment' : 'Complete Balance Payment'"
   [visible]="paymentDialogVisible()"
   (visibleChange)="paymentDialogVisible.set($event)"
   [modal]="true"

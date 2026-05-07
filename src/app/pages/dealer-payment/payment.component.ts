@@ -11,6 +11,7 @@ import { TagModule } from 'primeng/tag';
 import { ToastModule } from 'primeng/toast';
 import { environment } from '../../../environments/environment';
 import { BookingFlowService } from '../../services/booking-flow';
+import { QuotationPdfService } from '../../services/quotation-pdf';
 import { SupabaseService } from '../../services/supabase';
 
 @Component({
@@ -38,6 +39,7 @@ export class PaymentComponent implements OnInit {
   private supabase = inject(SupabaseService);
   private flow = inject(BookingFlowService);
   private messageService = inject(MessageService);
+  private quotationPdf = inject(QuotationPdfService);
 
   readonly loading = signal(true);
   readonly quotation = signal<any | null>(null);
@@ -45,6 +47,7 @@ export class PaymentComponent implements OnInit {
   readonly pricingSource = signal<'database' | 'local'>('database');
   readonly paymentDialogVisible = signal(false);
   readonly processingPayment = signal(false);
+  readonly justReturnedFromCashfree = signal(false);
 
   readonly booking = this.flow.booking;
   readonly vehicle = this.flow.vehicle;
@@ -75,14 +78,24 @@ export class PaymentComponent implements OnInit {
 
   readonly amountDueNow = computed(() => {
     const p = this.resolvedPricing();
+    const payment = this.existingPayment();
+    if (String(payment?.payment_mode ?? '').toLowerCase() === 'pending_full' && String(payment?.status ?? '').toLowerCase() === 'initiated') {
+      return Number(payment?.amount ?? p.final_amount ?? 0);
+    }
     return Number(p.final_amount ?? 0) - Number(p.advance ?? 0);
   });
   readonly vehicleName = computed(() => `${this.vehicle()?.brand || this.vehicle()?.make || ''} ${this.vehicle()?.model || ''}`.trim() || 'Vehicle');
   readonly quoteReference = computed(() => this.quotation()?.quote_reference || `QT-${String(this.booking()?.id || '').replace(/-/g, '').slice(0, 8).toUpperCase()}`);
-  readonly isAlreadyPaid = computed(() =>
-    Boolean(this.existingPayment())
-    || this.booking()?.status === 'payment_received'
-    || this.booking()?.payment_status === 'payment_received'
+  readonly isAlreadyPaid = computed(() => String(this.existingPayment()?.status ?? '').toLowerCase() === 'paid');
+  readonly isPendingFullAwaitingApproval = computed(() =>
+    String(this.existingPayment()?.payment_mode ?? '').toLowerCase() === 'pending_full'
+    && String(this.existingPayment()?.status ?? '').toLowerCase() === 'initiated'
+    && String(this.booking()?.status ?? '').toLowerCase() !== 'approved'
+  );
+  readonly canCollectFullPaymentNow = computed(() =>
+    String(this.existingPayment()?.payment_mode ?? '').toLowerCase() === 'pending_full'
+    && String(this.existingPayment()?.status ?? '').toLowerCase() === 'initiated'
+    && String(this.booking()?.status ?? '').toLowerCase() === 'approved'
   );
 
   async ngOnInit() {
@@ -108,6 +121,42 @@ export class PaymentComponent implements OnInit {
 
     this.quotation.set(quotationResult.data ?? null);
     this.existingPayment.set(paymentResult.data ?? null);
+    const cfOrderId = this.route.snapshot.queryParamMap.get('cf_order_id');
+    if (cfOrderId) {
+      this.justReturnedFromCashfree.set(true);
+    }
+    if (cfOrderId && String(paymentResult.data?.status ?? '').toLowerCase() === 'initiated') {
+      const paymentMode = String(paymentResult.data?.payment_mode ?? '').toLowerCase();
+      const isPendingFull = paymentMode === 'pending_full';
+      const paymentType = String(paymentResult.data?.payment_type ?? '').toLowerCase();
+      const updateResult = await this.supabase.markPaymentPaidAfterCashfree({
+        bookingId,
+        cfOrderId,
+        paymentMode: 'online',
+        notes: isPendingFull
+          ? 'Full rental amount collected via online payment.'
+          : (paymentResult.data?.notes || 'Advance collected via online payment. Remaining balance due after vehicle drop.'),
+      });
+
+      if (updateResult.data) {
+        this.existingPayment.set(updateResult.data);
+        this.messageService.add({
+          severity: 'success',
+          summary: isPendingFull ? 'Payment collected' : 'Payment complete',
+          detail: isPendingFull
+            ? `Full payment of ${this.formatCurrency(this.resolvedPricing().final_amount)} collected. Booking ready for inspection.`
+            : paymentType === 'advance'
+              ? `Required advance paid successfully. Remaining ${this.formatCurrency(Math.max(0, this.resolvedPricing().final_amount - this.resolvedPricing().advance))} due after vehicle drop.`
+              : `Payment of ${this.formatCurrency(Number(paymentResult.data?.amount ?? this.amountDueNow()))} collected successfully.`,
+        });
+      } else if (paymentMode === 'online') {
+        this.messageService.add({
+          severity: 'warn',
+          summary: 'Payment pending',
+          detail: 'Advance payment was initiated, but confirmation has not completed yet.',
+        });
+      }
+    }
     this.pricingSource.set(quotationResult.data?.final_amount ? 'database' : 'local');
     this.loading.set(false);
   }
@@ -118,7 +167,6 @@ export class PaymentComponent implements OnInit {
 
   async proceedToGateway() {
     const bookingId = this.booking()?.id;
-    const quotationId = this.quotation()?.id;
     const amount = this.amountDueNow();
 
     if (!bookingId || !amount) {
@@ -129,24 +177,71 @@ export class PaymentComponent implements OnInit {
     this.processingPayment.set(true);
     this.paymentDialogVisible.set(false);
 
-    const { data, error } = await this.supabase.createCashfreeOrder(bookingId, quotationId || '', amount);
+    const isPendingFull = this.canCollectFullPaymentNow();
+    const paymentType = String(this.existingPayment()?.payment_type ?? '').toLowerCase();
+    const { data, error } = isPendingFull
+      ? await this.supabase.createCashfreeOrderForPendingFullPayment(bookingId, amount)
+      : await this.supabase.createCashfreeOrder(bookingId, this.quotation()?.id || '', amount);
 
-    if (error || !data?.payment_session_id) {
+    const orderData = data as any;
+    if (error || !orderData?.payment_session_id) {
       this.processingPayment.set(false);
-      const detail = (error as any)?.message || data?.error || 'Could not initiate payment.';
+      const detail = (error as any)?.message || orderData?.error || 'Could not initiate payment.';
       this.messageService.add({ severity: 'error', summary: 'Payment initiation failed', detail });
       return;
     }
 
     try {
       const cashfree = window.Cashfree({ mode: environment.cashfreeMode });
-      await cashfree.checkout({
-        paymentSessionId: data.payment_session_id,
+      const result = await cashfree.checkout({
+        paymentSessionId: orderData.payment_session_id,
         redirectTarget: '_self',
       });
 
-      const paymentResult = await this.supabase.getPaymentByBooking(bookingId);
-      this.existingPayment.set(paymentResult.data ?? null);
+      if (result?.error) {
+        this.processingPayment.set(false);
+        this.messageService.add({ severity: 'error', summary: 'Payment error', detail: result.error.message || 'Cashfree SDK error.' });
+        return;
+      }
+
+      const updateResult = await this.supabase.markPaymentPaidAfterCashfree({
+        bookingId,
+        cfOrderId: orderData.cf_order_id,
+        cfPaymentId: (result as any)?.cf_payment_id || (result as any)?.payment_id || null,
+        paymentMode: 'online',
+        notes: isPendingFull
+          ? 'Full rental amount collected via online payment.'
+          : (this.existingPayment()?.notes || 'Balance collected via online payment.'),
+      });
+
+      if (updateResult.error || !updateResult.data) {
+        this.processingPayment.set(false);
+        if (this.justReturnedFromCashfree() && String(this.existingPayment()?.payment_mode ?? '').toLowerCase() === 'online' && String(this.existingPayment()?.status ?? '').toLowerCase() === 'initiated') {
+          this.messageService.add({
+            severity: 'warn',
+            summary: 'Payment pending',
+            detail: 'Advance payment was initiated, but confirmation has not completed yet.',
+          });
+        } else {
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Payment update failed',
+            detail: (updateResult.error as any)?.message || 'Cashfree returned, but the payment status could not be updated.',
+          });
+        }
+        return;
+      }
+
+      this.existingPayment.set(updateResult.data);
+      this.messageService.add({
+        severity: 'success',
+        summary: isPendingFull ? 'Payment collected' : 'Payment complete',
+        detail: isPendingFull
+          ? `Full payment of ${this.formatCurrency(amount)} collected. Booking ready for inspection.`
+          : paymentType === 'advance'
+            ? `Required advance paid successfully. Remaining ${this.formatCurrency(Math.max(0, this.resolvedPricing().final_amount - this.resolvedPricing().advance))} due after vehicle drop.`
+            : `Payment of ${this.formatCurrency(amount)} collected successfully.`,
+      });
       this.processingPayment.set(false);
     } catch (sdkErr: any) {
       this.processingPayment.set(false);
@@ -159,81 +254,22 @@ export class PaymentComponent implements OnInit {
   }
 
   downloadQuotationPdf() {
-    const pricing = this.resolvedPricing();
-    const lines = [
-      `Quotation ${this.quoteReference()}`,
-      `Vehicle: ${this.vehicleName()}`,
-      `Pickup: ${this.booking()?.pickup_location || '-'} | ${this.formatDate(this.booking()?.start_date)} ${this.booking()?.pickup_time || ''}`.trim(),
-      `Drop: ${this.booking()?.drop_location || '-'} | ${this.formatDate(this.booking()?.end_date)} ${this.booking()?.dropoff_time || ''}`.trim(),
-      `Daily Rate: ${this.formatCurrency(pricing.rate)}`,
-      `Days: ${pricing.days}`,
-      `Base Cost: ${this.formatCurrency(pricing.base_cost)}`,
-      `GST: ${this.formatCurrency(pricing.gst)}`,
-      `Final Amount: ${this.formatCurrency(pricing.final_amount)}`,
-      `Security Deposit: ${this.formatCurrency(pricing.security_deposit)}`,
-      `Advance Due: ${this.formatCurrency(pricing.advance)}`,
-    ];
-    this.triggerPdfDownload(lines, `${this.quoteReference() || 'quotation'}.pdf`);
+    this.quotationPdf.downloadPdf(this.buildPdfInput(), `${this.quoteReference() || 'quotation'}.pdf`);
   }
 
   downloadReceiptPdf() {
     const payment = this.existingPayment();
-    const booking = this.booking();
-    const lines = [
-      `PAYMENT RECEIPT`,
-      ``,
-      `Quote Reference: ${this.quoteReference()}`,
-      `Booking ID: ${booking?.id || '-'}`,
-      `Vehicle: ${this.vehicleName()}`,
-      `Pickup: ${booking?.pickup_location || '-'} | ${this.formatDate(booking?.start_date)}`,
-      `Drop: ${booking?.drop_location || '-'} | ${this.formatDate(booking?.end_date)}`,
-      ``,
-      `Amount Paid: ${this.formatCurrency(payment?.amount || this.amountDueNow())}`,
-      `Payment Type: Balance Payment`,
-      `Payment Mode: ${payment?.payment_mode || 'Online'}`,
-      `Transaction Ref: ${payment?.cf_payment_id || payment?.cf_order_id || '-'}`,
-      `Paid On: ${payment?.created_at ? new Date(payment.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '-'}`,
-      ``,
-      `Status: ADVANCE PAYMENT CONFIRMED`,
-    ];
-    this.triggerPdfDownload(lines, `receipt-${this.quoteReference() || 'payment'}.pdf`);
-  }
-
-  private triggerPdfDownload(lines: string[], filename: string) {
-    const content = [
-      'BT',
-      '/F1 12 Tf',
-      '40 800 Td',
-      ...lines.flatMap((line, i) => [`(${this.escapePdf(line)}) Tj`, i === lines.length - 1 ? '' : 'T*']),
-      'ET',
-    ]
-      .filter(Boolean)
-      .join('\n');
-
-    const stream = `<< /Length ${content.length} >>\nstream\n${content}\nendstream`;
-    const objects = [
-      '1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj',
-      '2 0 obj << /Type /Pages /Count 1 /Kids [3 0 R] >> endobj',
-      '3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >> endobj',
-      `4 0 obj ${stream} endobj`,
-      '5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj',
-    ];
-
-    let pdf = '%PDF-1.4\n';
-    const offsets: number[] = [];
-    for (const obj of objects) { offsets.push(pdf.length); pdf += `${obj}\n`; }
-    const xrefOffset = pdf.length;
-    pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
-    pdf += offsets.map((o) => `${String(o).padStart(10, '0')} 00000 n \n`).join('');
-    pdf += `trailer << /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
-
-    const blob = new Blob([pdf], { type: 'application/pdf' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    link.click();
-    URL.revokeObjectURL(url);
+    this.quotationPdf.downloadPdf({
+      ...this.buildPdfInput(),
+      documentTitle: 'PAYMENT RECEIPT',
+      paymentSummaryTitle: 'Receipt Summary',
+      paymentSummaryLabel: String(payment?.status ?? '').toLowerCase() === 'paid' ? 'Advance Paid - Online' : 'Payment Pending',
+      paymentSummaryLines: [
+        `Transaction Ref: ${payment?.cf_payment_id || payment?.cf_order_id || '-'}`,
+        `Paid At: ${payment?.created_at ? new Date(payment.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '-'}`,
+        `Amount: ${this.formatCurrency(payment?.amount || this.amountDueNow())}`,
+      ],
+    }, `receipt-${this.quoteReference() || 'payment'}.pdf`);
   }
 
   private formatCurrency(value: number) {
@@ -244,7 +280,63 @@ export class PaymentComponent implements OnInit {
     return value ? new Date(value).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '-';
   }
 
-  private escapePdf(value: string) {
-    return value.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+  private buildPdfInput() {
+    const pricing = this.resolvedPricing();
+    return {
+      companyName: 'AUTOFLOW',
+      companySubtitle: 'Fleet Operations',
+      quoteReference: this.quoteReference(),
+      bookingId: this.booking()?.id || '-',
+      issueDate: this.formatDate(this.quotation()?.created_at || this.booking()?.created_at || new Date().toISOString()),
+      validUntil: this.formatDate(this.booking()?.created_at || new Date().toISOString()),
+      advisorName: 'Rental Advisor',
+      advisorEmail: 'advisor@autoflow.in',
+      customerName: this.booking()?.customer?.full_name || this.quotation()?.customer_name || '-',
+      customerMobile: this.booking()?.customer?.mobile || this.quotation()?.mobile || '-',
+      customerEmail: this.booking()?.customer?.email || this.quotation()?.email || '-',
+      customerLicenseNo: this.quotation()?.license || this.quotation()?.licence_number || '-',
+      customerType: this.quotation()?.customer_type || 'individual',
+      vehicleName: this.vehicleName(),
+      vehicleBrand: this.vehicle()?.brand || this.vehicle()?.make || '-',
+      vehicleModel: this.vehicle()?.model || '-',
+      vehicleFuelType: this.vehicle()?.fuel || this.vehicle()?.fuel_type || '-',
+      vehicleTransmission: this.vehicle()?.transmission || '-',
+      vehicleYear: String(this.vehicle()?.year || '-'),
+      pickupLocation: this.booking()?.pickup_location || '-',
+      dropLocation: this.booking()?.drop_location || '-',
+      pickupDateTime: `${this.formatDate(this.booking()?.start_date)} ${this.booking()?.pickup_time || ''}`.trim(),
+      dropDateTime: `${this.formatDate(this.booking()?.end_date)} ${this.booking()?.dropoff_time || ''}`.trim(),
+      durationLabel: `${pricing.days} day(s)`,
+      purpose: this.booking()?.purpose || '-',
+      passengers: String(this.booking()?.number_of_passengers || '-'),
+      paymentStatusLabel: this.existingPayment()?.status || 'pending',
+      paymentSummaryLabel: this.isAlreadyPaid()
+        ? 'Advance Paid - Online'
+        : this.canCollectFullPaymentNow()
+          ? 'Full Payment Due Now'
+          : this.isPendingFullAwaitingApproval()
+            ? 'Awaiting Approval'
+            : 'Payment Pending',
+      paymentSummaryLines: this.existingPayment()
+        ? [
+            `Transaction Ref: ${this.existingPayment()?.cf_payment_id || this.existingPayment()?.cf_order_id || '-'}`,
+            `Paid At: ${this.existingPayment()?.created_at ? new Date(this.existingPayment().created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '-'}`,
+            `Amount: ${this.formatCurrency(this.existingPayment()?.amount || this.amountDueNow())}`,
+          ]
+        : [`Amount Due: ${this.formatCurrency(this.amountDueNow())}`],
+      fuelPolicy: pricing.fuel_policy || 'Full-to-Full',
+      footerNote: 'System generated by AUTOFLOW Fleet Operations',
+      amounts: {
+        dailyRate: Number(pricing.rate ?? 0),
+        days: Number(pricing.days ?? 0),
+        baseCost: Number(pricing.base_cost ?? 0),
+        gst: Number(pricing.gst ?? 0),
+        discountAmount: Number(pricing.discount_amount ?? 0),
+        advance: Number(pricing.advance ?? 0),
+        securityDeposit: Number(pricing.security_deposit ?? 0),
+        finalAmount: Number(pricing.final_amount ?? 0),
+        extraMileageRate: Number(pricing.extra_mileage_rate ?? 0),
+      },
+    };
   }
 }

@@ -1703,6 +1703,223 @@ export class SupabaseService {
     }
   }
 
+  async createWalkInAdvancePaymentOrder(bookingId: string, quotationId: string, amount: number) {
+    const existing = await this.supabase
+      .from('payments')
+      .select('id, booking_id, cf_order_id, cf_payment_id, cf_payment_session_id, amount, payment_type, status, payment_mode, notes, created_at, updated_at')
+      .eq('booking_id', bookingId)
+      .eq('payment_mode', 'online')
+      .eq('payment_type', 'advance')
+      .eq('status', 'initiated')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existing.data?.cf_order_id && existing.data?.cf_payment_session_id) {
+      return {
+        ...existing,
+        data: {
+          ...this.normalizePaymentState(existing.data),
+          cf_order_id: existing.data.cf_order_id,
+          payment_session_id: existing.data.cf_payment_session_id,
+        },
+      };
+    }
+
+    const { data: booking, error } = await this.supabase
+      .from('bookings')
+      .select('id, customer_id, vehicle_id, user_id, customers(full_name, mobile, email)')
+      .eq('id', bookingId)
+      .single();
+
+    if (error || !booking) {
+      return { data: null, error: error ?? new Error('Booking not found') };
+    }
+
+    const cfOrderId = `ADV-${bookingId.replace(/-/g, '').slice(0, 16).toUpperCase()}-${Date.now()}`;
+    const returnUrl = `${window.location.origin}/dealer/my-bookings?bookingId=${bookingId}&cf_order_id=${cfOrderId}`;
+    const order = await this.requestCashfreeOrder({
+      booking,
+      cfOrderId,
+      amount,
+      returnUrl,
+    });
+
+    if (order.error || !order.data?.payment_session_id) {
+      return order;
+    }
+
+    const result = await this.supabase
+      .from('payments')
+      .insert({
+        booking_id: bookingId,
+        amount: Number(amount ?? 0),
+        payment_type: 'advance',
+        payment_mode: 'online',
+        status: 'initiated',
+        notes: 'Advance payment initiated before admin approval',
+        cf_order_id: cfOrderId,
+        cf_payment_session_id: order.data.payment_session_id,
+      })
+      .select('id, booking_id, cf_order_id, cf_payment_id, amount, payment_type, status, payment_mode, notes, created_at, updated_at')
+      .single();
+
+    return {
+      ...result,
+      data: result.data
+        ? {
+            ...this.normalizePaymentState(result.data),
+            cf_order_id: cfOrderId,
+            payment_session_id: order.data.payment_session_id,
+          }
+        : null,
+    };
+  }
+
+  async createCashfreeOrderForPendingFullPayment(bookingId: string, amount: number) {
+    const paymentResult = await this.supabase
+      .from('payments')
+      .select('id, booking_id, amount, payment_type, status, payment_mode, notes, cf_order_id, cf_payment_id, cf_payment_session_id, created_at, updated_at')
+      .eq('booking_id', bookingId)
+      .eq('payment_mode', 'pending_full')
+      .eq('status', 'initiated')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (paymentResult.error || !paymentResult.data?.id) {
+      return { data: null, error: paymentResult.error ?? new Error('Pending full payment record not found') };
+    }
+
+    if (paymentResult.data.cf_order_id && paymentResult.data.cf_payment_session_id) {
+      return {
+        data: {
+          payment_id: paymentResult.data.id,
+          cf_order_id: paymentResult.data.cf_order_id,
+          payment_session_id: paymentResult.data.cf_payment_session_id,
+        },
+        error: null,
+      };
+    }
+
+    const { data: booking, error } = await this.supabase
+      .from('bookings')
+      .select('id, customer_id, vehicle_id, user_id, customers(full_name, mobile, email)')
+      .eq('id', bookingId)
+      .single();
+
+    if (error || !booking) {
+      return { data: null, error: error ?? new Error('Booking not found') };
+    }
+
+    const cfOrderId = `FULL-${bookingId.replace(/-/g, '').slice(0, 16).toUpperCase()}-${Date.now()}`;
+    const returnUrl = `${window.location.origin}/dealer/booking/${bookingId}/payments?cf_order_id=${cfOrderId}`;
+    const order = await this.requestCashfreeOrder({
+      booking,
+      cfOrderId,
+      amount,
+      returnUrl,
+    });
+
+    if (order.error || !order.data?.payment_session_id) {
+      return order;
+    }
+
+    const updateResult = await this.supabase
+      .from('payments')
+      .update({
+        amount: Number(amount ?? 0),
+        cf_order_id: cfOrderId,
+        cf_payment_session_id: order.data.payment_session_id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', paymentResult.data.id)
+      .select('id, booking_id, amount, payment_type, status, payment_mode, notes, cf_order_id, cf_payment_id, cf_payment_session_id, created_at, updated_at')
+      .single();
+
+    return {
+      ...updateResult,
+      data: updateResult.data
+        ? {
+            payment_id: updateResult.data.id,
+            cf_order_id: updateResult.data.cf_order_id,
+            payment_session_id: updateResult.data.cf_payment_session_id,
+          }
+        : null,
+    };
+  }
+
+  async markPaymentPaidAfterCashfree(input: {
+    bookingId: string;
+    cfOrderId: string;
+    notes: string;
+    paymentMode?: 'online';
+    cfPaymentId?: string | null;
+  }) {
+    const latestPayment = await this.supabase
+      .from('payments')
+      .select('id')
+      .eq('booking_id', input.bookingId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (latestPayment.error || !latestPayment.data?.id) {
+      return { data: null, error: latestPayment.error ?? new Error('Payment row not found') };
+    }
+
+    const result = await this.supabase
+      .from('payments')
+      .update({
+        status: 'paid',
+        payment_mode: input.paymentMode || 'online',
+        cf_order_id: input.cfOrderId,
+        cf_payment_id: input.cfPaymentId || null,
+        notes: input.notes,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', latestPayment.data.id)
+      .select('id, booking_id, cf_order_id, cf_payment_id, amount, payment_type, status, payment_mode, notes, created_at, updated_at')
+      .single();
+
+    return {
+      ...result,
+      data: this.normalizePaymentState(result.data),
+    };
+  }
+
+  async fixExistingInitiatedPayments() {
+    const { data, error } = await this.supabase
+      .from('payments')
+      .select('id')
+      .eq('status', 'initiated')
+      .neq('payment_mode', 'pending_full');
+
+    if (error) {
+      return { data: null, error };
+    }
+
+    const ids = (data ?? []).map((row: any) => row.id).filter(Boolean);
+    if (!ids.length) {
+      return { data: { updatedCount: 0 }, error: null };
+    }
+
+    const updateResult = await this.supabase
+      .from('payments')
+      .update({
+        status: 'paid',
+        notes: 'Backfilled - payment confirmed',
+        updated_at: new Date().toISOString(),
+      })
+      .in('id', ids)
+      .select('id');
+
+    return {
+      data: { updatedCount: updateResult.data?.length ?? ids.length },
+      error: updateResult.error,
+    };
+  }
+
   async markBookingInService(bookingId: string) {
     return await this.supabase
       .from('bookings')
@@ -1735,6 +1952,43 @@ export class SupabaseService {
         payment_mode: 'cash',
         status: 'paid',
         notes: 'Advance collected offline by advisor',
+      })
+      .select('id, booking_id, cf_order_id, cf_payment_id, amount, payment_type, status, payment_mode, notes, created_at, updated_at')
+      .single();
+
+    return {
+      ...result,
+      data: this.normalizePaymentState(result.data),
+    };
+  }
+
+  async createPendingFullPayment(bookingId: string, amount: number) {
+    const existing = await this.supabase
+      .from('payments')
+      .select('id, booking_id, amount, payment_type, status, payment_mode, notes, created_at, updated_at')
+      .eq('booking_id', bookingId)
+      .eq('payment_mode', 'pending_full')
+      .eq('status', 'initiated')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existing.data) {
+      return {
+        ...existing,
+        data: this.normalizePaymentState(existing.data),
+      };
+    }
+
+    const result = await this.supabase
+      .from('payments')
+      .insert({
+        booking_id: bookingId,
+        amount: Number(amount ?? 0),
+        payment_type: 'advance',
+        payment_mode: 'pending_full',
+        status: 'initiated',
+        notes: 'Full payment due after admin approval',
       })
       .select('id, booking_id, cf_order_id, cf_payment_id, amount, payment_type, status, payment_mode, notes, created_at, updated_at')
       .single();
@@ -1848,6 +2102,74 @@ export class SupabaseService {
     }
 
     return { data: { cf_order_id: cfOrderId, payment_session_id: paymentSessionId }, error: null };
+  }
+
+  private async requestCashfreeOrder(input: { booking: any; cfOrderId: string; amount: number; returnUrl: string }) {
+    const customer = input.booking?.customers;
+
+    if (environment.cashfreeApiStyle === 'proxy') {
+      try {
+        const cfResponse = await fetch('/cashfree-proxy/orders', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-version': '2023-08-01',
+            'x-client-id': environment.cashfreeAppId,
+            'x-client-secret': environment.cashfreeSecretKey,
+          },
+          body: JSON.stringify({
+            order_id: input.cfOrderId,
+            order_amount: Number(input.amount),
+            order_currency: 'INR',
+            customer_details: {
+              customer_id: String(input.booking?.customer_id || 'customer'),
+              customer_name: customer?.full_name || 'Customer',
+              customer_email: customer?.email || 'noreply@example.com',
+              customer_phone: String(customer?.mobile || '9999999999').replace(/\D/g, '').slice(-10).padStart(10, '9'),
+            },
+            order_meta: {
+              return_url: input.returnUrl,
+            },
+          }),
+        });
+
+        if (!cfResponse.ok) {
+          const errText = await cfResponse.text();
+          return { data: null, error: new Error(`Cashfree error: ${errText}`) };
+        }
+
+        const cfOrder = await cfResponse.json();
+        return { data: { payment_session_id: cfOrder.payment_session_id }, error: null };
+      } catch (fetchErr: any) {
+        return { data: null, error: new Error(`Network error calling Cashfree: ${fetchErr?.message}`) };
+      }
+    }
+
+    try {
+      const response = await fetch('/api/create-cashfree-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          order_id: input.cfOrderId,
+          order_amount: Number(input.amount),
+          customer_id: String(input.booking?.customer_id || 'customer'),
+          customer_name: customer?.full_name || 'Customer',
+          customer_email: customer?.email || 'noreply@example.com',
+          customer_phone: String(customer?.mobile || '9999999999').replace(/\D/g, '').slice(-10).padStart(10, '9'),
+          return_url: input.returnUrl,
+        }),
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        return { data: null, error: new Error(`Cashfree error: ${errText}`) };
+      }
+
+      const result = await response.json();
+      return { data: { payment_session_id: result.payment_session_id }, error: null };
+    } catch (fetchErr: any) {
+      return { data: null, error: new Error(`Network error: ${fetchErr?.message}`) };
+    }
   }
 
   private async createCashfreeOrderLocal(bookingId: string, quotationId: string, amount: number) {
@@ -1974,24 +2296,7 @@ export class SupabaseService {
   }
 
   private normalizeBookingPaymentState<T extends Record<string, any> | null>(booking: T): T {
-    if (!booking) {
-      return booking;
-    }
-
-    const status = String(booking['status'] ?? '').toLowerCase();
-    const paymentStatus = String(booking['payment_status'] ?? '').toLowerCase();
-    const hasReceivedAdvance = status === 'payment_received'
-      || paymentStatus === 'payment_received'
-      || paymentStatus === 'paid';
-
-    if (!hasReceivedAdvance || booking['status'] === 'payment_received') {
-      return booking;
-    }
-
-    return {
-      ...booking,
-      status: 'payment_received',
-    } as T;
+    return booking;
   }
 
   private normalizePaymentState<T extends Record<string, any> | null>(payment: T): T {

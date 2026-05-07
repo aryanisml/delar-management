@@ -17,6 +17,7 @@ import { SelectModule } from 'primeng/select';
 import { TagModule } from 'primeng/tag';
 import { TextareaModule } from 'primeng/textarea';
 import { ToastModule } from 'primeng/toast';
+import { environment } from '../../../environments/environment';
 import { normalizeVehicle, tagSeverityForStatus } from '../../admin-ui.models';
 import { QuotationEmailService } from '../../services/quotation-email.service';
 import { QuotationPdfService } from '../../services/quotation-pdf';
@@ -149,9 +150,11 @@ export class DealerBookings {
     sms: false,
     whatsapp: false,
   });
-  readonly advanceCollectionMode = signal<'online' | 'offline'>('online');
+  readonly advanceCollectionMode = signal<'online' | 'pending_full'>('online');
+  readonly selectedPaymentFlow = signal<'advance_now' | 'full_after_approval'>('advance_now');
   readonly recordingOfflinePayment = signal(false);
   readonly offlinePaymentRecorded = signal(false);
+  readonly processingOnlineAdvance = signal(false);
   readonly advisorContact = signal<{ name: string; email: string }>({ name: 'Rental Advisor', email: 'advisor@autoflow.in' });
 
   readonly purposeOptions = ['Corporate', 'Airport Transfer', 'Personal', 'Business Visit', 'Event']
@@ -552,63 +555,117 @@ export class DealerBookings {
     this.messageService.add({ severity: 'success', summary: 'Quotation shared', detail: `Prepared ${channel.toUpperCase()} handoff for the quotation.` });
   }
 
-  async confirmBooking() {
-    if (!this.generatedBooking() || !this.generatedQuotation()) {
+  async payAdvanceNow() {
+    if (!this.generatedBooking()?.id || !this.generatedQuotation()) {
+      return;
+    }
+
+    this.processingOnlineAdvance.set(true);
+    const submitted = await this.submitBookingForApproval();
+    if (!submitted) {
+      this.processingOnlineAdvance.set(false);
+      return;
+    }
+
+    const advanceAmount = Number(this.generatedQuotation()?.advance ?? 0);
+    const { data, error } = await this.supabase.createWalkInAdvancePaymentOrder(
+      this.generatedBooking().id,
+      this.generatedQuotation()?.id || '',
+      advanceAmount
+    );
+    const orderData = data as any;
+
+    if (error || !orderData?.cf_order_id || !orderData?.payment_session_id) {
+      this.processingOnlineAdvance.set(false);
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Payment initiation failed',
+        detail: (error as any)?.message || 'Could not initiate advance payment.',
+      });
+      return;
+    }
+
+    try {
+      const cashfree = window.Cashfree({ mode: environment.cashfreeMode });
+      const result = await cashfree.checkout({
+        paymentSessionId: orderData.payment_session_id,
+        redirectTarget: '_modal',
+      });
+
+      if (result?.error) {
+        this.processingOnlineAdvance.set(false);
+        this.messageService.add({ severity: 'error', summary: 'Payment error', detail: result.error.message || 'Cashfree SDK error.' });
+        return;
+      }
+
+      const confirmation = await this.supabase.markPaymentPaidAfterCashfree({
+        bookingId: this.generatedBooking().id,
+        cfOrderId: orderData.cf_order_id,
+        cfPaymentId: (result as any)?.cf_payment_id || (result as any)?.payment_id || null,
+        paymentMode: 'online',
+        notes: this.selectedPaymentFlow() === 'advance_now'
+          ? 'Advance collected via online payment. Remaining balance due after vehicle drop.'
+          : 'Full rental amount collected via online payment.',
+      });
+      this.processingOnlineAdvance.set(false);
+
+      const paymentStatus = String(confirmation.data?.status ?? '').toLowerCase();
+      if (confirmation.error) {
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Payment update failed',
+          detail: (confirmation.error as any)?.message || 'Cashfree returned, but the payment status could not be updated.',
+        });
+        return;
+      }
+
+      if (paymentStatus !== 'paid') {
+        return;
+      }
+
+      this.messageService.add({
+        severity: 'success',
+        summary: 'Advance payment complete',
+        detail: `Required advance paid successfully. Remaining ${this.formatCurrency(this.remainingBalanceAmount())} due after vehicle drop.`,
+      });
+    } catch (sdkErr: any) {
+      this.processingOnlineAdvance.set(false);
+      this.messageService.add({ severity: 'error', summary: 'Payment error', detail: sdkErr?.message || 'Cashfree SDK error.' });
+    }
+  }
+
+  async confirmBookingWithFullPaymentPending() {
+    if (!this.generatedBooking()?.id || !this.generatedQuotation()) {
       return;
     }
 
     this.confirmingBooking.set(true);
-    const preferredChannel = this.sendState().email
-      ? 'email'
-      : this.sendState().whatsapp
-        ? 'whatsapp'
-        : this.sendState().sms
-          ? 'sms'
-          : null;
-    const { error } = await this.supabase.confirmWalkInBooking(this.generatedBooking().id, preferredChannel);
+    const submitted = await this.submitBookingForApproval();
+    if (!submitted) {
+      this.confirmingBooking.set(false);
+      return;
+    }
+
+    const { error } = await this.supabase.createPendingFullPayment(
+      this.generatedBooking().id,
+      Number(this.generatedQuotation()?.final_amount ?? 0)
+    );
     this.confirmingBooking.set(false);
 
     if (error) {
-      this.messageService.add({ severity: 'error', summary: 'Confirmation failed', detail: (error as any).message || 'Could not confirm this booking.' });
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Confirmation failed',
+        detail: (error as any)?.message || 'Could not create the pending full payment record.',
+      });
       return;
     }
 
     this.messageService.add({
       severity: 'success',
-      summary: 'Booking submitted',
-      detail: 'Admin has been notified for approval.',
+      summary: 'Booking confirmed',
+      detail: `Booking confirmed. Full payment of ${this.formatCurrency(this.fullAmount())} required after admin approval before inspection.`,
     });
-    await this.router.navigateByUrl('/dealer/my-bookings');
-  }
-
-  async confirmOfflineCollection() {
-    if (!this.generatedBooking()?.id || !this.generatedQuotation()) {
-      return;
-    }
-
-    if (this.offlinePaymentRecorded()) {
-      this.messageService.add({ severity: 'info', summary: 'Already recorded', detail: 'Offline advance payment has already been recorded for this booking.' });
-      return;
-    }
-
-    this.recordingOfflinePayment.set(true);
-    const { data, error } = await this.supabase.recordOfflineAdvancePayment(
-      this.generatedBooking().id,
-      Number(this.generatedQuotation()?.advance ?? 0)
-    );
-    this.recordingOfflinePayment.set(false);
-
-    if (error || !data) {
-      this.messageService.add({
-        severity: 'error',
-        summary: 'Recording failed',
-        detail: (error as any)?.message || 'Could not record the offline advance payment.',
-      });
-      return;
-    }
-
-    this.offlinePaymentRecorded.set(true);
-    this.messageService.add({ severity: 'success', summary: 'Payment recorded', detail: 'Offline advance payment recorded' });
   }
 
   stepDone(target: number) {
@@ -680,6 +737,41 @@ export class DealerBookings {
     return Number(this.generatedQuotation()?.[field] ?? 0);
   }
 
+  selectedPaymentAmount() {
+    return this.advanceCollectionMode() === 'online'
+      ? this.advanceAmount()
+      : this.fullAmount();
+  }
+
+  advanceAmount() {
+    return this.quotationAmount('advance');
+  }
+
+  fullAmount() {
+    return this.quotationAmount('final_amount');
+  }
+
+  remainingBalanceAmount() {
+    return Math.max(0, this.fullAmount() - this.advanceAmount());
+  }
+
+  selectedPaymentTitle() {
+    return this.advanceCollectionMode() === 'online'
+      ? 'Pay Advance Now'
+      : 'Pay Full Amount After Approval';
+  }
+
+  selectedPaymentSubtitle() {
+    return this.advanceCollectionMode() === 'online'
+      ? 'Pay the required advance now. Remaining balance due only after vehicle is returned.'
+      : 'No advance collected now. Full rental amount must be paid after admin approves this booking. Inspection cannot begin until full payment is complete.';
+  }
+
+  setAdvanceCollectionMode(mode: 'online' | 'pending_full') {
+    this.advanceCollectionMode.set(mode);
+    this.selectedPaymentFlow.set(mode === 'online' ? 'advance_now' : 'full_after_approval');
+  }
+
   private buildPdfInput() {
     const quotation = this.generatedQuotation();
     const booking = this.generatedBooking();
@@ -703,6 +795,8 @@ export class DealerBookings {
       customerLicenseNo: this.customer().license_no || '-',
       customerType: this.customer().customer_type || '-',
       vehicleName: `${vehicle.brand || ''} ${vehicle.model || ''}`.trim() || 'Vehicle',
+      vehicleBrand: vehicle.brand || '-',
+      vehicleModel: vehicle.model || '-',
       vehicleFuelType: vehicle.fuel || vehicle.fuel_type || '-',
       vehicleTransmission: vehicle.transmission || '-',
       vehicleYear: String(vehicle.year || '-'),
@@ -715,6 +809,7 @@ export class DealerBookings {
       passengers: String(this.trip().number_of_passengers || '-'),
       paymentStatusLabel: booking.payment_status || 'pending',
       fuelPolicy: quotation.fuel_policy || 'Full-to-Full',
+      footerNote: 'System generated by AUTOFLOW Fleet Operations',
       amounts: {
         dailyRate: this.quotationAmount('rate'),
         days: Number(quotation.days || this.totalDays()),
@@ -727,6 +822,39 @@ export class DealerBookings {
         extraMileageRate: this.quotationAmount('extra_mileage_rate'),
       },
     };
+  }
+
+  private async submitBookingForApproval() {
+    if (!this.generatedBooking()?.id) {
+      return false;
+    }
+
+    const currentBookingStatus = String(this.generatedBooking()?.status ?? '').toLowerCase();
+    if (currentBookingStatus === 'pending' || currentBookingStatus === 'approved') {
+      return true;
+    }
+
+    const preferredChannel = this.sendState().email
+      ? 'email'
+      : this.sendState().whatsapp
+        ? 'whatsapp'
+        : this.sendState().sms
+          ? 'sms'
+          : null;
+    const { data, error } = await this.supabase.confirmWalkInBooking(this.generatedBooking().id, preferredChannel);
+
+    if (error) {
+      this.messageService.add({ severity: 'error', summary: 'Confirmation failed', detail: (error as any).message || 'Could not confirm this booking.' });
+      return false;
+    }
+
+    if (data?.booking) {
+      this.generatedBooking.set(data.booking);
+    }
+    if (data?.quotation) {
+      this.generatedQuotation.set(data.quotation);
+    }
+    return true;
   }
 
   private buildCustomerShareMessage() {

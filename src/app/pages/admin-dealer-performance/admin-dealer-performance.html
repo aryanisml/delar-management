@@ -188,6 +188,9 @@
             @for (line of paymentDetailLines(payment); track line) {
               <div class="lg:col-span-2"><span>Summary</span><strong>{{ line }}</strong></div>
             }
+            @if (paymentNotes(payment); as notes) {
+              <div class="lg:col-span-2"><span>Notes</span><strong class="text-xs text-slate-500">{{ notes }}</strong></div>
+            }
           </div>
         } @else {
           <p-tag [value]="paymentBadgeLabel(null)" [severity]="paymentBadgeSeverity(null)"></p-tag>
@@ -200,7 +203,7 @@
         <button pButton type="button" label="Reject" severity="danger" outlined (click)="openRejectDialog(detail)"></button>
         <button pButton type="button" label="Approve" severity="success" (click)="approveBooking(detail)"></button>
       }
-      @if (detail.status === 'payment_received') {
+      @if (canStartInspection(detail, selectedPayment())) {
         <button pButton type="button" label="Mark as In Service" icon="pi pi-car" severity="info" (click)="markInService(detail)"></button>
       }
     </div>

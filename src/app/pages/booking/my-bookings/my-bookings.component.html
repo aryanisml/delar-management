@@ -30,7 +30,7 @@
           </tr>
         </ng-template>
         <ng-template pTemplate="body" let-row>
-          <tr [class]="row.status === 'payment_received' ? 'bg-green-50' : ''">
+          <tr [class]="canStartInspection(row, row.latest_payment) ? 'bg-green-50' : ''">
             <td class="font-mono text-sm text-blue-700">{{ row.id }}</td>
             <td class="font-mono text-xs text-slate-600">{{ quoteReference(row) }}</td>
             <td>{{ row.vehicle_display }}</td>
@@ -53,16 +53,12 @@
                   <button pButton type="button" icon="pi pi-times" text severity="danger" (click)="cancelBooking(row)"></button>
                 }
 
-                @if (row.status === 'approved' && !hasAnyPayment(row.latest_payment)) {
+                @if (row.status === 'approved' && !hasPaidPayment(row.latest_payment)) {
                   <button pButton type="button" icon="pi pi-credit-card" text severity="success" title="Make Payment" (click)="openPayment(row)"></button>
                 }
 
-                @if (row.status === 'approved' && hasAnyPayment(row.latest_payment)) {
+                @if (canStartInspection(row, row.latest_payment)) {
                   <button pButton type="button" icon="pi pi-clipboard" text severity="success" title="Start Inspection" (click)="openInspection(row)"></button>
-                }
-
-                @if (row.status === 'payment_received') {
-                  <button pButton type="button" label="View Details" icon="pi pi-arrow-right" iconPos="right" text severity="success" size="small" (click)="openDetail(row)"></button>
                 }
               </div>
             </td>
@@ -224,16 +220,19 @@
           @for (line of paymentDetailLines(selectedPayment() || booking.latest_payment); track line) {
             <p class="m-0 text-sm text-gray-700 mb-1">{{ line }}</p>
           }
+          @if (paymentNotes(selectedPayment() || booking.latest_payment); as notes) {
+            <p class="m-0 mt-2 text-xs text-gray-500">{{ notes }}</p>
+          }
       </div>
 
-      @if (booking.status === 'approved' && !hasAnyPayment(selectedPayment() || booking.latest_payment)) {
+      @if (booking.status === 'approved' && !hasPaidPayment(selectedPayment() || booking.latest_payment)) {
         <div style="grid-column: 1 / -1">
-          <button pButton type="button" label="Make Advance Payment" icon="pi pi-credit-card" severity="success"
+          <button pButton type="button" label="Complete Payment" icon="pi pi-credit-card" severity="success"
             (click)="detailVisible.set(false); openPayment(booking)"></button>
         </div>
       }
 
-      @if (booking.status === 'approved' && hasAnyPayment(selectedPayment() || booking.latest_payment)) {
+      @if (canStartInspection(booking, selectedPayment() || booking.latest_payment)) {
         <div style="grid-column: 1 / -1">
           <button pButton type="button" label="Start Inspection" icon="pi pi-clipboard" severity="success"
             (click)="detailVisible.set(false); openInspection(booking)"></button>
