@@ -184,6 +184,10 @@
             <div><span>Cashfree Order ID</span><strong class="font-mono text-xs">{{ payment.cf_order_id || '-' }}</strong></div>
             <div><span>Transaction ID</span><strong class="font-mono text-xs">{{ payment.cf_payment_id || '-' }}</strong></div>
             <div><span>Initiated At</span><strong>{{ payment.created_at | date:'medium' }}</strong></div>
+            <div><span>Updated At</span><strong>{{ payment.updated_at ? (payment.updated_at | date:'medium') : '-' }}</strong></div>
+            @for (line of paymentDetailLines(payment); track line) {
+              <div class="lg:col-span-2"><span>Summary</span><strong>{{ line }}</strong></div>
+            }
           </div>
         } @else {
           <p-tag [value]="paymentBadgeLabel(null)" [severity]="paymentBadgeSeverity(null)"></p-tag>

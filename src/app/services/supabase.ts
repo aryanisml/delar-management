@@ -1713,11 +1713,31 @@ export class SupabaseService {
   async getPaymentByBooking(bookingId: string) {
     const result = await this.supabase
       .from('payments')
-      .select('id, cf_order_id, cf_payment_id, amount, payment_type, status, payment_mode, created_at')
+      .select('id, cf_order_id, cf_payment_id, amount, payment_type, status, payment_mode, notes, created_at, updated_at')
       .eq('booking_id', bookingId)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
+
+    return {
+      ...result,
+      data: this.normalizePaymentState(result.data),
+    };
+  }
+
+  async recordOfflineAdvancePayment(bookingId: string, amount: number) {
+    const result = await this.supabase
+      .from('payments')
+      .insert({
+        booking_id: bookingId,
+        amount: Number(amount ?? 0),
+        payment_type: 'advance',
+        payment_mode: 'cash',
+        status: 'paid',
+        notes: 'Advance collected offline by advisor',
+      })
+      .select('id, booking_id, cf_order_id, cf_payment_id, amount, payment_type, status, payment_mode, notes, created_at, updated_at')
+      .single();
 
     return {
       ...result,
@@ -1933,7 +1953,7 @@ export class SupabaseService {
 
     const result = await this.supabase
       .from('payments')
-      .select('booking_id, status, payment_type, amount, cf_payment_id, cf_order_id, payment_mode, created_at')
+      .select('booking_id, status, payment_type, amount, cf_payment_id, cf_order_id, payment_mode, notes, created_at, updated_at')
       .in('booking_id', uniqueIds)
       .order('created_at', { ascending: false });
 

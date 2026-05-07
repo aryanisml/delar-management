@@ -154,13 +154,11 @@ export class AdminDealerPerformance implements OnInit, OnDestroy {
   }
 
   paymentBadgeLabel(payment: any) {
-    if (payment) return 'Advance Paid';
-    return 'Not Initiated';
+    return this.paymentPresentation(payment).label;
   }
 
-  paymentBadgeSeverity(payment: any): 'success' | 'secondary' {
-    if (payment) return 'success';
-    return 'secondary';
+  paymentBadgeSeverity(payment: any): 'success' | 'warn' | 'secondary' {
+    return this.paymentPresentation(payment).severity;
   }
 
   async viewDetails(row: any) {
@@ -257,5 +255,56 @@ export class AdminDealerPerformance implements OnInit, OnDestroy {
     this.detailVisible.set(false);
     this.messageService.add({ severity: 'info', summary: 'Booking rejected', detail: `Booking ${row.id} has been rejected.` });
     await this.loadLedger();
+  }
+
+  paymentDetailLines(payment: any) {
+    return this.paymentPresentation(payment).detailLines;
+  }
+
+  private paymentPresentation(payment: any): { label: string; severity: 'success' | 'warn' | 'secondary'; detailLines: string[] } {
+    if (!payment) {
+      return {
+        label: 'Not Initiated',
+        severity: 'secondary',
+        detailLines: ['No payment transaction has been initiated for this booking yet.'],
+      };
+    }
+
+    const status = String(payment.status ?? '').toLowerCase();
+    const mode = String(payment.payment_mode ?? '').toLowerCase();
+    const amount = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(payment.amount ?? 0));
+
+    if (status === 'paid') {
+      if (mode === 'cash') {
+        return {
+          label: 'Advance Paid - Offline',
+          severity: 'success',
+          detailLines: [
+            `Collected by advisor on ${this.formatDateTime(payment.created_at)}`,
+            `Amount: ${amount}`,
+          ],
+        };
+      }
+
+      return {
+        label: 'Advance Paid - Online',
+        severity: 'success',
+        detailLines: [
+          `Transaction Ref: ${payment.cf_payment_id || payment.cf_order_id || '-'}`,
+          `Paid At: ${this.formatDateTime(payment.updated_at || payment.created_at)}`,
+          `Amount: ${amount}`,
+        ],
+      };
+    }
+
+    return {
+      label: 'Payment Pending',
+      severity: 'warn',
+      detailLines: [`Latest status: ${String(payment.status || 'initiated').replace(/_/g, ' ')}`],
+    };
+  }
+
+  private formatDateTime(value?: string | null) {
+    return value ? new Date(value).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '-';
   }
 }

@@ -185,13 +185,13 @@
     (click)="cancelBooking(row.id)">
   </button>
 
-  <!-- Generate Quote button -->
+  <!-- View Details button -->
   <button
     *ngIf="row.status === 'approved'"
     pButton
     type="button"
-    label="Generate Quote"
-    icon="pi pi-file"
+    label="View Details"
+    icon="pi pi-eye"
     class="p-button-success p-button-sm"
     (click)="openQuotation(row)">
   </button>

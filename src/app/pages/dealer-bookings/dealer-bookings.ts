@@ -149,12 +149,13 @@ export class DealerBookings {
     sms: false,
     whatsapp: false,
   });
-  readonly paymentMode = signal<'UPI' | 'Card' | 'Cash' | null>(null);
+  readonly advanceCollectionMode = signal<'online' | 'offline'>('online');
+  readonly recordingOfflinePayment = signal(false);
+  readonly offlinePaymentRecorded = signal(false);
   readonly advisorContact = signal<{ name: string; email: string }>({ name: 'Rental Advisor', email: 'advisor@autoflow.in' });
 
   readonly purposeOptions = ['Corporate', 'Airport Transfer', 'Personal', 'Business Visit', 'Event']
     .map((value) => ({ label: value, value }));
-  readonly paymentOptions = ['UPI', 'Card', 'Cash'].map((value) => ({ label: value, value }));
   readonly locationOptions = [
     'Hyderabad Airport (RGIA)', 'Hyderabad City Centre', 'Gachibowli', 'Hitech City', 'Madhapur',
     'Secunderabad', 'Banjara Hills', 'Jubilee Hills', 'Ameerpet', 'Kukatpally',
@@ -259,6 +260,7 @@ export class DealerBookings {
     this.step.set(2);
     this.generatedBooking.set(null);
     this.generatedQuotation.set(null);
+    this.offlinePaymentRecorded.set(false);
   }
 
   async applyAvailabilityFilters() {
@@ -301,6 +303,7 @@ export class DealerBookings {
 
     this.generatedBooking.set(null);
     this.generatedQuotation.set(null);
+    this.offlinePaymentRecorded.set(false);
     this.step.set(3);
   }
 
@@ -464,6 +467,7 @@ export class DealerBookings {
 
     this.generatedBooking.set(result.data?.booking ?? null);
     this.generatedQuotation.set(result.data?.quotation ?? null);
+    this.offlinePaymentRecorded.set(false);
     if (result.data?.duplicateMobile && result.data?.customer) {
       this.existingCustomer.set(result.data.customer);
       this.prefillCustomer(result.data.customer);
@@ -572,9 +576,39 @@ export class DealerBookings {
     this.messageService.add({
       severity: 'success',
       summary: 'Booking submitted',
-      detail: `Advance payment recorded in workflow${this.paymentMode() ? ` via ${this.paymentMode()}` : ''}. Admin has been notified for approval.`,
+      detail: 'Admin has been notified for approval.',
     });
     await this.router.navigateByUrl('/dealer/my-bookings');
+  }
+
+  async confirmOfflineCollection() {
+    if (!this.generatedBooking()?.id || !this.generatedQuotation()) {
+      return;
+    }
+
+    if (this.offlinePaymentRecorded()) {
+      this.messageService.add({ severity: 'info', summary: 'Already recorded', detail: 'Offline advance payment has already been recorded for this booking.' });
+      return;
+    }
+
+    this.recordingOfflinePayment.set(true);
+    const { data, error } = await this.supabase.recordOfflineAdvancePayment(
+      this.generatedBooking().id,
+      Number(this.generatedQuotation()?.advance ?? 0)
+    );
+    this.recordingOfflinePayment.set(false);
+
+    if (error || !data) {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Recording failed',
+        detail: (error as any)?.message || 'Could not record the offline advance payment.',
+      });
+      return;
+    }
+
+    this.offlinePaymentRecorded.set(true);
+    this.messageService.add({ severity: 'success', summary: 'Payment recorded', detail: 'Offline advance payment recorded' });
   }
 
   stepDone(target: number) {

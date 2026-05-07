@@ -119,8 +119,8 @@ export class DealerDashboard {
   };
   
   openQuotation(booking: any) {
-  this.router.navigate(['/dealer/booking', booking.id, 'customer-details']);
-}
+    this.router.navigate(['/dealer/my-bookings'], { queryParams: { bookingId: booking.id } });
+  }
 
   tableColumns: TableColumn[] = [
     { field: 'vin', header: 'VIN', sortable: true },

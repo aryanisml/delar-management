@@ -1,6 +1,6 @@
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { ConfirmationService, MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
@@ -11,6 +11,7 @@ import { TagModule } from 'primeng/tag';
 import { ToastModule } from 'primeng/toast';
 import { Booking } from '../../../models/booking';
 import { labelForStatus, tagSeverityForStatus } from '../../../admin-ui.models';
+import { QuotationPdfInput, QuotationPdfService } from '../../../services/quotation-pdf';
 import { SupabaseService } from '../../../services/supabase';
 
 @Component({
@@ -25,8 +26,12 @@ export class MyBookingsComponent implements OnInit, OnDestroy {
   private confirmationService = inject(ConfirmationService);
   private messageService = inject(MessageService);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
+  private quotationPdf = inject(QuotationPdfService);
 
   private bookingChannel: any = null;
+  private routeSubscription: any = null;
+  private pendingBookingIdToOpen: string | null = null;
 
   readonly bookings = signal<any[]>([]);
   readonly bulkBookings = signal<any[]>([]);
@@ -34,6 +39,7 @@ export class MyBookingsComponent implements OnInit, OnDestroy {
   readonly detailVisible = signal(false);
   readonly selectedBooking = signal<any | null>(null);
   readonly selectedPayment = signal<any | null>(null);
+  readonly advisorContact = signal<{ name: string; email: string }>({ name: 'Rental Advisor', email: 'advisor@autoflow.in' });
 
   readonly groupedBulkRows = computed(() =>
     this.bulkBookings().map((bulk) => ({
@@ -50,13 +56,22 @@ export class MyBookingsComponent implements OnInit, OnDestroy {
   async ngOnInit() {
     const user = await this.supabase.getCurrentUser();
     if (user) {
+      this.advisorContact.set({
+        name: (user.user_metadata as Record<string, string> | undefined)?.['full_name'] || user.email?.split('@')[0] || 'Rental Advisor',
+        email: user.email || 'advisor@autoflow.in',
+      });
       this.bookingChannel = this.supabase.subscribeToMyBookingChanges(user.id, () => this.loadData());
     }
+    this.routeSubscription = this.route.queryParamMap.subscribe((params) => {
+      this.pendingBookingIdToOpen = params.get('bookingId');
+      void this.tryAutoOpenBooking();
+    });
     await this.loadData();
   }
 
   ngOnDestroy() {
     this.bookingChannel?.unsubscribe();
+    this.routeSubscription?.unsubscribe?.();
   }
 
   async loadData() {
@@ -77,6 +92,7 @@ export class MyBookingsComponent implements OnInit, OnDestroy {
       }))
     );
     this.bulkBookings.set(bulkBookings ?? []);
+    await this.tryAutoOpenBooking();
   }
 
   statusSeverity(status: string) {
@@ -88,17 +104,15 @@ export class MyBookingsComponent implements OnInit, OnDestroy {
   }
 
   paymentBadgeLabel(payment: any) {
-    if (payment) return 'Advance Paid';
-    return 'Not Initiated';
+    return this.paymentPresentation(payment).label;
   }
 
-  paymentBadgeSeverity(payment: any): 'success' | 'secondary' {
-    if (payment) return 'success';
-    return 'secondary';
+  paymentBadgeSeverity(payment: any): 'success' | 'warn' | 'secondary' {
+    return this.paymentPresentation(payment).severity;
   }
 
   hasPaidPayment(payment: any) {
-    return Boolean(payment);
+    return this.paymentPresentation(payment).isPaid;
   }
 
   quoteReference(row: any) {
@@ -150,6 +164,10 @@ export class MyBookingsComponent implements OnInit, OnDestroy {
     await this.router.navigate(['/dealer/booking', row.id, 'payments']);
   }
 
+  async openInspection(row: any) {
+    await this.router.navigate(['/dealer/inspection', row.id]);
+  }
+
   cancelBooking(row: any) {
     this.confirmationService.confirm({
       message: `Cancel booking ${row.id}?`,
@@ -169,72 +187,186 @@ export class MyBookingsComponent implements OnInit, OnDestroy {
     });
   }
 
-  downloadPaymentConfirmation(booking: any) {
-    const payment = this.selectedPayment();
-    const amount = payment?.amount ?? booking.quotation?.advance ?? 0;
-    const lines = [
-      'PAYMENT RECEIPT',
-      '',
-      `Quote Reference: ${this.quoteReference(booking)}`,
-      `Booking ID: ${booking.id || '-'}`,
-      `Vehicle: ${booking.vehicle_display || '-'}`,
-      `Pickup: ${booking.pickup_location || '-'} | ${this.formatDate(booking.start_date)}`,
-      `Drop: ${booking.drop_location || '-'} | ${this.formatDate(booking.end_date)}`,
-      '',
-      `Amount Paid: ${this.formatCurrency(Number(amount))}`,
-      `Payment Type: Advance`,
-      `Payment Mode: ${payment?.payment_mode || 'Online'}`,
-      `Transaction Ref: ${payment?.cf_payment_id || payment?.cf_order_id || '-'}`,
-      '',
-      'Status: ADVANCE PAYMENT CONFIRMED',
-    ];
-    this.triggerPdfDownload(lines, `receipt-${this.quoteReference(booking)}.pdf`);
-  }
+  async downloadPaymentConfirmation(booking: any) {
+    const { data: quotation, error } = await this.supabase.getQuotationByBooking(booking.id);
+    if (error || !quotation) {
+      this.messageService.add({ severity: 'error', summary: 'Quotation unavailable', detail: 'No quotation found.' });
+      return;
+    }
 
-  private triggerPdfDownload(lines: string[], filename: string) {
-    const content = [
-      'BT',
-      '/F1 12 Tf',
-      '40 800 Td',
-      ...lines.flatMap((line, i) => [`(${this.escapePdf(line)}) Tj`, i === lines.length - 1 ? '' : 'T*']),
-      'ET',
-    ].filter(Boolean).join('\n');
+    const input = this.buildQuotationPdfInput(booking, quotation);
+    if (!input) {
+      this.messageService.add({ severity: 'error', summary: 'Quotation unavailable', detail: 'No quotation found.' });
+      return;
+    }
 
-    const stream = `<< /Length ${content.length} >>\nstream\n${content}\nendstream`;
-    const objects = [
-      '1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj',
-      '2 0 obj << /Type /Pages /Count 1 /Kids [3 0 R] >> endobj',
-      '3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >> endobj',
-      `4 0 obj ${stream} endobj`,
-      '5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj',
-    ];
-
-    let pdf = '%PDF-1.4\n';
-    const offsets: number[] = [];
-    for (const obj of objects) { offsets.push(pdf.length); pdf += `${obj}\n`; }
-    const xrefOffset = pdf.length;
-    pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
-    pdf += offsets.map((o) => `${String(o).padStart(10, '0')} 00000 n \n`).join('');
-    pdf += `trailer << /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
-
-    const blob = new Blob([pdf], { type: 'application/pdf' });
+    const blob = this.quotationPdf.buildPdfBlob(input);
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = filename;
+    link.download = this.quotationPdf.buildFileName(input.quoteReference);
     link.click();
     URL.revokeObjectURL(url);
   }
 
-  private escapePdf(value: string) {
-    return value.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+  paymentDetailLines(payment: any) {
+    return this.paymentPresentation(payment).detailLines;
+  }
+
+  paymentPanelClasses(payment: any) {
+    const severity = this.paymentPresentation(payment).severity;
+    return {
+      'border-green-200 bg-green-50': severity === 'success',
+      'border-amber-200 bg-amber-50': severity === 'warn',
+      'border-gray-200 bg-gray-50': severity === 'secondary',
+    };
+  }
+
+  paymentIconClasses(payment: any) {
+    const severity = this.paymentPresentation(payment).severity;
+    return {
+      'pi-check-circle text-green-600': severity === 'success',
+      'pi-clock text-amber-600': severity === 'warn',
+      'pi-minus-circle text-gray-500': severity === 'secondary',
+    };
+  }
+
+  paymentHeadingClasses(payment: any) {
+    const severity = this.paymentPresentation(payment).severity;
+    return {
+      'text-green-700': severity === 'success',
+      'text-amber-700': severity === 'warn',
+      'text-gray-700': severity === 'secondary',
+    };
+  }
+
+  hasAnyPayment(payment: any) {
+    return Boolean(payment);
+  }
+
+  private paymentPresentation(payment: any): { label: string; severity: 'success' | 'warn' | 'secondary'; detailLines: string[]; isPaid: boolean } {
+    if (!payment) {
+      return {
+        label: 'Not Initiated',
+        severity: 'secondary',
+        detailLines: ['No payment transaction has been initiated for this booking yet.'],
+        isPaid: false,
+      };
+    }
+
+    const status = String(payment.status ?? '').toLowerCase();
+    const mode = String(payment.payment_mode ?? '').toLowerCase();
+    const amount = this.formatCurrency(Number(payment.amount ?? 0));
+
+    if (status === 'paid') {
+      if (mode === 'cash') {
+        return {
+          label: 'Advance Paid - Offline',
+          severity: 'success',
+          detailLines: [
+            `Collected by advisor on ${this.formatDateTime(payment.created_at)}`,
+            `Amount: ${amount}`,
+          ],
+          isPaid: true,
+        };
+      }
+
+      return {
+        label: 'Advance Paid - Online',
+        severity: 'success',
+        detailLines: [
+          `Transaction Ref: ${payment.cf_payment_id || payment.cf_order_id || '-'}`,
+          `Paid At: ${this.formatDateTime(payment.updated_at || payment.created_at)}`,
+          `Amount: ${amount}`,
+        ],
+        isPaid: true,
+      };
+    }
+
+    return {
+      label: 'Payment Pending',
+      severity: 'warn',
+      detailLines: [`Latest status: ${String(payment.status || 'initiated').replace(/_/g, ' ')}`],
+      isPaid: false,
+    };
+  }
+
+  private async tryAutoOpenBooking() {
+    if (!this.pendingBookingIdToOpen) {
+      return;
+    }
+
+    const row = this.bookings().find((booking) => booking.id === this.pendingBookingIdToOpen);
+    if (!row) {
+      return;
+    }
+
+    this.pendingBookingIdToOpen = null;
+    await this.openDetail(row);
+  }
+
+  private buildQuotationPdfInput(booking: any, quotation: any): QuotationPdfInput | null {
+    const vehicleName = booking.vehicle_display || `${booking.vehicle?.brand || ''} ${booking.vehicle?.model || ''}`.trim() || 'Vehicle';
+    if (!booking?.id || !quotation) {
+      return null;
+    }
+
+    return {
+      companyName: 'AUTOFLOW',
+      companySubtitle: 'Fleet Operations',
+      quoteReference: quotation.quote_reference || this.quoteReference(booking),
+      bookingId: booking.id || '-',
+      issueDate: this.formatDate(quotation.created_at || booking.created_at),
+      validUntil: this.formatDate(this.addDays(quotation.created_at || booking.created_at || new Date().toISOString(), 7)),
+      advisorName: this.advisorContact().name,
+      advisorEmail: this.advisorContact().email,
+      customerName: booking.customer?.full_name || quotation.customer_name || '-',
+      customerMobile: booking.customer?.mobile || quotation.mobile || '-',
+      customerEmail: booking.customer?.email || quotation.email || '-',
+      customerLicenseNo: quotation.license || quotation.licence_number || '-',
+      customerType: quotation.customer_type || 'individual',
+      vehicleName,
+      vehicleFuelType: booking.vehicle?.fuel || '-',
+      vehicleTransmission: booking.vehicle?.transmission || '-',
+      vehicleYear: String(booking.vehicle?.year || '-'),
+      pickupLocation: booking.pickup_location || '-',
+      dropLocation: booking.drop_location || '-',
+      pickupDateTime: `${this.formatDate(booking.start_date)} ${booking.pickup_time || ''}`.trim(),
+      dropDateTime: `${this.formatDate(booking.end_date)} ${booking.dropoff_time || ''}`.trim(),
+      durationLabel: `${quotation.days || 1} day(s)`,
+      purpose: booking.purpose || '-',
+      passengers: String(booking.number_of_passengers || '-'),
+      paymentStatusLabel: this.paymentBadgeLabel(this.selectedPayment() || booking.latest_payment),
+      fuelPolicy: quotation.fuel_policy || 'Full-to-Full',
+      amounts: {
+        dailyRate: Number(quotation.rate ?? 0),
+        days: Number(quotation.days ?? 1),
+        baseCost: Number(quotation.base_cost ?? 0),
+        gst: Number(quotation.gst ?? 0),
+        discountAmount: Number(quotation.discount_amount ?? 0),
+        advance: Number(quotation.advance ?? 0),
+        securityDeposit: Number(quotation.security_deposit ?? 0),
+        finalAmount: Number(quotation.final_amount ?? booking.total_price ?? 0),
+        extraMileageRate: Number(quotation.extra_mileage_rate ?? 0),
+      },
+    };
+  }
+
+  private addDays(value: string | Date, days: number) {
+    const date = new Date(value);
+    date.setDate(date.getDate() + days);
+    return date.toISOString();
   }
 
   private formatCurrency(value: number) {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(value);
   }
 
-  private formatDate(value?: string | null) {
+  private formatDate(value?: string | Date | null) {
     return value ? new Date(value).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '-';
+  }
+
+  private formatDateTime(value?: string | null) {
+    return value ? new Date(value).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '-';
   }
 }

@@ -53,8 +53,12 @@
                   <button pButton type="button" icon="pi pi-times" text severity="danger" (click)="cancelBooking(row)"></button>
                 }
 
-                @if (row.status === 'approved') {
+                @if (row.status === 'approved' && !hasAnyPayment(row.latest_payment)) {
                   <button pButton type="button" icon="pi pi-credit-card" text severity="success" title="Make Payment" (click)="openPayment(row)"></button>
+                }
+
+                @if (row.status === 'approved' && hasAnyPayment(row.latest_payment)) {
+                  <button pButton type="button" icon="pi pi-clipboard" text severity="success" title="Start Inspection" (click)="openInspection(row)"></button>
                 }
 
                 @if (row.status === 'payment_received') {
@@ -204,50 +208,35 @@
 
       <!-- Payment Status -->
       <div
-        class="rounded-xl p-4"
-        [class.border-green-200]="paymentBadgeSeverity(selectedPayment() || booking.latest_payment) === 'success'"
-        [class.bg-green-50]="paymentBadgeSeverity(selectedPayment() || booking.latest_payment) === 'success'"
-        [class.border-gray-200]="paymentBadgeSeverity(selectedPayment() || booking.latest_payment) === 'secondary'"
-        [class.bg-gray-50]="paymentBadgeSeverity(selectedPayment() || booking.latest_payment) === 'secondary'"
+        class="rounded-xl border p-4"
+        [ngClass]="paymentPanelClasses(selectedPayment() || booking.latest_payment)"
         style="grid-column: 1 / -1">
           <div class="flex items-center gap-2 mb-3">
             <i
               class="pi text-xl"
-              [class.pi-check-circle]="paymentBadgeSeverity(selectedPayment() || booking.latest_payment) === 'success'"
-              [class.pi-minus-circle]="paymentBadgeSeverity(selectedPayment() || booking.latest_payment) === 'secondary'"
-              [class.text-green-600]="paymentBadgeSeverity(selectedPayment() || booking.latest_payment) === 'success'"
-              [class.text-gray-500]="paymentBadgeSeverity(selectedPayment() || booking.latest_payment) === 'secondary'"></i>
+              [ngClass]="paymentIconClasses(selectedPayment() || booking.latest_payment)"></i>
             <p
               class="m-0 font-semibold"
-              [class.text-green-700]="paymentBadgeSeverity(selectedPayment() || booking.latest_payment) === 'success'"
-              [class.text-gray-700]="paymentBadgeSeverity(selectedPayment() || booking.latest_payment) === 'secondary'">
+              [ngClass]="paymentHeadingClasses(selectedPayment() || booking.latest_payment)">
               {{ paymentBadgeLabel(selectedPayment() || booking.latest_payment) }}
             </p>
           </div>
-          @if (selectedPayment(); as payment) {
-            <div class="grid gap-3" style="grid-template-columns: repeat(3, 1fr)">
-              <div>
-                <p class="m-0 text-xs text-gray-400">Payment Mode</p>
-                <p class="m-0 font-medium mt-0.5">{{ payment.payment_mode || 'Online' }}</p>
-              </div>
-              <div>
-                <p class="m-0 text-xs text-gray-400">Transaction Ref</p>
-                <p class="m-0 font-mono text-xs mt-0.5">{{ payment.cf_payment_id || payment.cf_order_id || '-' }}</p>
-              </div>
-              <div>
-                <p class="m-0 text-xs text-gray-400">Paid At</p>
-                <p class="m-0 text-sm mt-0.5">{{ payment.created_at | date:'medium' }}</p>
-              </div>
-            </div>
-          } @else {
-            <p class="m-0 text-sm text-gray-700">No payment transaction has been initiated for this booking yet.</p>
+          @for (line of paymentDetailLines(selectedPayment() || booking.latest_payment); track line) {
+            <p class="m-0 text-sm text-gray-700 mb-1">{{ line }}</p>
           }
       </div>
 
-      @if (booking.status === 'approved') {
+      @if (booking.status === 'approved' && !hasAnyPayment(selectedPayment() || booking.latest_payment)) {
         <div style="grid-column: 1 / -1">
           <button pButton type="button" label="Make Advance Payment" icon="pi pi-credit-card" severity="success"
             (click)="detailVisible.set(false); openPayment(booking)"></button>
+        </div>
+      }
+
+      @if (booking.status === 'approved' && hasAnyPayment(selectedPayment() || booking.latest_payment)) {
+        <div style="grid-column: 1 / -1">
+          <button pButton type="button" label="Start Inspection" icon="pi pi-clipboard" severity="success"
+            (click)="detailVisible.set(false); openInspection(booking)"></button>
         </div>
       }
 

@@ -528,20 +528,36 @@
           <div><span>Status</span><strong>{{ generatedQuotation()?.status | titlecase }}</strong></div>
         </div>
 
-        <div class="action-panel">
-          <button pButton type="button" label="Preview PDF" outlined icon="pi pi-eye" (click)="previewPdf()"></button>
-          <div class="send-row">
-            <button pButton type="button" label="Email" [outlined]="!sendState().email" (click)="sendQuote('email')"></button>
-            <button pButton type="button" label="SMS" [outlined]="!sendState().sms" (click)="sendQuote('sms')"></button>
-            <button pButton type="button" label="WhatsApp" [outlined]="!sendState().whatsapp" (click)="sendQuote('whatsapp')"></button>
-          </div>
-          <div class="field">
-            <label>Advance Payment Mode</label>
-            <p-select [options]="paymentOptions" [ngModel]="paymentMode()" (ngModelChange)="paymentMode.set($event)" optionLabel="label" optionValue="value" placeholder="Select mode"></p-select>
-          </div>
-          <button pButton type="button" label="Confirm Booking" icon="pi pi-check" [loading]="confirmingBooking()" (click)="confirmBooking()"></button>
-        </div>
-      </p-card>
+	        <div class="action-panel">
+	          <button pButton type="button" label="Preview PDF" outlined icon="pi pi-eye" (click)="previewPdf()"></button>
+	          <div class="send-row">
+	            <button pButton type="button" label="Email" [outlined]="!sendState().email" (click)="sendQuote('email')"></button>
+	            <button pButton type="button" label="SMS" [outlined]="!sendState().sms" (click)="sendQuote('sms')"></button>
+	            <button pButton type="button" label="WhatsApp" [outlined]="!sendState().whatsapp" (click)="sendQuote('whatsapp')"></button>
+	          </div>
+	          <div class="field">
+	            <label>How is advance being collected?</label>
+	            <div class="customer-type-toggle">
+	              <button type="button" [class.is-selected]="advanceCollectionMode() === 'online'" (click)="advanceCollectionMode.set('online')">Pay Online</button>
+	              <button type="button" [class.is-selected]="advanceCollectionMode() === 'offline'" (click)="advanceCollectionMode.set('offline')">Collected Offline</button>
+	            </div>
+	          </div>
+	          @if (advanceCollectionMode() === 'online') {
+	            <p-message severity="warn" text="Please ensure advance and security deposit have been physically collected before proceeding with online payment."></p-message>
+	          } @else {
+	            <button
+	              pButton
+	              type="button"
+	              label="Confirm Offline Collection"
+	              icon="pi pi-check-circle"
+	              severity="success"
+	              [loading]="recordingOfflinePayment()"
+	              [disabled]="offlinePaymentRecorded()"
+	              (click)="confirmOfflineCollection()"></button>
+	          }
+	          <button pButton type="button" label="Confirm Booking" icon="pi pi-check" [loading]="confirmingBooking()" (click)="confirmBooking()"></button>
+	        </div>
+	      </p-card>
 
       <p-card styleClass="wizard-card summary-card">
         <h3>Agreement Snapshot</h3>
