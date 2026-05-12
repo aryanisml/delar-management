@@ -1,8 +1,349 @@
-<section class="inspection-placeholder">
-  <div class="inspection-placeholder__card">
-    <p class="inspection-placeholder__eyebrow">Inspection</p>
-    <h2>Pre-Trip Inspection</h2>
-    <p class="inspection-placeholder__meta">Booking ID: {{ bookingId }}</p>
-    <p class="inspection-placeholder__copy">Inspection form coming soon.</p>
+<p-toast></p-toast>
+
+@if (loading()) {
+  <section class="inspection-page inspection-page--loading">
+    <p-progressSpinner ariaLabel="Loading inspection details"></p-progressSpinner>
+  </section>
+} @else if (notReady()) {
+  <section class="inspection-page inspection-page--guard">
+    <p-card styleClass="guard-card">
+      <i class="pi pi-exclamation-triangle guard-card__icon"></i>
+      <h2>Not Ready for Inspection</h2>
+      <p>This booking is not currently in service. Ensure payment has been completed before proceeding to inspection.</p>
+      <button pButton type="button" label="Back to My Bookings" icon="pi pi-arrow-left" outlined (click)="backToBookings()"></button>
+    </p-card>
+  </section>
+} @else {
+  <div class="inspection-page">
+
+    <!-- Summary card -->
+    <p-card styleClass="inspection-card">
+      <div class="summary-header">
+        <div>
+          <p class="eyebrow">Vehicle Checkout Inspection</p>
+          <h2 class="summary-header__title">{{ vehicleName() }}</h2>
+        </div>
+        <p-tag value="IN SERVICE" severity="success"></p-tag>
+      </div>
+
+      <div class="summary-grid">
+        <div class="summary-item">
+          <span>Customer</span>
+          <strong>{{ customer()?.full_name || '-' }}</strong>
+        </div>
+        <div class="summary-item">
+          <span>Mobile</span>
+          <strong>{{ customer()?.mobile || '-' }}</strong>
+        </div>
+        <div class="summary-item">
+          <span>Licence No.</span>
+          <strong class="font-mono">{{ customer()?.license_no || '-' }}</strong>
+        </div>
+        <div class="summary-item">
+          <span>Pickup</span>
+          <strong>{{ booking()?.pickup_location || '-' }}</strong>
+        </div>
+        <div class="summary-item">
+          <span>Drop</span>
+          <strong>{{ booking()?.drop_location || '-' }}</strong>
+        </div>
+        <div class="summary-item">
+          <span>Dates</span>
+          <strong>{{ booking()?.start_date | date:'d MMM y' }} → {{ booking()?.end_date | date:'d MMM y' }}</strong>
+        </div>
+        <div class="summary-item">
+          <span>Booking ID</span>
+          <strong class="font-mono text-xs">{{ booking()?.id }}</strong>
+        </div>
+        <div class="summary-item">
+          <span>Quote Ref</span>
+          <strong>{{ quoteReference() }}</strong>
+        </div>
+      </div>
+    </p-card>
+
+    <!-- Section 1: Driver Verification -->
+    <p-card styleClass="inspection-card">
+      <div class="section-heading">
+        <span class="section-badge">1</span>
+        <h3>Driver Verification</h3>
+      </div>
+
+      <div class="field-row">
+        <div class="field-group">
+          <label for="licenseNumber">Licence Number</label>
+          <input pInputText id="licenseNumber"
+            [ngModel]="licenseNumber()"
+            (ngModelChange)="licenseNumber.set($event)"
+            placeholder="DL-XXXXXXXXXX"
+            class="w-full">
+        </div>
+        <div class="field-group">
+          <label for="licenseExpiry">Licence Expiry Date</label>
+          <input pInputText type="date" id="licenseExpiry"
+            [ngModel]="licenseExpiry()"
+            (ngModelChange)="licenseExpiry.set($event)"
+            class="w-full">
+          @if (isLicenseExpired()) {
+            <small class="expiry-warning">Licence has expired — verify with customer before proceeding</small>
+          }
+        </div>
+      </div>
+
+      <div class="checkbox-row">
+        <p-checkbox [binary]="true"
+          [ngModel]="licenseVerified()"
+          (ngModelChange)="licenseVerified.set($event)"
+          inputId="licVerified">
+        </p-checkbox>
+        <label for="licVerified" class="checkbox-label">Licence verified by advisor ✓</label>
+      </div>
+    </p-card>
+
+    <!-- Section 2: Vehicle Condition -->
+    <p-card styleClass="inspection-card">
+      <div class="section-heading">
+        <span class="section-badge">2</span>
+        <h3>Vehicle Condition</h3>
+      </div>
+
+      <div class="field-row">
+        <div class="field-group">
+          <label for="odometer">Odometer Reading (km)</label>
+          <p-inputNumber inputId="odometer"
+            [ngModel]="odometerReading()"
+            (ngModelChange)="odometerReading.set($event)"
+            [min]="1"
+            [useGrouping]="false"
+            placeholder="e.g. 24500"
+            styleClass="w-full">
+          </p-inputNumber>
+        </div>
+        <div class="field-group">
+          <label for="fuelLevelDd">Fuel Level</label>
+          <p-select inputId="fuelLevelDd"
+            [options]="fuelLevelOptions"
+            optionLabel="label"
+            optionValue="value"
+            [ngModel]="fuelLevel()"
+            (ngModelChange)="fuelLevel.set($event)"
+            styleClass="w-full">
+          </p-select>
+        </div>
+      </div>
+
+      <div class="radio-section">
+        <div class="field-group">
+          <label class="field-label">Tyre Condition</label>
+          <div class="radio-group">
+            <div class="radio-option">
+              <p-radioButton name="tyreCondition" value="Good"
+                [ngModel]="tyreCondition()" (ngModelChange)="tyreCondition.set($event)"
+                inputId="tyre-good">
+              </p-radioButton>
+              <label for="tyre-good">Good</label>
+            </div>
+            <div class="radio-option">
+              <p-radioButton name="tyreCondition" value="Fair"
+                [ngModel]="tyreCondition()" (ngModelChange)="tyreCondition.set($event)"
+                inputId="tyre-fair">
+              </p-radioButton>
+              <label for="tyre-fair">Fair</label>
+            </div>
+            <div class="radio-option">
+              <p-radioButton name="tyreCondition" value="Needs Attention"
+                [ngModel]="tyreCondition()" (ngModelChange)="tyreCondition.set($event)"
+                inputId="tyre-attention">
+              </p-radioButton>
+              <label for="tyre-attention">Needs Attention</label>
+            </div>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">Body Condition</label>
+          <div class="radio-group">
+            <div class="radio-option">
+              <p-radioButton name="bodyCondition" value="Clean"
+                [ngModel]="bodyCondition()" (ngModelChange)="bodyCondition.set($event)"
+                inputId="body-clean">
+              </p-radioButton>
+              <label for="body-clean">Clean</label>
+            </div>
+            <div class="radio-option">
+              <p-radioButton name="bodyCondition" value="Minor Scratches"
+                [ngModel]="bodyCondition()" (ngModelChange)="bodyCondition.set($event)"
+                inputId="body-minor">
+              </p-radioButton>
+              <label for="body-minor">Minor Scratches</label>
+            </div>
+            <div class="radio-option">
+              <p-radioButton name="bodyCondition" value="Visible Damage"
+                [ngModel]="bodyCondition()" (ngModelChange)="bodyCondition.set($event)"
+                inputId="body-damage">
+              </p-radioButton>
+              <label for="body-damage">Visible Damage</label>
+            </div>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">Interior Condition</label>
+          <div class="radio-group">
+            <div class="radio-option">
+              <p-radioButton name="interiorCondition" value="Clean"
+                [ngModel]="interiorCondition()" (ngModelChange)="interiorCondition.set($event)"
+                inputId="int-clean">
+              </p-radioButton>
+              <label for="int-clean">Clean</label>
+            </div>
+            <div class="radio-option">
+              <p-radioButton name="interiorCondition" value="Stained"
+                [ngModel]="interiorCondition()" (ngModelChange)="interiorCondition.set($event)"
+                inputId="int-stained">
+              </p-radioButton>
+              <label for="int-stained">Stained</label>
+            </div>
+            <div class="radio-option">
+              <p-radioButton name="interiorCondition" value="Damaged"
+                [ngModel]="interiorCondition()" (ngModelChange)="interiorCondition.set($event)"
+                inputId="int-damaged">
+              </p-radioButton>
+              <label for="int-damaged">Damaged</label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label for="damageNotes">Damage Notes <span class="optional">(optional)</span></label>
+        <textarea pTextarea id="damageNotes"
+          [ngModel]="damageNotes()"
+          (ngModelChange)="damageNotes.set($event)"
+          [rows]="3"
+          placeholder="Describe any existing damage, scratches, or issues…"
+          class="w-full">
+        </textarea>
+      </div>
+
+      <div class="photo-section">
+        <p class="field-label">
+          Vehicle Photos
+          <small class="optional"> — for advisor reference only, not uploaded to any server</small>
+        </p>
+        <div class="photo-grid">
+          <div class="photo-box" (click)="triggerPhotoUpload('front')" title="Front view">
+            @if (photoPreviews()['front']) {
+              <img [src]="photoPreviews()['front']" alt="Front" class="photo-preview">
+            } @else {
+              <div class="photo-placeholder">
+                <i class="pi pi-camera"></i>
+                <span>Front</span>
+              </div>
+            }
+          </div>
+          <div class="photo-box" (click)="triggerPhotoUpload('back')" title="Back view">
+            @if (photoPreviews()['back']) {
+              <img [src]="photoPreviews()['back']" alt="Back" class="photo-preview">
+            } @else {
+              <div class="photo-placeholder">
+                <i class="pi pi-camera"></i>
+                <span>Back</span>
+              </div>
+            }
+          </div>
+          <div class="photo-box" (click)="triggerPhotoUpload('left')" title="Left view">
+            @if (photoPreviews()['left']) {
+              <img [src]="photoPreviews()['left']" alt="Left" class="photo-preview">
+            } @else {
+              <div class="photo-placeholder">
+                <i class="pi pi-camera"></i>
+                <span>Left</span>
+              </div>
+            }
+          </div>
+          <div class="photo-box" (click)="triggerPhotoUpload('right')" title="Right view">
+            @if (photoPreviews()['right']) {
+              <img [src]="photoPreviews()['right']" alt="Right" class="photo-preview">
+            } @else {
+              <div class="photo-placeholder">
+                <i class="pi pi-camera"></i>
+                <span>Right</span>
+              </div>
+            }
+          </div>
+        </div>
+        <input id="photo-front" type="file" accept="image/*" hidden (change)="onPhotoSelected('front', $event)">
+        <input id="photo-back" type="file" accept="image/*" hidden (change)="onPhotoSelected('back', $event)">
+        <input id="photo-left" type="file" accept="image/*" hidden (change)="onPhotoSelected('left', $event)">
+        <input id="photo-right" type="file" accept="image/*" hidden (change)="onPhotoSelected('right', $event)">
+      </div>
+    </p-card>
+
+    <!-- Section 3: Handover -->
+    <p-card styleClass="inspection-card">
+      <div class="section-heading">
+        <span class="section-badge">3</span>
+        <h3>Handover</h3>
+      </div>
+
+      <div class="field-group">
+        <label for="additionalNotes">Additional Notes <span class="optional">(optional)</span></label>
+        <textarea pTextarea id="additionalNotes"
+          [ngModel]="additionalNotes()"
+          (ngModelChange)="additionalNotes.set($event)"
+          [rows]="3"
+          placeholder="Any additional notes for this handover…"
+          class="w-full">
+        </textarea>
+      </div>
+
+      <div class="live-summary">
+        <p class="live-summary__title">Handover Summary</p>
+        <div class="live-summary__row">
+          <span>Fuel Level</span>
+          <strong>{{ fuelLevel() }}</strong>
+        </div>
+        <div class="live-summary__row">
+          <span>Odometer</span>
+          <strong>{{ odometerReading() ? (odometerReading() | number) + ' km' : 'Not entered' }}</strong>
+        </div>
+        <div class="live-summary__row">
+          <span>Body Condition</span>
+          <strong>{{ bodyCondition() }}</strong>
+        </div>
+        <div class="live-summary__row">
+          <span>Interior</span>
+          <strong>{{ interiorCondition() }}</strong>
+        </div>
+        <div class="live-summary__row">
+          <span>Tyres</span>
+          <strong>{{ tyreCondition() }}</strong>
+        </div>
+      </div>
+
+      <div class="checkbox-row checkbox-row--final">
+        <p-checkbox [binary]="true"
+          [ngModel]="customerAcknowledged()"
+          (ngModelChange)="customerAcknowledged.set($event)"
+          inputId="custAck">
+        </p-checkbox>
+        <label for="custAck" class="checkbox-label">Customer has reviewed and agrees ✓</label>
+      </div>
+    </p-card>
+
+    <!-- Action bar -->
+    <div class="action-bar">
+      <button pButton type="button" label="Back to My Bookings" text icon="pi pi-arrow-left" (click)="backToBookings()"></button>
+      <button pButton type="button"
+        label="Complete Handover & Start Trip"
+        icon="pi pi-check"
+        iconPos="right"
+        severity="success"
+        [loading]="submitting()"
+        (click)="submitInspection()">
+      </button>
+    </div>
+
   </div>
-</section>
+}

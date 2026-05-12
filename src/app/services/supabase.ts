@@ -1809,6 +1809,29 @@ export class SupabaseService {
     };
   }
 
+  async getBookingById(bookingId: string) {
+    return this.supabase.from('bookings').select('*').eq('id', bookingId).maybeSingle();
+  }
+
+  async getCustomerById(customerId: string) {
+    return this.supabase.from('customers').select('*').eq('id', customerId).maybeSingle();
+  }
+
+  async getVehicleById(vehicleId: string) {
+    return this.supabase.from('vehicle').select('*').eq('id', vehicleId).maybeSingle();
+  }
+
+  async createInspection(data: Record<string, any>) {
+    return this.supabase.from('inspections').insert([data]).select().single();
+  }
+
+  async updateVehicleForTrip(vehicleId: string, mileage: number) {
+    return this.supabase
+      .from('vehicle')
+      .update({ vehicle_status: 'rented', mileage })
+      .eq('id', vehicleId);
+  }
+
   private async createViaVercelApi(bookingId: string, quotationId: string, amount: number) {
     const freshCutoff = new Date(Date.now() - 25 * 60 * 1000).toISOString();
     const { data: existing } = await this.supabase
