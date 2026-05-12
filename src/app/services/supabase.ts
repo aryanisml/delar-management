@@ -569,11 +569,28 @@ export class SupabaseService {
         final_amount: input.pricing.final_amount,
       };
 
-      const quotationResult = await this.supabase
+      const existingQt = await this.supabase
         .from('quotations')
-        .upsert(quotationPayload, { onConflict: 'booking_id' })
-        .select()
-        .single();
+        .select('id')
+        .eq('booking_id', input.booking.id)
+        .limit(1)
+        .maybeSingle();
+
+      let quotationResult;
+      if (existingQt.data) {
+        quotationResult = await this.supabase
+          .from('quotations')
+          .update(quotationPayload)
+          .eq('booking_id', input.booking.id)
+          .select()
+          .single();
+      } else {
+        quotationResult = await this.supabase
+          .from('quotations')
+          .insert(quotationPayload)
+          .select()
+          .single();
+      }
 
       if (quotationResult.error) {
         return { data: null, error: quotationResult.error };
@@ -1093,7 +1110,20 @@ export class SupabaseService {
   }
 
   async saveQuotationDraft(payload: Record<string, any>) {
-    return await this.supabase.from('quotations').upsert([this.sanitizeQuotationPayload(payload)], { onConflict: 'booking_id' });
+    const sanitized = this.sanitizeQuotationPayload(payload);
+    const bookingId = sanitized['booking_id'];
+    if (bookingId) {
+      const existing = await this.supabase
+        .from('quotations')
+        .select('id')
+        .eq('booking_id', bookingId)
+        .limit(1)
+        .maybeSingle();
+      if (existing.data) {
+        return this.supabase.from('quotations').update(sanitized).eq('booking_id', bookingId);
+      }
+    }
+    return this.supabase.from('quotations').insert([sanitized]);
   }
 
   async updateBookingQuoteStatus(bookingId: string, quoteStatus: string, status?: string) {
