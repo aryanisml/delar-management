@@ -118,61 +118,7 @@ export class PaymentComponent implements OnInit {
     this.existingPayment.set(paymentResult.data ?? null);
     this.pricingSource.set(quotationResult.data?.final_amount ? 'database' : 'local');
 
-    const returningFromGateway = !!this.route.snapshot.queryParamMap.get('cf_order_id');
-    if (returningFromGateway) {
-      await this.activateAfterReturn(bookingId, booking.status);
-    } else if (paymentResult.data?.status === 'paid' && ['approved', 'confirmed'].includes(booking.status ?? '')) {
-      const result = await this.supabase.verifyAndActivatePayment(bookingId, booking.status);
-      if (result.activated) {
-        await this.flow.loadBooking(bookingId, true);
-      }
-    }
-
     this.loading.set(false);
-  }
-
-  private async activateAfterReturn(bookingId: string, bookingStatus: string) {
-    if (!['approved', 'confirmed'].includes(bookingStatus)) return;
-
-    const fresh = await this.supabase.getPaymentByBooking(bookingId);
-    this.existingPayment.set(fresh.data);
-
-    try {
-      const cfOrderId = fresh.data?.cf_order_id;
-      if (cfOrderId) {
-        await this.supabase.updatePaymentStatus(cfOrderId, 'paid', null);
-      }
-    } catch (e) {
-      console.warn('Payment status update failed, proceeding anyway:', e);
-    }
-
-    try {
-      await this.supabase.markBookingInService(bookingId);
-      await this.flow.loadBooking(bookingId, true);
-      this.existingPayment.set({ ...fresh.data, status: 'paid' });
-      this.messageService.add({
-        severity: 'success',
-        summary: 'Payment confirmed',
-        detail: 'Your booking is now active.',
-      });
-      await this.router.navigate(['/dealer/inspection', bookingId]);
-    } catch (e) {
-      console.error('Booking activation failed:', e);
-      this.messageService.add({
-        severity: 'error',
-        summary: 'Activation failed',
-        detail: 'Payment was received but booking activation failed. Please contact support.',
-      });
-    }
-  }
-
-  private async activateAndNavigate(bookingId: string, bookingStatus: string) {
-    const result = await this.supabase.verifyAndActivatePayment(bookingId, bookingStatus);
-    if (result.activated) {
-      await this.flow.loadBooking(bookingId, true);
-      this.messageService.add({ severity: 'success', summary: 'Payment confirmed', detail: 'Your booking is now active.' });
-      await this.router.navigate(['/dealer/inspection', bookingId]);
-    }
   }
 
   openPaymentDialog() {
@@ -196,25 +142,37 @@ export class PaymentComponent implements OnInit {
 
     if (error || !data?.payment_session_id) {
       this.processingPayment.set(false);
-      const detail = (error as any)?.message || data?.error || 'Could not initiate payment.';
+      const detail = (error as any)?.message || 'Could not initiate payment.';
       this.messageService.add({ severity: 'error', summary: 'Payment initiation failed', detail });
       return;
     }
 
     try {
       const cashfree = window.Cashfree({ mode: environment.cashfreeMode });
-      await cashfree.checkout({
-        paymentSessionId: data.payment_session_id,
-        redirectTarget: '_self',
-      });
+      await cashfree.checkout({ paymentSessionId: data.payment_session_id });
 
-      const paymentResult = await this.supabase.getPaymentByBooking(bookingId);
-      this.existingPayment.set(paymentResult.data ?? null);
-      this.processingPayment.set(false);
+      await this.supabase.updatePaymentStatusByBookingId(bookingId, 'paid');
+      await this.supabase.markBookingInService(bookingId);
+      await this.flow.loadBooking(bookingId, true);
+      this.messageService.add({ severity: 'success', summary: 'Payment confirmed', detail: 'Booking is now active.' });
+      await this.router.navigate(['/dealer/inspection', bookingId]);
     } catch (sdkErr: any) {
       this.processingPayment.set(false);
       this.messageService.add({ severity: 'error', summary: 'Payment error', detail: sdkErr?.message || 'Cashfree SDK error.' });
     }
+  }
+
+  async confirmOfflineCollection() {
+    const bookingId = this.booking()?.id;
+    const advance = this.resolvedPricing().advance;
+    if (!bookingId || !advance) return;
+
+    this.processingPayment.set(true);
+    await this.supabase.recordOfflineAdvancePayment(bookingId, advance);
+    await this.supabase.markBookingInService(bookingId);
+    await this.flow.loadBooking(bookingId, true);
+    this.messageService.add({ severity: 'success', summary: 'Offline advance recorded', detail: 'Proceeding to inspection.' });
+    await this.router.navigate(['/dealer/inspection', bookingId]);
   }
 
   async goToInspection() {

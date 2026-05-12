@@ -1702,16 +1702,14 @@ export class SupabaseService {
   }
 
   async createCashfreeOrder(bookingId: string, quotationId: string, amount: number) {
-    switch (environment.cashfreeApiStyle) {
-      case 'vercel': return await this.createViaVercelApi(bookingId, quotationId, amount);
-      case 'edge': {
-        const { data, error } = await this.supabase.functions.invoke('create-cashfree-order', {
-          body: { booking_id: bookingId, quotation_id: quotationId, amount },
-        });
-        return { data, error };
-      }
-      default: return await this.createCashfreeOrderLocal(bookingId, quotationId, amount);
-    }
+    return this.createViaVercelApi(bookingId, quotationId, amount);
+  }
+
+  async updatePaymentStatusByBookingId(bookingId: string, status: string) {
+    return this.supabase
+      .from('payments')
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq('booking_id', bookingId);
   }
 
   async markBookingInService(bookingId: string) {
@@ -1884,92 +1882,6 @@ export class SupabaseService {
     }
 
     return { data: { cf_order_id: cfOrderId, payment_session_id: paymentSessionId }, error: null };
-  }
-
-  private async createCashfreeOrderLocal(bookingId: string, quotationId: string, amount: number) {
-    const freshCutoff = new Date(Date.now() - 25 * 60 * 1000).toISOString();
-    const { data: existing } = await this.supabase
-      .from('payments')
-      .select('cf_order_id, cf_payment_session_id')
-      .eq('booking_id', bookingId)
-      .eq('status', 'initiated')
-      .gte('created_at', freshCutoff)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (existing?.cf_payment_session_id) {
-      return { data: { cf_order_id: existing.cf_order_id, payment_session_id: existing.cf_payment_session_id }, error: null };
-    }
-
-    const { data: booking } = await this.supabase
-      .from('bookings')
-      .select('id, status, customer_id, vehicle_id, user_id, customers(full_name, mobile, email)')
-      .eq('id', bookingId)
-      .single();
-
-    if (!booking) return { data: null, error: new Error('Booking not found') };
-    if (booking.status !== 'approved') {
-      return { data: null, error: new Error(`Booking must be approved to initiate payment (current: ${(booking as any).status})`) };
-    }
-
-    const cfOrderId = `CF-${bookingId.replace(/-/g, '').slice(0, 16).toUpperCase()}-${Date.now()}`;
-    const customer = (booking as any).customers;
-
-    const cfPayload = {
-      order_id: cfOrderId,
-      order_amount: Number(amount),
-      order_currency: 'INR',
-      customer_details: {
-        customer_id: String((booking as any).customer_id),
-        customer_name: customer?.full_name || 'Customer',
-        customer_email: customer?.email || 'noreply@example.com',
-        customer_phone: String(customer?.mobile || '9999999999').replace(/\D/g, '').slice(-10).padStart(10, '9'),
-      },
-      order_meta: {
-        return_url: `${window.location.origin}/dealer/booking/${bookingId}/payments?cf_order_id={order_id}`,
-      },
-    };
-
-    let cfOrder: any;
-    try {
-      const cfResponse = await fetch('/cashfree-proxy/orders', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-version': '2023-08-01',
-          'x-client-id': environment.cashfreeAppId,
-          'x-client-secret': environment.cashfreeSecretKey,
-        },
-        body: JSON.stringify(cfPayload),
-      });
-
-      if (!cfResponse.ok) {
-        const errText = await cfResponse.text();
-        return { data: null, error: new Error(`Cashfree error: ${errText}`) };
-      }
-      cfOrder = await cfResponse.json();
-    } catch (fetchErr: any) {
-      return { data: null, error: new Error(`Network error calling Cashfree: ${fetchErr?.message}`) };
-    }
-
-    const { error: insertError } = await this.supabase.rpc('insert_payment_record', {
-      p_booking_id: bookingId,
-      p_quotation_id: quotationId || null,
-      p_customer_id: (booking as any).customer_id,
-      p_vehicle_id: (booking as any).vehicle_id,
-      p_advisor_id: (booking as any).user_id,
-      p_cf_order_id: cfOrderId,
-      p_cf_payment_session_id: cfOrder.payment_session_id,
-      p_amount: Number(amount),
-      p_payment_type: 'balance',
-    });
-
-    if (insertError) {
-      return { data: null, error: new Error(`Payment record creation failed: ${insertError.message}`) };
-    }
-
-    return { data: { cf_order_id: cfOrderId, payment_session_id: cfOrder.payment_session_id }, error: null };
   }
 
   private fileToDataUrl(file: File) {

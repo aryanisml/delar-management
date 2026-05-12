@@ -2,10 +2,9 @@ export const environment = {
   production: true,
   supabaseUrl: 'https://fbaqlceeijvdwcvdwrnz.supabase.co',
   supabaseKey: 'sb_publishable_ZXmXG5UuL3LdaywgnHqL_g_Ow7kXlGL',
-  cashfreeMode: 'production' as 'sandbox' | 'production',
-  // Vercel sprint: API routes handle Cashfree. Swap cashfreeApiStyle to 'edge' once Supabase secrets are set.
+  cashfreeMode: 'sandbox' as 'sandbox' | 'production',
   useEdgeFunctions: false,
-  cashfreeApiStyle: 'vercel' as 'proxy' | 'vercel' | 'edge',
-  cashfreeAppId: '',
-  cashfreeSecretKey: '',
+  cashfreeApiStyle: 'direct' as 'proxy' | 'vercel' | 'edge' | 'direct',
+  cashfreeAppId: 'TEST10980941ba3d9feaf9281b9b0e3814908901',
+  cashfreeSecretKey: 'cfsk_ma_test_1415afd4dc2db21cb233f06db7dcd8e7_4831b5c7',
 };

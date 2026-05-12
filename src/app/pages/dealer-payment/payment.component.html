@@ -189,6 +189,24 @@
               <button pButton type="button" label="Back to My Bookings" outlined (click)="backToBookings()"></button>
             </div>
           </p-card>
+        } @else if (isOfflineMode()) {
+          <p-card styleClass="payment-card payment-card--action">
+            <div class="payment-action">
+              <p class="payment-eyebrow">Offline Advance Collection</p>
+              <h3>{{ resolvedPricing().advance | currency:'INR':'symbol':'1.0-0' }}</h3>
+              <p>Confirm that the advance has been collected from the customer in cash. The booking will activate immediately and proceed to inspection.</p>
+              <button
+                pButton
+                type="button"
+                label="Confirm Offline Collection"
+                icon="pi pi-check"
+                severity="success"
+                class="payment-action__cta"
+                [loading]="processingPayment()"
+                (click)="confirmOfflineCollection()"></button>
+              <button pButton type="button" label="Back to My Bookings" text (click)="backToBookings()"></button>
+            </div>
+          </p-card>
         } @else {
           <p-card styleClass="payment-card payment-card--action">
             <div class="payment-action">
