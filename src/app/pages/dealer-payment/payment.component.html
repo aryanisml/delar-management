@@ -1,0 +1,269 @@
+<p-toast></p-toast>
+
+@if (loading()) {
+  <section class="payment-page payment-page--loading">
+    <p-progressSpinner ariaLabel="Loading payment details"></p-progressSpinner>
+  </section>
+} @else {
+  <div class="payment-page">
+    <p-card styleClass="payment-card payment-card--snapshot">
+      <div class="snapshot-card__header">
+        <div>
+          <p class="payment-eyebrow">Trip Snapshot</p>
+          <h2 class="snapshot-card__title">{{ vehicleName() }}</h2>
+        </div>
+        @if (isAlreadyPaid()) {
+          <p-tag value="ADVANCE PAYMENT RECEIVED" severity="success"></p-tag>
+        } @else {
+          <p-tag [value]="(booking()?.status || 'approved') | uppercase" severity="success"></p-tag>
+        }
+      </div>
+
+      <div class="snapshot-card__route">
+        <div class="snapshot-stop">
+          <span class="snapshot-stop__label">Pickup</span>
+          <strong>{{ booking()?.pickup_location || '-' }}</strong>
+          <small>{{ booking()?.start_date | date:'d MMM y' }}{{ booking()?.pickup_time ? ' · ' + booking()?.pickup_time : '' }}</small>
+        </div>
+        <div class="snapshot-card__arrow">
+          <span></span>
+        </div>
+        <div class="snapshot-stop">
+          <span class="snapshot-stop__label">Drop</span>
+          <strong>{{ booking()?.drop_location || '-' }}</strong>
+          <small>{{ booking()?.end_date | date:'d MMM y' }}{{ booking()?.dropoff_time ? ' · ' + booking()?.dropoff_time : '' }}</small>
+        </div>
+      </div>
+
+      <div class="snapshot-card__meta">
+        <div>
+          <span>Total Days</span>
+          <strong>{{ resolvedPricing().days }}</strong>
+        </div>
+        <div>
+          <span>Booking Reference</span>
+          <strong>{{ booking()?.id }}</strong>
+        </div>
+        <div>
+          <span>Quotation</span>
+          <strong>{{ quoteReference() }}</strong>
+        </div>
+      </div>
+    </p-card>
+
+    <section class="payment-layout">
+      <div class="payment-main">
+        @if (pricingSource() === 'local') {
+          <p-message
+            severity="warn"
+            text="Pricing is temporarily calculated locally. Contact administrator if this persists."></p-message>
+        }
+
+        <p-card styleClass="payment-card">
+          <div class="section-heading">
+            <div>
+              <p class="payment-eyebrow">Quotation</p>
+              <h3>Pricing Breakdown</h3>
+            </div>
+            <button pButton type="button" label="Download Quotation PDF" icon="pi pi-download" outlined (click)="downloadQuotationPdf()"></button>
+          </div>
+
+          <div class="pricing-grid">
+            <div class="pricing-row">
+              <span>Daily Rate</span>
+              <strong>{{ resolvedPricing().rate | currency:'INR':'symbol':'1.0-0' }}</strong>
+            </div>
+            <div class="pricing-row">
+              <span>Days</span>
+              <strong>{{ resolvedPricing().days }}</strong>
+            </div>
+            <div class="pricing-row">
+              <span>Base Cost</span>
+              <strong>{{ resolvedPricing().base_cost | currency:'INR':'symbol':'1.0-0' }}</strong>
+            </div>
+            <div class="pricing-row">
+              <span>GST</span>
+              <strong>{{ resolvedPricing().gst | currency:'INR':'symbol':'1.0-0' }}</strong>
+            </div>
+            <div class="pricing-row">
+              <span>Final Amount</span>
+              <strong>{{ resolvedPricing().final_amount | currency:'INR':'symbol':'1.0-0' }}</strong>
+            </div>
+            <div class="pricing-row">
+              <span>Security Deposit</span>
+              <strong>{{ resolvedPricing().security_deposit | currency:'INR':'symbol':'1.0-0' }}</strong>
+            </div>
+            @if (isOfflineMode()) {
+              <div class="pricing-row">
+                <span>Advance (Collected Offline)</span>
+                <strong>{{ resolvedPricing().advance | currency:'INR':'symbol':'1.0-0' }}</strong>
+              </div>
+              <div class="pricing-row" style="border-top: 2px solid var(--p-primary-color); margin-top: 4px; padding-top: 8px;">
+                <span style="font-weight: 600;">Balance Due at Return</span>
+                <strong style="color: var(--p-primary-color);">{{ amountDueNow() | currency:'INR':'symbol':'1.0-0' }}</strong>
+              </div>
+            } @else {
+              <div class="pricing-row" style="border-top: 2px solid var(--p-primary-color); margin-top: 4px; padding-top: 8px;">
+                <span style="font-weight: 600;">Total Due Online</span>
+                <strong style="color: var(--p-primary-color);">{{ amountDueNow() | currency:'INR':'symbol':'1.0-0' }}</strong>
+              </div>
+            }
+          </div>
+
+          <div class="amount-due">
+            @if (isOfflineMode()) {
+              <span>Balance Due at Return</span>
+              <strong>{{ amountDueNow() | currency:'INR':'symbol':'1.0-0' }}</strong>
+              <small>Advance collected offline. This remaining balance is collected when the vehicle is returned.</small>
+            } @else {
+              <span>Total Due Online</span>
+              <strong>{{ amountDueNow() | currency:'INR':'symbol':'1.0-0' }}</strong>
+              <small>Complete amount paid via Cashfree in a single transaction. Advance included.</small>
+            }
+          </div>
+        </p-card>
+      </div>
+
+      <aside class="payment-side">
+        @if (canProceedToInspection()) {
+          <p-card styleClass="payment-card payment-card--action">
+            <div class="payment-action">
+              <p class="payment-eyebrow">{{ isOfflineMode() ? 'Advance Collected Offline' : 'Payment Received' }}</p>
+              <div class="flex items-center gap-2 mb-3">
+                <i class="pi pi-check-circle text-green-600 text-2xl"></i>
+                <h3 class="m-0 text-green-700">Booking Active</h3>
+              </div>
+              @if (isOfflineMode()) {
+                <p class="text-sm text-gray-500 mb-2">
+                  Advance of {{ resolvedPricing().advance | currency:'INR':'symbol':'1.0-0' }} collected offline.
+                </p>
+                <p class="text-sm text-gray-500 mb-4">
+                  Remaining balance of {{ amountDueNow() | currency:'INR':'symbol':'1.0-0' }} will be collected at vehicle return.
+                </p>
+              } @else {
+                <p class="text-sm text-gray-500 mb-4">
+                  Full payment of {{ resolvedPricing().final_amount | currency:'INR':'symbol':'1.0-0' }} received.
+                  The booking is active and ready for vehicle handover.
+                </p>
+              }
+              @if (existingPayment(); as payment) {
+                <div class="gateway-dialog__summary mb-4">
+                  <div>
+                    <span>Payment Mode</span>
+                    <strong>{{ payment.payment_mode || 'Online' }}</strong>
+                  </div>
+                  @if (payment.cf_payment_id || payment.cf_order_id) {
+                    <div>
+                      <span>Transaction Ref</span>
+                      <strong class="font-mono text-xs">{{ payment.cf_payment_id || payment.cf_order_id }}</strong>
+                    </div>
+                  }
+                  <div>
+                    <span>Recorded At</span>
+                    <strong>{{ payment.created_at | date:'medium' }}</strong>
+                  </div>
+                </div>
+              }
+              <div class="flex gap-2 flex-col">
+                <button pButton type="button" label="Proceed to Inspection" icon="pi pi-arrow-right" iconPos="right" class="payment-action__cta" (click)="goToInspection()"></button>
+                <button pButton type="button" label="Download Receipt" icon="pi pi-download" outlined (click)="downloadReceiptPdf()"></button>
+                <button pButton type="button" label="Back to My Bookings" text (click)="backToBookings()"></button>
+              </div>
+            </div>
+          </p-card>
+        } @else if (isOfflineMode() && isAlreadyPaid()) {
+          <p-card styleClass="payment-card payment-card--action">
+            <div class="payment-action">
+              <p class="payment-eyebrow">Advance Collected Offline</p>
+              <div class="flex items-center gap-2 mb-3">
+                <i class="pi pi-clock text-orange-500 text-2xl"></i>
+                <h3 class="m-0">Awaiting Admin Approval</h3>
+              </div>
+              <p class="text-sm text-gray-500 mb-2">
+                Advance of {{ resolvedPricing().advance | currency:'INR':'symbol':'1.0-0' }} has been recorded.
+              </p>
+              <p class="text-sm text-gray-500 mb-4">
+                Once admin approves, the booking will activate automatically and you can proceed to inspection.
+                Remaining balance of {{ amountDueNow() | currency:'INR':'symbol':'1.0-0' }} will be collected at vehicle return.
+              </p>
+              <button pButton type="button" label="Back to My Bookings" outlined (click)="backToBookings()"></button>
+            </div>
+          </p-card>
+        } @else {
+          <p-card styleClass="payment-card payment-card--action">
+            <div class="payment-action">
+              <p class="payment-eyebrow">Payment Action</p>
+              <h3>{{ amountDueNow() | currency:'INR':'symbol':'1.0-0' }}</h3>
+              <p>Customer pays the complete rental amount via Cashfree. Booking activates automatically on payment confirmation.</p>
+
+              <div class="trust-list">
+                <div class="trust-item">
+                  <i class="pi pi-shield"></i>
+                  <span>Secure payment via Cashfree</span>
+                </div>
+                <div class="trust-item">
+                  <i class="pi pi-lock"></i>
+                  <span>Quotation values locked to this trip</span>
+                </div>
+                <div class="trust-item">
+                  <i class="pi pi-check-circle"></i>
+                  <span>Auto-activates booking on success</span>
+                </div>
+              </div>
+
+              <button
+                pButton
+                type="button"
+                label="Pay Full Amount Online"
+                icon="pi pi-credit-card"
+                class="payment-action__cta"
+                [loading]="processingPayment()"
+                (click)="openPaymentDialog()"></button>
+              <button pButton type="button" label="Back to My Bookings" text (click)="backToBookings()"></button>
+            </div>
+          </p-card>
+        }
+      </aside>
+    </section>
+  </div>
+}
+
+<p-dialog
+  header="Complete Full Payment"
+  [visible]="paymentDialogVisible()"
+  (visibleChange)="paymentDialogVisible.set($event)"
+  [modal]="true"
+  [draggable]="false"
+  [style]="{ width: '440px' }">
+  <div class="gateway-dialog">
+    <p class="gateway-dialog__amount">{{ amountDueNow() | currency:'INR':'symbol':'1.0-0' }}</p>
+    <p class="gateway-dialog__copy">You will be redirected to Cashfree's secure payment page. After completing the payment you'll return here automatically.</p>
+
+    <div class="gateway-dialog__summary">
+      <div>
+        <span>Booking</span>
+        <strong>{{ booking()?.id }}</strong>
+      </div>
+      <div>
+        <span>Vehicle</span>
+        <strong>{{ vehicleName() }}</strong>
+      </div>
+      <div>
+        <span>Quotation</span>
+        <strong>{{ quoteReference() }}</strong>
+      </div>
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <button pButton type="button" label="Close" text (click)="paymentDialogVisible.set(false)"></button>
+    <button
+      pButton
+      type="button"
+      label="Proceed to Cashfree"
+      icon="pi pi-arrow-right"
+      iconPos="right"
+      [loading]="processingPayment()"
+      (click)="proceedToGateway()"></button>
+  </ng-template>
+</p-dialog>

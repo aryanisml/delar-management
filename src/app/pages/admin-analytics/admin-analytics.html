@@ -1,0 +1,55 @@
+<div class="admin-page-shell">
+  <div>
+    <h2 class="admin-page-title m-0">Analytics</h2>
+    <p class="admin-page-subtitle mt-1 mb-0">Monitor revenue, utilisation, booking flow, and top-performing vehicles.</p>
+  </div>
+
+  <section class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+    @for (metric of topMetrics(); track metric.label) {
+      <p-card>
+        <p class="admin-section-label mb-2">{{ metric.label }}</p>
+        <p class="m-0 text-3xl font-bold text-gray-900">{{ metric.value }}</p>
+      </p-card>
+    }
+  </section>
+
+  <section class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+    <p-card>
+      <p class="admin-section-label mb-4">Booking Volume by Month</p>
+      <div class="h-80">
+        <p-chart type="bar" [data]="bookingVolumeChart()" [options]="{ maintainAspectRatio: false, plugins: { legend: { display: false } } }"></p-chart>
+      </div>
+    </p-card>
+
+    <p-card>
+      <p class="admin-section-label mb-4">Revenue by Vehicle Type</p>
+      <div class="h-80">
+        <p-chart type="doughnut" [data]="revenueByTypeChart()" [options]="{ maintainAspectRatio: false }"></p-chart>
+      </div>
+    </p-card>
+  </section>
+
+  <section class="grid grid-cols-1 gap-6 lg:grid-cols-[1.3fr_minmax(0,0.7fr)]">
+    <p-card>
+      <p class="admin-section-label mb-4">Bookings by Status</p>
+      <div class="h-80">
+        <p-chart type="bar" [data]="bookingsByStatusChart()" [options]="{ indexAxis: 'y', maintainAspectRatio: false, plugins: { legend: { display: false } } }"></p-chart>
+      </div>
+    </p-card>
+
+    <p-card>
+      <p class="admin-section-label mb-4">Top 5 Most-Booked Vehicles</p>
+      <div class="space-y-4">
+        @for (vehicle of topVehicleRows(); track vehicle.label) {
+          <div>
+            <div class="mb-2 flex items-center justify-between">
+              <span class="text-sm font-medium text-gray-700">{{ vehicle.label }}</span>
+              <span class="text-sm font-semibold text-gray-900">{{ vehicle.count }}</span>
+            </div>
+            <p-progressBar [value]="(vehicle.count / topVehicleMax()) * 100" [showValue]="false"></p-progressBar>
+          </div>
+        }
+      </div>
+    </p-card>
+  </section>
+</div>

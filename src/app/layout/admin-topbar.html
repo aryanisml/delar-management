@@ -1,0 +1,109 @@
+<header class="admin-topbar">
+  <div class="admin-topbar__inner">
+    <div class="admin-topbar__lead">
+      <button
+        pButton
+        type="button"
+        icon="pi pi-bars"
+        text
+        class="admin-topbar__menu-btn"
+        (click)="menuToggle.emit()"
+        pTooltip="Toggle menu"
+        tooltipPosition="bottom">
+      </button>
+
+      <div class="admin-topbar__title-wrap">
+        <div class="admin-topbar__title">Welcome Back, {{ userName }}!</div>
+        <div class="admin-topbar__eyebrow">{{ roleLabel }}</div>
+      </div>
+    </div>
+
+    <label class="admin-topbar__search">
+      <input
+        pInputText
+        [ngModel]="searchValue"
+        (ngModelChange)="searchChange.emit($event)"
+        placeholder="Search for any information" />
+      <i class="pi pi-search"></i>
+    </label>
+
+    <div class="admin-topbar__actions">
+      <button
+        type="button"
+        pButton
+        text
+        icon="pi pi-moon"
+        class="admin-topbar__icon-btn"
+        [class.is-active]="darkMode"
+        (click)="themeToggle.emit()"
+        pTooltip="Toggle dark mode"
+        tooltipPosition="bottom">
+      </button>
+
+      <button
+        type="button"
+        pButton
+        text
+        icon="pi pi-cog"
+        class="admin-topbar__icon-btn"
+        pTooltip="Settings"
+        tooltipPosition="bottom">
+      </button>
+
+      <div class="relative">
+        <button
+          type="button"
+          pButton
+          text
+          icon="pi pi-bell"
+          class="admin-topbar__icon-btn"
+          (click)="notificationsPanel.toggle($event)"
+          pTooltip="Notifications"
+          tooltipPosition="bottom">
+        </button>
+        @if (notificationCount) {
+          <p-badge [value]="badgeValue(notificationCount)" severity="danger" class="absolute right-0 top-0"></p-badge>
+        }
+        <p-popover #notificationsPanel [style]="{ width: '20rem' }">
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <p class="m-0 text-sm font-semibold text-gray-900">Recent notifications</p>
+              <button pButton type="button" label="Mark all read" text size="small" (click)="markAllRead.emit()"></button>
+            </div>
+            @for (notification of notifications; track notification.id || notification.title + notification.time) {
+              <button type="button" class="w-full rounded-xl border border-border p-3 text-left" (click)="notificationClick.emit(notification); notificationsPanel.hide()">
+                <div class="flex items-start gap-2">
+                  <i class="pi text-sm text-blue-600" [ngClass]="notification.type === 'booking_approved' ? 'pi-check-circle' : notification.type === 'booking_rejected' ? 'pi-times-circle' : 'pi-bell'"></i>
+                  <div>
+                <p class="m-0 text-sm font-semibold text-gray-900">{{ notification.title }}</p>
+                <p class="m-1 text-sm text-gray-600">{{ notification.detail }}</p>
+                <p class="m-0 text-xs text-gray-400">{{ notification.time }}</p>
+                  </div>
+                </div>
+              </button>
+            }
+            @if (!notifications.length) {
+              <p class="m-0 text-sm text-gray-500">No unread notifications.</p>
+            }
+          </div>
+        </p-popover>
+      </div>
+
+      <button
+        type="button"
+        class="admin-topbar__profile"
+        (click)="userMenu.toggle($event)"
+        pTooltip="Open profile menu"
+        tooltipPosition="bottom">
+        <p-avatar [label]="userInitials" shape="circle" styleClass="admin-avatar"></p-avatar>
+      </button>
+      <p-menu #userMenu [popup]="true" [model]="userMenuItems"></p-menu>
+    </div>
+  </div>
+
+  <div class="admin-topbar__mobile-crumbs">
+    <div class="admin-topbar__crumbs">
+      <p-breadcrumb [model]="breadcrumbItems" [home]="homeItem()"></p-breadcrumb>
+    </div>
+  </div>
+</header>

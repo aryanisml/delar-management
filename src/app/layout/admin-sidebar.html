@@ -1,0 +1,60 @@
+<aside class="admin-sidebar">
+  <div class="admin-sidebar__brand">
+    <div class="admin-sidebar__logo">
+      <i class="pi pi-car"></i>
+    </div>
+    <div>
+      <p class="admin-sidebar__brand-title">AUTOFLOW</p>
+      <p class="admin-sidebar__brand-subtitle">{{ brandSubtitle }}</p>
+    </div>
+  </div>
+
+  <nav class="admin-sidebar__nav">
+    @for (section of sections(); track section) {
+      <div class="admin-sidebar__section">
+        <p class="admin-sidebar__section-label">{{ section }}</p>
+
+        @for (item of sidebarItems(); track item.label) {
+          @if (item.section === section) {
+            <a
+              [routerLink]="item.route || null"
+              routerLinkActive="is-active"
+              [routerLinkActiveOptions]="{ exact: item.route === '/admin/dashboard' || item.route === '/dealer/dashboard' || item.route === '/dealer' }"
+              class="admin-sidebar__link"
+              [class.is-disabled]="!item.route"
+              (click)="onLinkClick()">
+              <i [class]="item.icon"></i>
+              <span>{{ item.label }}</span>
+
+              @if (getBadge(item)) {
+                <p-badge [value]="getBadge(item)" severity="info" class="admin-sidebar__badge"></p-badge>
+              }
+
+              @if (item.expandable) {
+                <i class="pi pi-chevron-down admin-sidebar__chevron"></i>
+              }
+            </a>
+          }
+        }
+      </div>
+    }
+  </nav>
+
+  @if (showNewBookingShortcut) {
+    <button type="button" class="admin-sidebar__new-project" [routerLink]="newBookingRoute" (click)="onLinkClick()">
+      <span class="admin-sidebar__new-icon">
+        <i class="pi pi-plus"></i>
+      </span>
+      <span>New Booking</span>
+    </button>
+  }
+
+  <div class="admin-sidebar__user">
+    <p-avatar [label]="userName.charAt(0)" shape="circle" styleClass="admin-sidebar__avatar"></p-avatar>
+    <div class="min-w-0">
+      <p class="admin-sidebar__user-name">{{ userName }}</p>
+      <p class="admin-sidebar__user-role">{{ roleLabel }}</p>
+    </div>
+    <button pButton type="button" icon="pi pi-sign-out" text class="admin-sidebar__logout" (click)="logout.emit()"></button>
+  </div>
+</aside>

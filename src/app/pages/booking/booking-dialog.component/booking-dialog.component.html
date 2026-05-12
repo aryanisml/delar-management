@@ -1,0 +1,66 @@
+<p-dialog
+header="Book Vehicle"
+[visible]="visible"
+[modal]="true"
+[style]="{width: '420px'}"
+(onHide)="closeDialog()">
+
+<div class="booking-form">
+
+<div class="field">
+<label>Pickup Location</label>
+<input pInputText [(ngModel)]="pickupLocation" />
+</div>
+
+<div class="field">
+<label>Drop Location</label>
+<input pInputText [(ngModel)]="dropLocation" />
+</div>
+
+<div class="field">
+<label>Start Date</label>
+<p-datepicker
+[(ngModel)]="startDate"
+dateFormat="dd/mm/yy"
+appendTo="body">
+</p-datepicker>
+</div>
+
+<div class="field">
+<label>End Date</label>
+<p-datepicker
+[(ngModel)]="endDate"
+dateFormat="dd/mm/yy"
+appendTo="body">
+</p-datepicker>
+</div>
+
+<div class="field">
+<label>Purpose</label>
+<textarea
+pInputTextarea
+rows="3"
+[(ngModel)]="purpose">
+</textarea>
+</div>
+
+<div class="dialog-actions">
+
+<button
+pButton
+label="Cancel"
+class="p-button-text"
+(click)="closeDialog()"> </button>
+
+<button
+pButton
+label="Submit Booking"
+icon="pi pi-check"
+ [disabled]="isInvalid()"
+ (click)="submit()"> </button>
+
+</div>
+
+</div>
+
+</p-dialog>

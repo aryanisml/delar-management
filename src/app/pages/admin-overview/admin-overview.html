@@ -1,0 +1,177 @@
+<div class="admin-page-shell overview-page">
+  @if (isLoading()) {
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
+      @for (item of [1, 2, 3, 4, 5, 6]; track item) {
+        <div class="rounded-3xl border border-border bg-white p-6">
+          <p-skeleton height="0.85rem" width="50%" styleClass="mb-3"></p-skeleton>
+          <p-skeleton height="2.25rem" width="40%" styleClass="mb-2"></p-skeleton>
+          <p-skeleton height="0.75rem" width="70%"></p-skeleton>
+        </div>
+      }
+    </div>
+  } @else {
+    <section class="overview-kpi-board">
+      <div class="overview-kpi-grid">
+        @for (card of statCards().slice(0, 4); track card.title) {
+          <p-card styleClass="overview-stat-card overview-stat-card--light">
+            <div class="overview-stat-card__header">
+              <div>
+                <p class="overview-stat-card__title">{{ card.title }}</p>
+                <p class="overview-stat-card__value">{{ card.value }}</p>
+              </div>
+              <div class="overview-stat-card__icon" [ngClass]="card.iconShell">
+                <i [class]="card.icon + ' text-lg'"></i>
+              </div>
+            </div>
+
+            <div class="overview-stat-card__footer">
+              <span class="overview-stat-card__trend-icon" [ngClass]="card.trendClass">
+                <i class="pi pi-arrow-up text-xs"></i>
+              </span>
+              <span class="overview-stat-card__trend-copy" [ngClass]="card.trendClass">{{ card.trend }}</span>
+            </div>
+          </p-card>
+        }
+      </div>
+
+      <div class="overview-alert-stack">
+        @for (card of statCards().slice(4); track card.title) {
+          <p-card styleClass="overview-stat-card overview-stat-card--dark">
+            <div class="overview-stat-card__header overview-stat-card__header--dark">
+              <div>
+                <p class="overview-stat-card__title overview-stat-card__title--dark">{{ card.title }}</p>
+                <p class="overview-stat-card__value overview-stat-card__value--dark">{{ card.value }}</p>
+              </div>
+              <div class="overview-stat-card__dark-icon">
+                <i [class]="card.icon + ' text-base'"></i>
+              </div>
+            </div>
+
+            <div class="overview-alert-dots">
+              <span class="is-active"></span>
+              <span></span>
+              <span></span>
+            </div>
+          </p-card>
+        }
+      </div>
+    </section>
+
+    <section>
+      <p-card styleClass="overview-panel overview-panel--trend overview-panel--full-trend">
+        <div class="overview-panel__header">
+          <div>
+            <p class="admin-section-label mb-2">Bookings Performance</p>
+            <p class="m-0 text-sm text-gray-500">Confirmed and completed booking movement across the selected period.</p>
+          </div>
+          <div class="overview-panel__actions">
+            <button pButton type="button" label="Refresh Fleet Status" icon="pi pi-refresh" text (click)="loadDashboard()"></button>
+            <p-selectButton [options]="periodOptions" [(ngModel)]="period"></p-selectButton>
+          </div>
+        </div>
+
+        <div class="overview-chart-shell">
+          <p-chart #bookingsTrendChart type="line" [data]="trendChartData()" [options]="trendChartOptions()"></p-chart>
+        </div>
+      </p-card>
+    </section>
+
+    <section class="overview-ops-grid">
+      <div class="overview-ops-left">
+        <p-card styleClass="overview-panel overview-panel--activity">
+        <div class="mb-4 flex items-center justify-between">
+          <div>
+            <p class="admin-section-label mb-1">Recent Activity</p>
+            <p class="m-0 flex items-center gap-2 text-sm font-semibold text-green-600">
+              <span class="pulse-live inline-flex h-2 w-2 rounded-full bg-green-500"></span>
+              LIVE
+            </p>
+          </div>
+          <button pButton type="button" label="View All" text size="small" (click)="goTo('/admin/audit')"></button>
+        </div>
+
+        <div class="activity-list">
+          <p-timeline [value]="activities().slice(0, 5)">
+            <ng-template pTemplate="marker" let-event>
+              <span class="activity-marker" [ngClass]="activityMarkerClass(event)">
+                <i [class]="event.icon + ' text-sm'"></i>
+              </span>
+            </ng-template>
+            <ng-template pTemplate="content" let-event>
+              <div class="activity-card">
+                <p class="activity-card__actor">{{ event.actor }}</p>
+                <p class="activity-card__copy">{{ event.action }}</p>
+                <p class="activity-card__time">{{ event.time }}</p>
+              </div>
+            </ng-template>
+          </p-timeline>
+        </div>
+      </p-card>
+
+        <p-card styleClass="overview-panel overview-panel--mini-bookings">
+        <div class="overview-panel__header overview-panel__header--compact">
+          <div>
+            <p class="admin-section-label mb-1">Today's Bookings</p>
+            <p class="m-0 text-sm text-gray-500">Most recent booking activity for today.</p>
+          </div>
+          <button pButton type="button" label="View All" icon="pi pi-arrow-right" iconPos="right" text (click)="goTo('/admin/bookings')"></button>
+        </div>
+
+        @if (todayBookings().length) {
+          <p-table [value]="todayBookings().slice(0, 5)" responsiveLayout="scroll" styleClass="mini-bookings-table">
+            <ng-template pTemplate="header">
+              <tr>
+                <th>Booking ID</th>
+                <th>Vehicle</th>
+                <th>Customer</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-booking>
+              <tr>
+                <td class="font-mono">#{{ booking.id }}</td>
+                <td>{{ booking.vehicle }}</td>
+                <td>{{ booking.userName }}</td>
+                <td><p-tag [value]="booking.status" [severity]="statusSeverity(booking.status)"></p-tag></td>
+                <td><button pButton type="button" icon="pi pi-eye" text (click)="goTo('/admin/bookings')"></button></td>
+              </tr>
+            </ng-template>
+          </p-table>
+        } @else {
+          <div class="overview-empty-state">
+            <i class="pi pi-calendar"></i>
+            <p class="m-0 font-medium">No bookings today</p>
+          </div>
+        }
+      </p-card>
+      </div>
+
+      <p-card styleClass="overview-panel overview-panel--actions">
+        <div class="mb-4 flex items-center justify-between">
+          <div>
+            <p class="admin-section-label mb-1">Actions Needed</p>
+            <p class="m-0 text-sm font-semibold text-gray-900">Priority queue</p>
+          </div>
+          <p-tag [value]="actionsNeeded().length + ' items'" severity="danger"></p-tag>
+        </div>
+
+        <div class="priority-list">
+          @for (item of actionsNeeded().slice(0, 4); track item.title) {
+            <div class="priority-item" [ngClass]="priorityItemClass(item)">
+              <i [class]="item.icon"></i>
+              <div class="priority-item__content">
+                <p>{{ item.title }}</p>
+                <span>{{ item.detail }}</span>
+              </div>
+              <button pButton type="button" label="Resolve" size="small" outlined (click)="goTo(item.route)"></button>
+            </div>
+          }
+          @if (actionsNeeded().length > 4) {
+            <button pButton type="button" label="View All" text (click)="goTo('/admin/bookings')"></button>
+          }
+        </div>
+      </p-card>
+    </section>
+  }
+</div>

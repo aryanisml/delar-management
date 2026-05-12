@@ -1,1 +1,503 @@
-<p>admin-dashboard works!</p>
+<p-toast></p-toast>
+<p-confirmDialog></p-confirmDialog>
+
+<div class="admin-page-shell vehicles-page">
+  <div class="flex flex-wrap items-start justify-between gap-4">
+    <div>
+      <h2 class="admin-page-title m-0">Vehicles</h2>
+      <p class="admin-page-subtitle mt-1 mb-0">Manage your fleet with a cleaner operational view, faster actions, and better visibility into every vehicle.</p>
+    </div>
+    <div class="flex flex-wrap gap-3">
+      <button pButton type="button" label="Export CSV" icon="pi pi-download" outlined pTooltip="Export vehicle list as CSV" tooltipPosition="top" (click)="exportCsv()"></button>
+      <button pButton type="button" label="Add Vehicle" icon="pi pi-plus" (click)="openNew()"></button>
+    </div>
+  </div>
+
+  <section class="vehicles-overview-grid">
+    <p-card styleClass="vehicles-hero-card">
+      <div class="vehicles-hero-card__content">
+        <div>
+          <p class="vehicles-eyebrow">Fleet Operations</p>
+          <h3 class="vehicles-hero-title">One place to review inventory health, availability, and vehicle readiness.</h3>
+          <p class="vehicles-hero-copy">Search, filter, preview, edit, and archive without losing context. The active spotlight on the right keeps the most important vehicle visible while you work.</p>
+        </div>
+
+        <div class="vehicle-summary-grid">
+          @for (item of fleetSummary(); track item.label) {
+            <div class="vehicle-summary-tile vehicle-summary-tile--{{ item.tone }}">
+              <span class="vehicle-summary-tile__label">{{ item.label }}</span>
+              <span class="vehicle-summary-tile__value">{{ item.value }}</span>
+            </div>
+          }
+        </div>
+      </div>
+    </p-card>
+
+    <p-card styleClass="vehicle-spotlight-card">
+      @if (spotlightVehicle(); as vehicle) {
+          <div class="vehicle-spotlight-card__media">
+            <img [src]="vehicle.imageUrl" [alt]="vehicle.make" class="vehicle-spotlight-card__image" />
+            <div class="vehicle-spotlight-card__overlay">
+              <p-tag [value]="vehicle.status" [severity]="statusSeverity(vehicle.status)"></p-tag>
+              @if (showAvailabilityDate(vehicle)) {
+                <p class="m-0 mt-2 text-xs text-slate-500">
+                  {{ availabilityDateLabel(vehicle) }}
+                  @if (vehicle.nextAvailableDate) {
+                    {{ vehicle.nextAvailableDate | date:'d MMM y' }}
+                  }
+                </p>
+              }
+            </div>
+          </div>
+
+        <div class="vehicle-spotlight-card__body">
+          <div>
+            <p class="vehicles-eyebrow mb-2">Vehicle Spotlight</p>
+            <h3 class="vehicle-spotlight-card__title">{{ vehicle.make }} {{ vehicle.model }}</h3>
+            <p class="vehicle-spotlight-card__subtitle">{{ vehicle.year }} - {{ vehicle.location }}</p>
+          </div>
+
+          <div class="vehicle-spotlight-meta-grid">
+            <div class="vehicle-spotlight-meta">
+              <span class="vehicle-spotlight-meta__label">Registration</span>
+              <span class="vehicle-spotlight-meta__value">{{ vehicle.registrationNo }}</span>
+            </div>
+            <div class="vehicle-spotlight-meta">
+              <span class="vehicle-spotlight-meta__label">Fuel</span>
+              <span class="vehicle-spotlight-meta__value">{{ vehicle.fuel }}</span>
+            </div>
+            <div class="vehicle-spotlight-meta">
+              <span class="vehicle-spotlight-meta__label">Capacity</span>
+              <span class="vehicle-spotlight-meta__value">{{ vehicle.capacity }} seats</span>
+            </div>
+            <div class="vehicle-spotlight-meta">
+              <span class="vehicle-spotlight-meta__label">Mileage</span>
+              <span class="vehicle-spotlight-meta__value">{{ vehicle.mileage | number }} km</span>
+            </div>
+          </div>
+
+          <div class="vehicle-spotlight-actions">
+            <button pButton type="button" label="Preview" icon="pi pi-eye" outlined (click)="openPreview(vehicle)"></button>
+            <button pButton type="button" label="Edit" icon="pi pi-pencil" (click)="openEdit(vehicle)"></button>
+          </div>
+        </div>
+      } @else {
+        <div class="vehicle-empty-state">
+          <i class="pi pi-car text-3xl text-slate-300"></i>
+          <p class="m-0 text-sm text-slate-500">No vehicles match your current filters.</p>
+        </div>
+      }
+    </p-card>
+  </section>
+
+  <p-card styleClass="vehicle-controls-card">
+    <div class="vehicle-controls-row">
+      <div class="vehicle-search relative">
+        <i class="pi pi-search absolute left-3 top-1/2 z-10 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+        <input
+          pInputText
+          [ngModel]="searchTerm()"
+          (ngModelChange)="searchTerm.set($event); applyFilters()"
+          placeholder="Search by make, model, registration, or chassis..."
+          class="w-full md:w-80" />
+      </div>
+
+      <p-select
+        [options]="vehicleTypes"
+        [ngModel]="typeFilter()"
+        (ngModelChange)="typeFilter.set($event); applyFilters()"
+        optionLabel="label"
+        optionValue="value"
+        placeholder="All Types"
+        class="w-full md:w-40">
+      </p-select>
+
+      <p-select
+        [options]="statusOptions"
+        [ngModel]="statusFilter()"
+        (ngModelChange)="statusFilter.set($event); applyFilters()"
+        optionLabel="label"
+        optionValue="value"
+        placeholder="All Statuses"
+        class="w-full md:w-44">
+      </p-select>
+
+      <p-select
+        [options]="fuelTypes"
+        [ngModel]="fuelFilter()"
+        (ngModelChange)="fuelFilter.set($event); applyFilters()"
+        optionLabel="label"
+        optionValue="value"
+        placeholder="All Fuel"
+        class="w-full md:w-36">
+      </p-select>
+
+      <button pButton type="button" label="Clear" icon="pi pi-filter-slash" text pTooltip="Clear filters" tooltipPosition="top" (click)="clearFilters()"></button>
+
+      <div class="vehicle-controls-row__spacer"></div>
+
+      <p-selectButton
+        [options]="viewOptions"
+        [ngModel]="viewMode()"
+        (ngModelChange)="viewMode.set($event); applyFilters()"
+        optionLabel="icon"
+        optionValue="value">
+        <ng-template let-item pTemplate>
+          <i [class]="item.icon" [pTooltip]="item.value === 'grid' ? 'Switch to grid view' : 'Switch to table view'" tooltipPosition="top"></i>
+        </ng-template>
+      </p-selectButton>
+    </div>
+  </p-card>
+
+  @if (viewMode() === 'table') {
+    <p-card styleClass="vehicle-table-card">
+      <p-table
+        [value]="visibleVehicles()"
+        [lazy]="true"
+        [paginator]="true"
+        [rows]="10"
+        [totalRecords]="totalRecords()"
+        [loading]="isLoading()"
+        [rowsPerPageOptions]="[10, 25, 50]"
+        [showCurrentPageReport]="true"
+        currentPageReportTemplate="Showing {first} to {last} of {totalRecords} vehicles"
+        responsiveLayout="scroll"
+        dataKey="id"
+        (onLazyLoad)="loadVehiclePage($event)">
+        <ng-template pTemplate="header">
+          <tr>
+            <th style="width: 280px">Vehicle</th>
+            <th style="width: 170px">Registration</th>
+            <th style="width: 220px">Specs</th>
+            <th style="width: 140px">Availability</th>
+            <th style="width: 160px">Location</th>
+            <th style="width: 150px">Utilisation</th>
+            <th style="width: 110px">Actions</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-vehicle>
+          <tr>
+            <td>
+              <div class="vehicle-table-primary">
+                <p-image [src]="vehicle.imageUrl" imageClass="vehicle-table-primary__image"></p-image>
+                <div>
+                  <p class="m-0 font-semibold text-gray-900">{{ vehicle.make }} {{ vehicle.model }}</p>
+                  <p class="m-0 text-sm text-gray-400">{{ vehicle.year }} - {{ vehicle.type }}</p>
+                </div>
+              </div>
+            </td>
+            <td>
+              <div class="space-y-2">
+                <p class="m-0 font-mono text-sm text-gray-700">{{ vehicle.registrationNo }}</p>
+                <div class="flex items-center gap-2">
+                  <span class="font-mono text-xs text-gray-400">{{ vehicle.chassisNumber }}</span>
+                  <button pButton type="button" icon="pi pi-copy" text size="small" pTooltip="Copy chassis number" tooltipPosition="top" (click)="copyChassis(vehicle.chassisNumber)"></button>
+                </div>
+              </div>
+            </td>
+            <td>
+              <div class="vehicle-spec-pills">
+                <span class="vehicle-spec-pill">{{ vehicle.capacity }} seats</span>
+                <span class="vehicle-spec-pill">{{ vehicle.fuel }}</span>
+                <span class="vehicle-spec-pill">{{ vehicle.mileage | number }} km</span>
+              </div>
+            </td>
+            <td>
+              <div class="space-y-2">
+                <p-tag [value]="vehicle.status" [severity]="statusSeverity(vehicle.status)"></p-tag>
+                @if (showAvailabilityDate(vehicle)) {
+                  <p class="m-0 text-xs text-slate-500">
+                    {{ availabilityDateLabel(vehicle) }}
+                    @if (vehicle.nextAvailableDate) {
+                      {{ vehicle.nextAvailableDate | date:'d MMM y' }}
+                    }
+                  </p>
+                }
+                <p class="m-0 text-xs text-slate-500">Stock: {{ vehicle.stock }}</p>
+              </div>
+            </td>
+            <td>
+              <p class="m-0 text-sm font-medium text-gray-800">{{ vehicle.location }}</p>
+              <p class="m-0 text-xs text-slate-400">Color: {{ vehicle.color }}</p>
+            </td>
+            <td>
+              <div [ngClass]="fillRateClass(vehicle.fillRate)">
+                <p-progressBar [value]="vehicle.fillRate" [showValue]="false"></p-progressBar>
+                <p class="mt-2 mb-0 text-xs font-medium text-gray-500">{{ vehicle.fillRate }}% fill rate</p>
+              </div>
+            </td>
+            <td>
+              <div class="flex gap-1">
+                <button pButton type="button" icon="pi pi-eye" text severity="info" pTooltip="View vehicle" tooltipPosition="left" (click)="openPreview(vehicle)"></button>
+                <button pButton type="button" icon="pi pi-pencil" text severity="secondary" pTooltip="Edit vehicle" tooltipPosition="left" (click)="openEdit(vehicle)"></button>
+                <button pButton type="button" icon="pi pi-trash" text severity="danger" pTooltip="Archive vehicle" tooltipPosition="left" (click)="confirmDelete(vehicle)"></button>
+              </div>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </p-card>
+  } @else {
+    <div class="vehicle-card-grid">
+      @for (vehicle of filteredVehicles(); track vehicle.id) {
+        <p-card styleClass="vehicle-grid-card">
+          <div class="vehicle-grid-card__media">
+            <img [src]="vehicle.imageUrl" [alt]="vehicle.make" class="vehicle-grid-card__image" />
+            <div class="vehicle-grid-card__badge">
+              <p-tag [value]="vehicle.status" [severity]="statusSeverity(vehicle.status)"></p-tag>
+              @if (showAvailabilityDate(vehicle)) {
+                <p class="m-0 mt-1 text-xs text-slate-500">
+                  {{ availabilityDateLabel(vehicle) }}
+                  @if (vehicle.nextAvailableDate) {
+                    {{ vehicle.nextAvailableDate | date:'d MMM y' }}
+                  }
+                </p>
+              }
+            </div>
+          </div>
+
+          <div class="vehicle-grid-card__body">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <p class="m-0 text-lg font-semibold text-gray-900">{{ vehicle.make }} {{ vehicle.model }}</p>
+                <p class="m-0 text-sm text-gray-400">{{ vehicle.year }} - {{ vehicle.location }}</p>
+              </div>
+              <span class="vehicle-grid-card__rate">{{ vehicle.dailyRate | currency:'INR':'symbol':'1.0-0' }}</span>
+            </div>
+
+            <div class="vehicle-grid-card__metrics">
+              <span>{{ vehicle.type }}</span>
+              <span>{{ vehicle.capacity }} seats</span>
+              <span>{{ vehicle.fuel }}</span>
+              <span>{{ vehicle.mileage | number }} km</span>
+            </div>
+
+            <div [ngClass]="fillRateClass(vehicle.fillRate)">
+              <p-progressBar [value]="vehicle.fillRate" [showValue]="false"></p-progressBar>
+              <p class="mt-2 mb-0 text-xs font-medium text-gray-500">{{ vehicle.fillRate }}% fill rate</p>
+            </div>
+
+            <div class="vehicle-grid-card__actions">
+              <button pButton type="button" icon="pi pi-eye" text severity="info" pTooltip="View vehicle" tooltipPosition="left" (click)="openPreview(vehicle)"></button>
+              <button pButton type="button" icon="pi pi-pencil" text severity="secondary" pTooltip="Edit vehicle" tooltipPosition="left" (click)="openEdit(vehicle)"></button>
+              <button pButton type="button" icon="pi pi-trash" text severity="danger" pTooltip="Archive vehicle" tooltipPosition="left" (click)="confirmDelete(vehicle)"></button>
+            </div>
+          </div>
+        </p-card>
+      }
+    </div>
+  }
+</div>
+
+<p-dialog
+  [header]="editMode() ? 'Edit Vehicle - ' + vehicleForm().make + ' ' + vehicleForm().model : 'Add New Vehicle'"
+  [visible]="dialogVisible()"
+  (visibleChange)="dialogVisible.set($event)"
+  [modal]="true"
+  [draggable]="false"
+  [closable]="true"
+  [style]="{ width: '720px' }">
+  <p-scrollPanel [style]="{ width: '100%', height: '480px' }">
+    <div class="grid grid-cols-1 gap-5 pr-4 md:grid-cols-2">
+      <div>
+        <p-floatLabel>
+          <input pInputText id="make" [ngModel]="vehicleForm().make" (ngModelChange)="vehicleForm.set({ ...vehicleForm(), make: $event })" />
+          <label for="make">Make</label>
+        </p-floatLabel>
+        @if (isInvalid('make')) { <p-message severity="error" text="Make is required"></p-message> }
+      </div>
+
+      <div>
+        <p-floatLabel>
+          <input pInputText id="model" [ngModel]="vehicleForm().model" (ngModelChange)="vehicleForm.set({ ...vehicleForm(), model: $event })" />
+          <label for="model">Model</label>
+        </p-floatLabel>
+        @if (isInvalid('model')) { <p-message severity="error" text="Model is required"></p-message> }
+      </div>
+
+      <div>
+        <p-floatLabel>
+          <p-inputNumber inputId="year" [ngModel]="vehicleForm().year" (ngModelChange)="vehicleForm.set({ ...vehicleForm(), year: $event })" [min]="2000"></p-inputNumber>
+          <label for="year">Year</label>
+        </p-floatLabel>
+      </div>
+
+      <div>
+        <p-floatLabel>
+          <input pInputText id="registration" [ngModel]="vehicleForm().registrationNo" (ngModelChange)="vehicleForm.set({ ...vehicleForm(), registrationNo: $event?.toUpperCase() })" />
+          <label for="registration">Registration No</label>
+        </p-floatLabel>
+        @if (isInvalid('registrationNo')) { <p-message severity="error" text="Registration number is required"></p-message> }
+      </div>
+
+      <div>
+        <p-floatLabel>
+          <input pInputText id="chassis" [ngModel]="vehicleForm().chassisNumber" (ngModelChange)="vehicleForm.set({ ...vehicleForm(), chassisNumber: $event?.toUpperCase() })" />
+          <label for="chassis">Chassis Number</label>
+        </p-floatLabel>
+        @if (isInvalid('chassisNumber')) {
+          <p-message severity="error" [text]="hasDuplicateChassis(vehicleForm().chassisNumber) ? 'Chassis number already exists' : 'Chassis number is required'"></p-message>
+        }
+      </div>
+
+      <div>
+        <p-floatLabel>
+          <p-select inputId="type" [options]="vehicleTypes" [ngModel]="vehicleForm().type" (ngModelChange)="vehicleForm.set({ ...vehicleForm(), type: $event })" optionLabel="label" optionValue="value"></p-select>
+          <label for="type">Vehicle Type</label>
+        </p-floatLabel>
+      </div>
+
+      <div>
+        <p-floatLabel>
+          <p-select inputId="fuel" [options]="fuelTypes" [ngModel]="vehicleForm().fuel" (ngModelChange)="vehicleForm.set({ ...vehicleForm(), fuel: $event })" optionLabel="label" optionValue="value"></p-select>
+          <label for="fuel">Fuel Type</label>
+        </p-floatLabel>
+      </div>
+
+      <div>
+        <p-floatLabel>
+          <p-inputNumber inputId="capacity" [ngModel]="vehicleForm().capacity" (ngModelChange)="vehicleForm.set({ ...vehicleForm(), capacity: $event })" suffix=" seats" [min]="1" [max]="60"></p-inputNumber>
+          <label for="capacity">Capacity</label>
+        </p-floatLabel>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <p-colorPicker [ngModel]="vehicleForm().color" (ngModelChange)="vehicleForm.set({ ...vehicleForm(), color: $event })"></p-colorPicker>
+        <p-floatLabel class="flex-1">
+          <input pInputText id="color" [ngModel]="vehicleForm().color" (ngModelChange)="vehicleForm.set({ ...vehicleForm(), color: $event })" />
+          <label for="color">Color</label>
+        </p-floatLabel>
+      </div>
+
+      <div>
+        <p-floatLabel>
+          <p-inputNumber inputId="mileage" [ngModel]="vehicleForm().mileage" (ngModelChange)="vehicleForm.set({ ...vehicleForm(), mileage: $event })" suffix=" km" [min]="0"></p-inputNumber>
+          <label for="mileage">Mileage</label>
+        </p-floatLabel>
+      </div>
+
+      <div class="md:col-span-2">
+        <p-selectButton
+          [options]="statusOptions"
+          [ngModel]="vehicleForm().status"
+          (ngModelChange)="vehicleForm.set({ ...vehicleForm(), status: $event })"
+          optionLabel="label"
+          optionValue="value">
+        </p-selectButton>
+      </div>
+
+      <div class="md:col-span-2">
+        <p-floatLabel>
+          <textarea pTextarea id="notes" rows="3" [ngModel]="vehicleForm().notes" (ngModelChange)="vehicleForm.set({ ...vehicleForm(), notes: $event })"></textarea>
+          <label for="notes">Notes / Description</label>
+        </p-floatLabel>
+      </div>
+
+      <div class="md:col-span-2">
+        <p-fileUpload mode="advanced" accept="image/*" [maxFileSize]="2000000" chooseLabel="Choose Image" [auto]="true" [customUpload]="true" (uploadHandler)="updateImageUrl($event)"></p-fileUpload>
+        @if (vehicleForm().imageUrl) {
+          <img [src]="vehicleForm().imageUrl" alt="Vehicle preview" class="mt-3 h-40 w-full rounded-xl object-cover" />
+        }
+      </div>
+    </div>
+  </p-scrollPanel>
+
+  <ng-template pTemplate="footer">
+    <button pButton type="button" label="Cancel" text (click)="dialogVisible.set(false)"></button>
+    <button pButton type="button" label="Save" [loading]="saving()" (click)="saveVehicle()"></button>
+  </ng-template>
+</p-dialog>
+
+<p-dialog
+  [header]="previewVehicle() ? previewVehicle().make + ' ' + previewVehicle().model : 'Vehicle Preview'"
+  [visible]="previewVisible()"
+  (visibleChange)="previewVisible.set($event)"
+  [modal]="true"
+  [draggable]="false"
+  [style]="{ width: '820px' }">
+  @if (previewVehicle(); as vehicle) {
+    <div class="vehicle-detail-card">
+      <div class="vehicle-detail-card__hero">
+        <img [src]="vehicle.imageUrl" [alt]="vehicle.make" class="vehicle-detail-card__image" />
+        <div class="vehicle-detail-card__header">
+            <div>
+              <div class="flex flex-wrap items-center gap-2">
+                <p-tag [value]="vehicle.status" [severity]="statusSeverity(vehicle.status)"></p-tag>
+                <p-tag [value]="vehicle.type" severity="info"></p-tag>
+                <p-tag [value]="vehicle.fuel" severity="secondary"></p-tag>
+              </div>
+              @if (showAvailabilityDate(vehicle)) {
+                <p class="m-0 mt-2 text-xs text-slate-500">
+                  {{ availabilityDateLabel(vehicle) }}
+                  @if (vehicle.nextAvailableDate) {
+                    {{ vehicle.nextAvailableDate | date:'d MMM y' }}
+                  }
+                </p>
+              }
+              <h3 class="vehicle-detail-card__title">{{ vehicle.make }} {{ vehicle.model }}</h3>
+              <p class="vehicle-detail-card__subtitle">{{ vehicle.year }} model in {{ vehicle.location }}</p>
+            </div>
+          <div class="vehicle-detail-card__hero-actions">
+            <button pButton type="button" label="Edit Vehicle" icon="pi pi-pencil" outlined (click)="previewVisible.set(false); openEdit(vehicle)"></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="vehicle-detail-card__body">
+        <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <div class="vehicle-preview-metric">
+            <span class="vehicle-preview-label">Registration</span>
+            <span class="vehicle-preview-value">{{ vehicle.registrationNo }}</span>
+          </div>
+          <div class="vehicle-preview-metric">
+            <span class="vehicle-preview-label">Chassis</span>
+            <span class="vehicle-preview-value">{{ vehicle.chassisNumber }}</span>
+          </div>
+          <div class="vehicle-preview-metric">
+            <span class="vehicle-preview-label">Fuel</span>
+            <span class="vehicle-preview-value">{{ vehicle.fuel }}</span>
+          </div>
+          <div class="vehicle-preview-metric">
+            <span class="vehicle-preview-label">Capacity</span>
+            <span class="vehicle-preview-value">{{ vehicle.capacity }} seats</span>
+          </div>
+          <div class="vehicle-preview-metric">
+            <span class="vehicle-preview-label">Mileage</span>
+            <span class="vehicle-preview-value">{{ vehicle.mileage | number }} km</span>
+          </div>
+          <div class="vehicle-preview-metric">
+            <span class="vehicle-preview-label">Location</span>
+            <span class="vehicle-preview-value">{{ vehicle.location }}</span>
+          </div>
+          <div class="vehicle-preview-metric">
+            <span class="vehicle-preview-label">Stock</span>
+            <span class="vehicle-preview-value">{{ vehicle.stock }}</span>
+          </div>
+          <div class="vehicle-preview-metric">
+            <span class="vehicle-preview-label">Daily Rate</span>
+            <span class="vehicle-preview-value">{{ vehicle.dailyRate | currency:'INR':'symbol':'1.0-0' }}</span>
+          </div>
+          <div class="vehicle-preview-metric">
+            <span class="vehicle-preview-label">Fill Rate</span>
+            <span class="vehicle-preview-value">{{ vehicle.fillRate }}%</span>
+          </div>
+        </div>
+
+        <div class="vehicle-detail-card__section">
+          <p class="vehicle-preview-label mb-2">Operational Snapshot</p>
+          <div [ngClass]="fillRateClass(vehicle.fillRate)">
+            <p-progressBar [value]="vehicle.fillRate" [showValue]="false"></p-progressBar>
+            <p class="mt-2 mb-0 text-sm text-gray-600">
+              {{ vehicle.make }} {{ vehicle.model }} is currently running at {{ vehicle.fillRate }}% utilisation with {{ vehicle.stock }} unit(s) on record.
+            </p>
+          </div>
+        </div>
+
+        <div class="vehicle-detail-card__section">
+          <p class="vehicle-preview-label mb-2">Notes</p>
+          <p class="m-0 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-gray-600">{{ vehicle.notes || 'No internal notes added yet.' }}</p>
+        </div>
+      </div>
+    </div>
+  }
+</p-dialog>

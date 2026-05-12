@@ -1,0 +1,164 @@
+<p-toast></p-toast>
+
+<div class="booking-page">
+  <section class="booking-page__header">
+    <div>
+      <p class="admin-section-label mb-2">Walk-in Booking</p>
+      <h2 class="admin-page-title m-0">Customer Details</h2>
+      <p class="admin-page-subtitle mt-1 mb-0">Capture customer information before generating the quotation.</p>
+    </div>
+
+    <div class="booking-page__summary">
+      <span>{{ vehicle()?.make || vehicle()?.brand || 'Vehicle' }} {{ vehicle()?.model || '' }}</span>
+      <strong>{{ durationLabel() }}</strong>
+    </div>
+  </section>
+
+  <div class="booking-steps">
+    @for (step of steps; track step; let index = $index) {
+      <div class="booking-step" [class.is-done]="index < 2" [class.is-active]="index === 2">
+        <span>{{ index + 1 }}</span>
+        <p>{{ step }}</p>
+      </div>
+    }
+  </div>
+
+  <section class="booking-grid">
+    <p-card styleClass="booking-card">
+      <div class="booking-card__heading">
+        <div>
+          <h3>Customer Information</h3>
+          <p>Required fields are checked inline.</p>
+        </div>
+        @if (returningCustomer()) {
+          <p-tag value="Returning Customer" severity="success"></p-tag>
+        }
+        @if (licenceStatus(); as status) {
+          <p-tag [value]="status.label" [severity]="status.severity"></p-tag>
+        }
+      </div>
+
+      <div class="form-grid">
+        <div class="field md:col-span-2">
+          <label>Customer Full Name *</label>
+          <input pInputText [ngModel]="customer().fullName" (ngModelChange)="update('fullName', $event)" placeholder="Enter full name" />
+          @if (invalid('fullName')) { <p-message severity="error" [text]="fieldError('fullName')"></p-message> }
+        </div>
+
+        <div class="field">
+          <label>Mobile Number *</label>
+          <div class="split-input">
+            <p-select [options]="countryCodes" [ngModel]="customer().countryCode" (ngModelChange)="update('countryCode', $event)"></p-select>
+            <input pInputText [ngModel]="customer().mobile" (ngModelChange)="update('mobile', $event)" placeholder="9876543210" />
+          </div>
+          @if (invalid('mobile')) { <p-message severity="error" [text]="fieldError('mobile')"></p-message> }
+
+          @if (suggestionField() === 'mobile' && suggestions().length) {
+            <div class="suggestion-list">
+              @for (item of suggestions(); track item.id || item.mobile || item.email) {
+                <button type="button" (click)="selectSuggestion(item)">
+                  <strong>{{ item.full_name || item.name || 'Returning customer' }}</strong>
+                  <span>{{ item.mobile }} {{ item.email ? '- ' + item.email : '' }}</span>
+                </button>
+              }
+            </div>
+          }
+        </div>
+
+        <div class="field">
+          <label>Email ID</label>
+          <input pInputText [ngModel]="customer().email" (ngModelChange)="update('email', $event)" placeholder="customer@email.com" />
+          @if (invalid('email')) { <p-message severity="error" [text]="fieldError('email')"></p-message> }
+
+          @if (suggestionField() === 'email' && suggestions().length) {
+            <div class="suggestion-list">
+              @for (item of suggestions(); track item.id || item.mobile || item.email) {
+                <button type="button" (click)="selectSuggestion(item)">
+                  <strong>{{ item.full_name || item.name || 'Returning customer' }}</strong>
+                  <span>{{ item.mobile }} {{ item.email ? '- ' + item.email : '' }}</span>
+                </button>
+              }
+            </div>
+          }
+        </div>
+
+        <div class="field">
+          <label>Driving Licence Number *</label>
+          <input pInputText [ngModel]="customer().licenceNumber" (ngModelChange)="update('licenceNumber', $event?.toUpperCase())" placeholder="DL0420241234567" />
+          @if (invalid('licenceNumber')) { <p-message severity="error" [text]="fieldError('licenceNumber')"></p-message> }
+        </div>
+
+        <div class="field">
+          <label>Driving Licence Expiry Date *</label>
+          <p-datepicker [ngModel]="customer().licenceExpiry" (ngModelChange)="update('licenceExpiry', $event)" appendTo="body"></p-datepicker>
+          @if (invalid('licenceExpiry')) { <p-message severity="error" [text]="fieldError('licenceExpiry')"></p-message> }
+        </div>
+
+        <div class="field">
+          <label>Customer Type</label>
+          <p-select [options]="customerTypes" [ngModel]="customer().customerType" (ngModelChange)="update('customerType', $event)"></p-select>
+        </div>
+
+        <div class="field">
+          <label>ID Proof Type</label>
+          <p-select [options]="idProofTypes" [ngModel]="customer().idProofType" (ngModelChange)="update('idProofType', $event)"></p-select>
+        </div>
+
+        @if (customer().customerType === 'business') {
+          <div class="field">
+            <label>Business Name *</label>
+            <input pInputText [ngModel]="customer().businessName" (ngModelChange)="update('businessName', $event)" placeholder="Registered business name" />
+            @if (invalid('businessName')) { <p-message severity="error" [text]="fieldError('businessName')"></p-message> }
+          </div>
+
+          <div class="field">
+            <label>GST Number *</label>
+            <input pInputText [ngModel]="customer().gstNumber" (ngModelChange)="update('gstNumber', $event?.toUpperCase())" placeholder="22AAAAA0000A1Z5" />
+            @if (invalid('gstNumber')) { <p-message severity="error" [text]="fieldError('gstNumber')"></p-message> }
+          </div>
+        }
+      </div>
+    </p-card>
+
+    <p-card styleClass="booking-card">
+      <div class="booking-card__heading">
+        <div>
+          <h3>ID Proof Upload</h3>
+          <p>Aadhaar, Passport, or PAN scan/photo.</p>
+        </div>
+      </div>
+
+      <label class="upload-zone">
+        <input type="file" accept="image/*,.pdf" (change)="onFileSelected($event)" />
+        @if (customer().idProofPreview && !customer().idProofPreview.startsWith('data:application/pdf')) {
+          <img [src]="customer().idProofPreview" alt="ID proof preview" />
+        } @else {
+          <i class="pi pi-cloud-upload"></i>
+        }
+        <strong>{{ customer().idProofFileName || 'Drop or choose ID proof' }}</strong>
+        <span>Accepted: image or PDF</span>
+      </label>
+
+      <div class="trip-card">
+        <p class="admin-section-label mb-3">Trip Snapshot</p>
+        <div>
+          <span>Pickup</span>
+          <strong>{{ booking()?.pickup_location || '-' }}</strong>
+        </div>
+        <div>
+          <span>Drop-off</span>
+          <strong>{{ booking()?.drop_location || '-' }}</strong>
+        </div>
+        <div>
+          <span>Dates</span>
+          <strong>{{ booking()?.start_date | date:'mediumDate' }} - {{ booking()?.end_date | date:'mediumDate' }}</strong>
+        </div>
+      </div>
+    </p-card>
+  </section>
+
+  <div class="booking-actions">
+    <button pButton type="button" label="Back" outlined icon="pi pi-arrow-left" (click)="back()"></button>
+    <button pButton type="button" label="Generate Quotation" icon="pi pi-arrow-right" iconPos="right" (click)="continueToQuotation()"></button>
+  </div>
+</div>

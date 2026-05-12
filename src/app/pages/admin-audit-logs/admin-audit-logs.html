@@ -1,0 +1,55 @@
+<div class="admin-page-shell">
+  <div class="flex flex-wrap items-start justify-between gap-4">
+    <div>
+      <h2 class="admin-page-title m-0">Audit Log</h2>
+      <p class="admin-page-subtitle mt-1 mb-0">Review system activity, operator actions, and export logs for compliance.</p>
+    </div>
+    <button pButton type="button" label="Export Logs" icon="pi pi-download" outlined (click)="exportLogs()"></button>
+  </div>
+
+  <p-card>
+    <div class="flex flex-wrap items-center gap-3">
+      <p-datepicker
+        [ngModel]="dateRange()"
+        (ngModelChange)="dateRange.set($event)"
+        selectionMode="range"
+        placeholder="Date range">
+      </p-datepicker>
+      <input
+        pInputText
+        [ngModel]="userFilter()"
+        (ngModelChange)="userFilter.set($event)"
+        placeholder="Filter by user ID"
+        class="w-56" />
+      <input
+        pInputText
+        [ngModel]="actionSearch()"
+        (ngModelChange)="actionSearch.set($event)"
+        placeholder="Search actions"
+        class="w-72" />
+    </div>
+  </p-card>
+
+  <p-card>
+    <p-table [value]="filteredLogs()" [loading]="loading()" [paginator]="true" [rows]="25" responsiveLayout="scroll">
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Timestamp</th>
+          <th>User</th>
+          <th>Role</th>
+          <th>Action</th>
+          <th>Entity ID</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-row>
+        <tr>
+          <td>{{ row.created_at | date:'medium' }}</td>
+          <td>{{ row.user_id }}</td>
+          <td>{{ row.role || '-' }}</td>
+          <td>{{ row.action }}</td>
+          <td>{{ row.entity_id || '-' }}</td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </p-card>
+</div>

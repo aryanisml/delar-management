@@ -1,0 +1,54 @@
+<p-table
+  [value]="data"
+  [paginator]="true"
+  [rows]="12"
+  [rowsPerPageOptions]="[12, 24, 48]"
+  responsiveLayout="scroll"
+  styleClass="dealer-data-table p-datatable-striped p-datatable-sm">
+  <ng-template pTemplate="header">
+    <tr>
+      <th style="width: 128px">Action</th>
+
+      <th *ngFor="let col of cols" [pSortableColumn]="col.sortable ? col.field : undefined">
+        {{ col.header }}
+        <p-sortIcon *ngIf="col.sortable" [field]="col.field"></p-sortIcon>
+      </th>
+    </tr>
+  </ng-template>
+
+  <ng-template pTemplate="body" let-rowData>
+    <tr>
+      <td>
+        <ng-container *ngTemplateOutlet="actionTemplate; context: { $implicit: rowData }"></ng-container>
+      </td>
+
+      <td *ngFor="let col of cols">
+        <ng-container [ngSwitch]="col.field">
+          <span *ngSwitchCase="'daily_rate'" class="font-mono block text-right font-semibold text-green-600">
+            {{ rowData[col.field] | currency }}
+          </span>
+
+          <p-tag
+            *ngSwitchCase="'available'"
+            [value]="rowData.available > 0 ? 'Available' : 'Out of Stock'"
+            [severity]="rowData.available > 0 ? 'success' : 'danger'">
+          </p-tag>
+
+          <p-tag
+            *ngSwitchCase="'status'"
+            [value]="getStatusLabel(rowData.status)"
+            [severity]="getStatusSeverity(rowData.status)"
+            class="custom-pill">
+          </p-tag>
+
+          <span *ngSwitchCase="'start_date'">{{ rowData[col.field] | date: 'mediumDate' }}</span>
+          <span *ngSwitchCase="'end_date'">{{ rowData[col.field] | date: 'mediumDate' }}</span>
+
+          <span *ngSwitchDefault>
+            {{ rowData[col.field] || '-' }}
+          </span>
+        </ng-container>
+      </td>
+    </tr>
+  </ng-template>
+</p-table>

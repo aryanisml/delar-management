@@ -1,0 +1,31 @@
+:host ::ng-deep .dealer-data-table .p-datatable-thead > tr > th {
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  font-weight: 700;
+  border-bottom: 1px solid var(--border);
+  padding: 0.9rem 1rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+:host ::ng-deep .dealer-data-table .p-datatable-tbody > tr > td {
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+  padding: 0.95rem 1rem;
+}
+
+:host ::ng-deep .dealer-data-table .p-datatable-tbody > tr:hover {
+  background: var(--surface-muted);
+}
+
+:host ::ng-deep .dealer-data-table .p-paginator {
+  border-top: 1px solid var(--border);
+  padding: 0.85rem 1rem;
+}
+
+:host ::ng-deep .custom-pill .p-tag {
+  border-radius: 9999px;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}

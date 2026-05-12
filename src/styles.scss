@@ -1,3 +1,317 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@import "primeicons/primeicons.css";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --brand-primary: #00B4A6;
+  --brand-dark: #008E83;
+  --brand-soft: #E5FAF7;
+  --sidebar-bg: #FFFFFF;
+  --content-bg: #F4F8FB;
+  --card-bg: #FFFFFF;
+  --success: #00A886;
+  --warning: #D98912;
+  --danger: #E24B4B;
+  --info: #00A6C8;
+  --purple: #7E3AF2;
+  --border: #E7EDF2;
+  --border-strong: #D8E2EA;
+  --text-primary: #101820;
+  --text-secondary: #4B5B66;
+  --text-muted: #7A8A95;
+  --surface-muted: #F7FAFC;
+  --shadow-soft: 0 18px 40px rgba(16, 24, 32, 0.06);
+  --shadow-strong: 0 22px 50px rgba(16, 24, 32, 0.12);
+  --radius-card: 0.75rem;
+  --radius-control: 0.5rem;
+}
+
+body.dark-theme {
+  --sidebar-bg: #151B22;
+  --content-bg: #141619;
+  --card-bg: #1E2025;
+  --brand-soft: rgba(0, 180, 166, 0.14);
+  --border: #2D3139;
+  --border-strong: #3A3F49;
+  --text-primary: #E8E9EB;
+  --text-secondary: #B7BBC8;
+  --text-muted: #8B8FA8;
+  --surface-muted: #1A1D23;
+  --shadow-soft: 0 18px 42px rgba(0, 0, 0, 0.22);
+  --shadow-strong: 0 24px 56px rgba(0, 0, 0, 0.35);
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--content-bg);
+  color: var(--text-primary);
+  font-family: 'Inter', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid rgba(0, 180, 166, 0.28);
+  outline-offset: 2px;
+}
+
+.admin-page-shell {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.admin-surface-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--card-bg);
+  box-shadow: var(--shadow-soft);
+}
+
+.admin-section-label {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.admin-page-title {
+  color: var(--text-primary);
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.admin-page-subtitle {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+:host ::ng-deep .p-card,
+body .p-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-soft);
+  background: var(--card-bg);
+  color: var(--text-primary);
+}
+
+body .p-card .p-card-body {
+  padding: 1.25rem;
+  background: transparent;
+}
+
+body .p-button {
+  transition: all 0.2s ease;
+  border-radius: var(--radius-control);
+}
+
+body .p-button:not(.p-button-text):not(.p-button-outlined) {
+  background: var(--brand-primary);
+  border-color: var(--brand-primary);
+}
+
+body .p-button.p-button-outlined {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+body .p-button.p-button-text {
+  color: var(--text-secondary);
+}
+
+body .p-inputtext,
+body .p-select,
+body .p-inputnumber,
+body .p-datepicker-input,
+body .p-textarea {
+  width: 100%;
+  border-color: var(--border);
+  border-radius: var(--radius-control);
+  background: var(--card-bg);
+  color: var(--text-primary);
+}
+
+body .p-dialog {
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  background: var(--card-bg);
+  color: var(--text-primary);
+}
+
+body .p-dialog-header,
+body .p-dialog-content,
+body .p-dialog-footer {
+  background: var(--card-bg);
+  color: var(--text-primary);
+}
+
+body .p-datatable .p-datatable-thead > tr > th {
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+body .p-datatable .p-datatable-tbody > tr,
+body .p-datatable .p-datatable-tbody > tr > td {
+  background: var(--card-bg);
+  color: var(--text-secondary);
+  border-color: var(--border);
+}
+
+body .p-tag {
+  font-weight: 600;
+}
+
+body .p-toolbar {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--card-bg);
+}
+
+body .p-breadcrumb {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+body .p-sidebar {
+  background: var(--sidebar-bg);
+  color: var(--text-primary);
+}
+
+body .p-overlaypanel {
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-soft);
+}
+
+body .p-menu {
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+}
+
+body .p-popover,
+body .p-select-overlay,
+body .p-datepicker,
+body .p-overlaypanel,
+body .p-menu-list {
+  background: var(--card-bg);
+  color: var(--text-primary);
+  border-color: var(--border);
+}
+
+body .p-select-option,
+body .p-menu-item-content,
+body .p-datepicker-panel,
+body .p-datepicker-day,
+body .p-datepicker-weekday {
+  color: var(--text-primary);
+}
+
+body.dark-theme .bg-white,
+body.dark-theme .bg-gray-50,
+body.dark-theme .bg-slate-50,
+body.dark-theme .bg-blue-50 {
+  background-color: var(--surface-muted) !important;
+}
+
+body.dark-theme .border-gray-200,
+body.dark-theme .border-slate-200,
+body.dark-theme .border-blue-200 {
+  border-color: var(--border) !important;
+}
+
+body.dark-theme .bg-red-50 {
+  background-color: rgba(226, 75, 75, 0.12) !important;
+}
+
+body.dark-theme .bg-amber-50 {
+  background-color: rgba(217, 137, 18, 0.12) !important;
+}
+
+body.dark-theme .bg-green-50 {
+  background-color: rgba(0, 168, 134, 0.12) !important;
+}
+
+body.dark-theme .text-red-600 {
+  color: #FF8A8A !important;
+}
+
+body.dark-theme .text-amber-600 {
+  color: #F5B94D !important;
+}
+
+body.dark-theme .text-green-600 {
+  color: #58D7C6 !important;
+}
+
+body.dark-theme .text-blue-600,
+body.dark-theme .text-blue-700 {
+  color: var(--brand-primary) !important;
+}
+
+body .p-skeleton {
+  border-radius: var(--radius-card);
+ }
+
+.text-gray-900,
+.text-slate-950,
+.text-gray-800 {
+  color: var(--text-primary) !important;
+}
+
+.text-gray-700,
+.text-gray-600,
+.text-slate-500 {
+  color: var(--text-secondary) !important;
+}
+
+.text-gray-500,
+.text-gray-400,
+.text-slate-400 {
+  color: var(--text-muted) !important;
+}
+
+.pulse-live {
+  position: relative;
+}
+
+.pulse-live::after {
+  content: '';
+  position: absolute;
+  inset: -0.25rem;
+  border-radius: 999px;
+  background: rgba(14, 159, 110, 0.18);
+  animation: pulse-live 1.8s infinite;
+}
+
+@keyframes pulse-live {
+  0% { opacity: 0.2; transform: scale(0.8); }
+  70% { opacity: 0; transform: scale(1.8); }
+  100% { opacity: 0; transform: scale(1.8); }
+}

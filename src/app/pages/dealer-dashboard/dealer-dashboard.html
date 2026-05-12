@@ -1,1 +1,219 @@
-<p>dealer-dashboard works!</p>
+<p-toast></p-toast>
+<p-confirmDialog></p-confirmDialog>
+
+<div class="admin-page-shell dealer-dashboard-shell">
+  <div class="flex flex-wrap items-start justify-between gap-4">
+    <div>
+      <h2 class="admin-page-title m-0">Dealer Dashboard</h2>
+      <p class="admin-page-subtitle mt-1 mb-0">Track fleet availability, create bookings, and manage your activity in one place.</p>
+    </div>
+    <div class="flex flex-wrap gap-3">
+      <button pButton type="button" label="My Bookings" icon="pi pi-calendar" outlined (click)="navigateToBookings()"></button>
+      <button pButton type="button" label="Inventory" icon="pi pi-car" (click)="navigateToInventory()"></button>
+    </div>
+  </div>
+
+  <p-card styleClass="dealer-profile-card">
+    <div class="flex flex-wrap items-center gap-4">
+      <div class="avatar-circle">
+        {{ userLetter() }}
+      </div>
+
+      <div class="min-w-0 flex-1">
+        <p class="m-0 text-sm font-medium uppercase tracking-[0.24em] text-blue-600">Dealer Workspace</p>
+        <h3 class="m-0 mt-1 text-2xl font-semibold text-gray-900">Welcome back, {{ userName() }}!</h3>
+        <div class="mt-3 flex flex-wrap gap-3 text-sm text-gray-500">
+          <span class="dealer-meta-chip">
+            <i class="pi pi-id-card"></i>
+            {{ userInfo().id.substring(0, 8) }}...
+          </span>
+          <span class="dealer-meta-chip">
+            <i class="pi pi-envelope"></i>
+            {{ userInfo().email }}
+          </span>
+        </div>
+      </div>
+
+      <div class="dealer-profile-stat">
+        <span class="block text-2xl font-semibold text-gray-900">{{ activeBookingsCount() }}</span>
+        <span class="text-sm text-gray-500">Active bookings</span>
+      </div>
+    </div>
+  </p-card>
+
+  <div class="kpi-wrapper kpi-wrapper--full">
+    <app-stat-card
+      label="Fleet Size"
+      [value]="fleetSize()"
+      icon="pi pi-car"
+      iconColor="#00B4A6">
+    </app-stat-card>
+
+    <app-stat-card
+      label="Available Now"
+      [value]="availableNow()"
+      icon="pi pi-check-circle"
+      iconColor="#00A886">
+    </app-stat-card>
+
+    <app-stat-card
+      label="Active Bookings"
+      [value]="activeBookingsCount()"
+      icon="pi pi-bookmark"
+      iconColor="#D98912">
+    </app-stat-card>
+  </div>
+
+  <p-card styleClass="dealer-section-card">
+    <ng-template pTemplate="header">
+      <div>
+        <p class="m-0 text-xl font-semibold text-gray-900">Vehicles</p>
+        <p class="m-0 mt-1 text-sm text-gray-500">Browse active inventory and submit a booking request directly from the dashboard.</p>
+      </div>
+    </ng-template>
+
+    <p-toolbar styleClass="mb-4 border border-gray-200 rounded-xl bg-white px-4 py-3">
+      <ng-template pTemplate="start">
+        <span class="vehicle-search relative">
+          <i class="pi pi-search absolute left-3 top-1/2 z-10 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+          <input
+            pInputText
+            type="search"
+            [ngModel]="filter()"
+            (ngModelChange)="setFilter($event)"
+            placeholder="Search brand, make, model, VIN, or location..."
+            class="w-full md:w-80" />
+        </span>
+      </ng-template>
+      <ng-template pTemplate="end">
+        <button pButton type="button" icon="pi pi-refresh" label="Refresh" text (click)="loadVehicles()"></button>
+      </ng-template>
+    </p-toolbar>
+
+    <div class="table-wrap">
+      @if (loading()) {
+        <p-progressSpinner styleClass="center-spinner"></p-progressSpinner>
+      }
+
+      @if (!loading()) {
+        <app-reusable-table
+          [data]="availableVehicles()"
+          [cols]="tableColumns"
+          [actionTemplate]="bookBtn">
+        </app-reusable-table>
+      }
+
+      @if (!loading() && availableVehicles().length === 0) {
+        <div class="empty">No vehicles found for your current search.</div>
+      }
+    </div>
+  </p-card>
+
+  <p-card styleClass="dealer-section-card">
+    <ng-template pTemplate="header">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p class="m-0 text-xl font-semibold text-gray-900">My Booking History</p>
+          <p class="m-0 mt-1 text-sm text-gray-500">Monitor recent requests and cancel pending or active bookings when needed.</p>
+        </div>
+        <button
+          pButton
+          type="button"
+          icon="pi pi-refresh"
+          label="Refresh"
+          text
+          [loading]="refreshingBookings()"
+          (click)="loadMyBookings()">
+        </button>
+      </div>
+    </ng-template>
+
+    <div class="table-wrap">
+      @if (loading() && !myBookings().length) {
+        <p-progressSpinner styleClass="center-spinner"></p-progressSpinner>
+      }
+
+      @if (!loading() || myBookings().length) {
+        <app-reusable-table
+          [data]="myBookings()"
+          [cols]="bookingTableColumns"
+          [actionTemplate]="bookingActions">
+        </app-reusable-table>
+      }
+
+      @if (!loading() && myBookings().length === 0) {
+        <div class="empty">You do not have any bookings yet.</div>
+      }
+    </div>
+  </p-card>
+</div>
+
+<ng-template #bookBtn let-row>
+  <button
+    pButton
+    type="button"
+    label="Book"
+    icon="pi pi-plus"
+    class="p-button-outlined p-button-sm"
+    [disabled]="row.available <= 0 || submittingBooking()"
+    (click)="openBooking(row)">
+  </button>
+</ng-template>
+
+<ng-template #cancelBtn let-row>
+  <button
+    pButton
+    type="button"
+    label="Cancel"
+    icon="pi pi-times"
+    class="p-button-danger p-button-sm"
+    [disabled]="row.status === 'cancelled' || row.status === 'completed'"
+    (click)="cancelBooking(row.id)">
+  </button>
+</ng-template>
+
+<ng-template #bookingActions let-row>
+
+  <!-- Cancel button -->
+  <button
+    *ngIf="row.status === 'pending'"
+    pButton
+    type="button"
+    label="Cancel"
+    icon="pi pi-times"
+    class="p-button-danger p-button-sm"
+    (click)="cancelBooking(row.id)">
+  </button>
+
+  <!-- View Details button -->
+  <button
+    *ngIf="row.status === 'approved'"
+    pButton
+    type="button"
+    label="View Details"
+    icon="pi pi-eye"
+    class="p-button-success p-button-sm"
+    (click)="openQuotation(row)">
+  </button>
+
+  <!-- Optional: View Quote if already created -->
+  <button
+    *ngIf="row.status === 'approved' && row.quote_id"
+    pButton
+    type="button"
+    label="View Quote"
+    icon="pi pi-eye"
+    class="p-button-help p-button-sm"
+    (click)="openQuotation(row)">
+  </button>
+
+</ng-template>
+
+@if (selectedVehicle()) {
+  <app-booking-dialog
+    [vehicle]="selectedVehicle()!"
+    [visible]="bookingDialogVisible()"
+    (close)="closeBooking()"
+    (submitBooking)="submitBooking($event)">
+  </app-booking-dialog>
+}

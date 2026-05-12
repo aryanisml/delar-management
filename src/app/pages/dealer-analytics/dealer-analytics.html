@@ -1,0 +1,51 @@
+<p-toast></p-toast>
+
+<div class="admin-page-shell">
+  <div class="flex flex-wrap items-start justify-between gap-4">
+    <div>
+      <h2 class="admin-page-title m-0">Dealer Analytics</h2>
+      <p class="admin-page-subtitle mt-1 mb-0">Review booking performance and download your booking history report.</p>
+    </div>
+    <button pButton type="button" label="Download Report" icon="pi pi-download" outlined (click)="downloadReport()"></button>
+  </div>
+
+  <section class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+    @for (stat of stats(); track stat.label) {
+      <p-card>
+        <p class="admin-section-label mb-2">{{ stat.label }}</p>
+        <p class="m-0 text-3xl font-bold text-gray-900">{{ stat.value }}</p>
+      </p-card>
+    }
+  </section>
+
+  <section class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+    <p-card styleClass="lg:col-span-2">
+      <p class="admin-section-label mb-4">Bookings by Month</p>
+      <div class="h-80">
+        <p-chart type="bar" [data]="monthlyChart()" [options]="{ maintainAspectRatio: false, plugins: { legend: { display: false } } }"></p-chart>
+      </div>
+    </p-card>
+
+    <p-card>
+      <p class="admin-section-label mb-4">Status Breakdown</p>
+      <div class="h-80">
+        <p-chart type="doughnut" [data]="statusChart()" [options]="{ maintainAspectRatio: false }"></p-chart>
+      </div>
+    </p-card>
+  </section>
+
+  <p-card>
+    <p class="admin-section-label mb-4">Top Vehicles Booked</p>
+    <div class="space-y-4">
+      @for (vehicle of topVehicles(); track vehicle.label) {
+        <div>
+          <div class="mb-2 flex items-center justify-between">
+            <span class="text-sm font-medium text-gray-700">{{ vehicle.label }}</span>
+            <span class="text-sm font-semibold text-gray-900">{{ vehicle.count }} booking(s)</span>
+          </div>
+          <p-progressBar [value]="vehicle.pct" [showValue]="false"></p-progressBar>
+        </div>
+      }
+    </div>
+  </p-card>
+</div>

@@ -1,0 +1,11 @@
+{
+  "/cashfree-proxy": {
+    "target": "https://sandbox.cashfree.com/pg",
+    "secure": true,
+    "changeOrigin": true,
+    "pathRewrite": {
+      "^/cashfree-proxy": ""
+    },
+    "logLevel": "debug"
+  }
+}

@@ -4,10 +4,11 @@ import { SupabaseService } from './services/supabase';
 import { Auth } from './services/auth';
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
+import { ToastModule } from 'primeng/toast';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet],
+  imports: [RouterOutlet, ToastModule],
   templateUrl: './app.html',
   styleUrl: './app.scss'
 })
@@ -31,7 +32,7 @@ export class App {
       const role = await this.auth.getUserRole();
 
       if (role === 'admin') {
-        this.router.navigate(['/admin']);
+        this.router.navigate(['/admin/dashboard']);
       } else {
         this.router.navigate(['/dealer']);
       }
