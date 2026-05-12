@@ -132,21 +132,46 @@ export class PaymentComponent implements OnInit {
   }
 
   private async activateAfterReturn(bookingId: string, bookingStatus: string) {
-    for (let attempt = 0; attempt < 3; attempt++) {
-      if (attempt > 0) await new Promise<void>(r => setTimeout(r, 2000));
+    if (!['approved', 'confirmed'].includes(bookingStatus)) return;
 
-      const fresh = await this.supabase.getPaymentByBooking(bookingId);
-      this.existingPayment.set(fresh.data);
+    const fresh = await this.supabase.getPaymentByBooking(bookingId);
+    this.existingPayment.set(fresh.data);
 
-      if (fresh.data?.status === 'paid') {
-        const result = await this.supabase.verifyAndActivatePayment(bookingId, bookingStatus);
-        if (result.activated) {
-          await this.flow.loadBooking(bookingId, true);
-          this.messageService.add({ severity: 'success', summary: 'Payment confirmed', detail: 'Your booking is now active.' });
-          await this.router.navigate(['/dealer/inspection', bookingId]);
-        }
-        return;
+    try {
+      const cfOrderId = fresh.data?.cf_order_id;
+      if (cfOrderId) {
+        await this.supabase.updatePaymentStatus(cfOrderId, 'paid', null);
       }
+    } catch (e) {
+      console.warn('Payment status update failed, proceeding anyway:', e);
+    }
+
+    try {
+      await this.supabase.markBookingInService(bookingId);
+      await this.flow.loadBooking(bookingId, true);
+      this.existingPayment.set({ ...fresh.data, status: 'paid' });
+      this.messageService.add({
+        severity: 'success',
+        summary: 'Payment confirmed',
+        detail: 'Your booking is now active.',
+      });
+      await this.router.navigate(['/dealer/inspection', bookingId]);
+    } catch (e) {
+      console.error('Booking activation failed:', e);
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Activation failed',
+        detail: 'Payment was received but booking activation failed. Please contact support.',
+      });
+    }
+  }
+
+  private async activateAndNavigate(bookingId: string, bookingStatus: string) {
+    const result = await this.supabase.verifyAndActivatePayment(bookingId, bookingStatus);
+    if (result.activated) {
+      await this.flow.loadBooking(bookingId, true);
+      this.messageService.add({ severity: 'success', summary: 'Payment confirmed', detail: 'Your booking is now active.' });
+      await this.router.navigate(['/dealer/inspection', bookingId]);
     }
   }
 

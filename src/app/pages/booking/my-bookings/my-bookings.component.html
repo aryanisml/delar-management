@@ -53,11 +53,11 @@
                   <button pButton type="button" icon="pi pi-times" text severity="danger" (click)="cancelBooking(row)"></button>
                 }
 
-                @if (row.status === 'approved' && !hasAnyPayment(row.latest_payment)) {
+                @if (row.status === 'approved' && !hasPaidPayment(row.latest_payment)) {
                   <button pButton type="button" icon="pi pi-credit-card" text severity="success" title="Make Payment" (click)="openPayment(row)"></button>
                 }
 
-                @if (row.status === 'approved' && hasAnyPayment(row.latest_payment)) {
+                @if (row.status === 'in_service') {
                   <button pButton type="button" icon="pi pi-clipboard" text severity="success" title="Start Inspection" (click)="openInspection(row)"></button>
                 }
 
@@ -226,14 +226,14 @@
           }
       </div>
 
-      @if (booking.status === 'approved' && !hasAnyPayment(selectedPayment() || booking.latest_payment)) {
+      @if (booking.status === 'approved' && !hasPaidPayment(selectedPayment() || booking.latest_payment)) {
         <div style="grid-column: 1 / -1">
           <button pButton type="button" label="Make Advance Payment" icon="pi pi-credit-card" severity="success"
             (click)="detailVisible.set(false); openPayment(booking)"></button>
         </div>
       }
 
-      @if (booking.status === 'approved' && hasAnyPayment(selectedPayment() || booking.latest_payment)) {
+      @if (booking.status === 'in_service') {
         <div style="grid-column: 1 / -1">
           <button pButton type="button" label="Start Inspection" icon="pi pi-clipboard" severity="success"
             (click)="detailVisible.set(false); openInspection(booking)"></button>

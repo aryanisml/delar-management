@@ -1,7 +1,7 @@
 // Vercel serverless function — Cashfree payment verification
 const CASHFREE_APP_ID = 'TEST10980941ba3d9feaf9281b9b0e3814908901';
 const CASHFREE_SECRET_KEY = 'cfsk_ma_test_1415afd4dc2db21cb233f06db7dcd8e7_4831b5c7';
-const CASHFREE_BASE_URL = 'https://api.cashfree.com/pg';
+const CASHFREE_BASE_URL = 'https://sandbox.cashfree.com/pg';
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');

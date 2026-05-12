@@ -12,11 +12,13 @@ module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { order_id, order_amount, customer_id, customer_name, customer_email, customer_phone, return_url } = req.body;
+  const { order_id, order_amount, customer_id, customer_name, customer_email, customer_phone, booking_id } = req.body;
 
-  if (!order_id || !order_amount || !customer_id || !return_url) {
+  if (!order_id || !order_amount || !customer_id || !booking_id) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
+
+  const return_url = `https://delar-management.vercel.app/dealer/booking/${booking_id}/payments?cf_order_id={order_id}`;
 
   try {
     const cfResponse = await fetch(`${CASHFREE_BASE_URL}/orders`, {

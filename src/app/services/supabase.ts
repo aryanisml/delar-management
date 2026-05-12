@@ -1212,14 +1212,17 @@ export class SupabaseService {
         return { data: null, error: quotationUpdate.error };
       }
 
-      if (quotation?.advance_mode === 'offline') {
-        const payment = await this.getPaymentByBooking(bookingId);
-        if (payment.data?.status === 'paid') {
-          await this.supabase
-            .from('bookings')
-            .update({ status: 'in_service', updated_at: new Date().toISOString() })
-            .eq('id', bookingId);
-        }
+      const { data: cashPayment } = await this.supabase
+        .from('payments')
+        .select('id')
+        .eq('booking_id', bookingId)
+        .eq('payment_mode', 'cash')
+        .eq('status', 'paid')
+        .limit(1)
+        .maybeSingle();
+
+      if (cashPayment) {
+        await this.markBookingInService(bookingId);
       }
 
       const vehicleUpdate = await this.supabase
@@ -1736,6 +1739,14 @@ export class SupabaseService {
     return { activated: !error, error };
   }
 
+  async updatePaymentStatus(cfOrderId: string, status: string, cfPaymentId?: string | null) {
+    return await this.supabase.rpc('update_payment_status', {
+      p_cf_order_id: cfOrderId,
+      p_status: status,
+      p_cf_payment_id: cfPaymentId ?? null,
+    });
+  }
+
   async getPaymentByBooking(bookingId: string) {
     const result = await this.supabase
       .from('payments')
@@ -1829,7 +1840,6 @@ export class SupabaseService {
 
     const cfOrderId = `CF-${bookingId.replace(/-/g, '').slice(0, 16).toUpperCase()}-${Date.now()}`;
     const customer = (booking as any).customers;
-    const returnUrl = `${window.location.origin}/dealer/booking/${bookingId}/payments?cf_order_id=${cfOrderId}`;
 
     let paymentSessionId: string;
     try {
@@ -1843,7 +1853,7 @@ export class SupabaseService {
           customer_name: customer?.full_name || 'Customer',
           customer_email: customer?.email || 'noreply@example.com',
           customer_phone: String(customer?.mobile || '9999999999').replace(/\D/g, '').slice(-10).padStart(10, '9'),
-          return_url: returnUrl,
+          booking_id: bookingId,
         }),
       });
 
