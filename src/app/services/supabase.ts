@@ -590,6 +590,14 @@ export class SupabaseService {
           .insert(quotationPayload)
           .select()
           .single();
+        if (quotationResult.error?.code === '23505') {
+          quotationResult = await this.supabase
+            .from('quotations')
+            .update(quotationPayload)
+            .eq('booking_id', input.booking.id)
+            .select()
+            .single();
+        }
       }
 
       if (quotationResult.error) {
@@ -809,11 +817,23 @@ export class SupabaseService {
         .select()
         .single();
     }
-    return await this.supabase
+
+    const insertResult = await this.supabase
       .from('quotations')
       .insert(quotationPayload)
       .select()
       .single();
+
+    if (insertResult.error?.code === '23505') {
+      return await this.supabase
+        .from('quotations')
+        .update(quotationPayload)
+        .eq('booking_id', input.bookingId)
+        .select()
+        .single();
+    }
+
+    return insertResult;
   }
 
   private hasResolvedPricing(quotation: any) {
@@ -1123,7 +1143,11 @@ export class SupabaseService {
         return this.supabase.from('quotations').update(sanitized).eq('booking_id', bookingId);
       }
     }
-    return this.supabase.from('quotations').insert([sanitized]);
+    const insertResult = await this.supabase.from('quotations').insert([sanitized]);
+    if (insertResult.error?.code === '23505' && bookingId) {
+      return this.supabase.from('quotations').update(sanitized).eq('booking_id', bookingId);
+    }
+    return insertResult;
   }
 
   async updateBookingQuoteStatus(bookingId: string, quoteStatus: string, status?: string) {
