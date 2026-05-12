@@ -536,24 +536,28 @@
 	            <button pButton type="button" label="WhatsApp" [outlined]="!sendState().whatsapp" (click)="sendQuote('whatsapp')"></button>
 	          </div>
 	          <div class="field">
-	            <label>How is advance being collected?</label>
+	            <label class="field-label-section">HOW IS ADVANCE BEING COLLECTED?</label>
 	            <div class="customer-type-toggle">
 	              <button type="button" [class.is-selected]="advanceCollectionMode() === 'online'" (click)="advanceCollectionMode.set('online')">Pay Online</button>
 	              <button type="button" [class.is-selected]="advanceCollectionMode() === 'offline'" (click)="advanceCollectionMode.set('offline')">Collected Offline</button>
 	            </div>
 	          </div>
 	          @if (advanceCollectionMode() === 'online') {
-	            <p-message severity="warn" text="Please ensure advance and security deposit have been physically collected before proceeding with online payment."></p-message>
+	            <p-message severity="info" [text]="onlinePaymentInfoText()"></p-message>
 	          } @else {
-	            <button
-	              pButton
-	              type="button"
-	              label="Confirm Offline Collection"
-	              icon="pi pi-check-circle"
-	              severity="success"
-	              [loading]="recordingOfflinePayment()"
-	              [disabled]="offlinePaymentRecorded()"
-	              (click)="confirmOfflineCollection()"></button>
+	            @if (offlinePaymentRecorded()) {
+	              <p-message severity="success" [text]="offlineConfirmedText()"></p-message>
+	            } @else {
+	              <p-message severity="warn" text="Confirm that the advance has been physically collected from the customer before recording."></p-message>
+	              <button
+	                pButton
+	                type="button"
+	                label="Confirm Offline Collection"
+	                icon="pi pi-check-circle"
+	                severity="success"
+	                [loading]="recordingOfflinePayment()"
+	                (click)="confirmOfflineCollection()"></button>
+	            }
 	          }
 	          <button pButton type="button" label="Confirm Booking" icon="pi pi-check" [loading]="confirmingBooking()" (click)="confirmBooking()"></button>
 	        </div>

@@ -55,7 +55,6 @@ export const routes: Routes = [
 	    { path: 'inspection/:bookingId', component: InspectionPlaceholderComponent },
 	    { path: 'booking/:bookingId/quotation', component: QuotationComponent },
 	    { path: 'booking/:bookingId/payments', component: PaymentComponent },
-	    { path: 'quotation/:bookingId', component: QuotationComponent },
 	  ],
 	},
       { path: 'profile', component: ProfileComponent, data: { title: 'Profile' } },

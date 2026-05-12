@@ -87,7 +87,7 @@ export class SupabaseService {
   private readonly vehiclesTable = 'vehicle';
   readonly gstRate = 0.18;
   readonly advanceRate = 0.3;
-  readonly blockingBookingStatuses = ['pending', 'approved', 'payment_received', 'in_service'];
+  readonly blockingBookingStatuses = ['pending', 'approved', 'confirmed', 'in_service'];
 
   supabase = createClient(environment.supabaseUrl, environment.supabaseKey);
 
@@ -301,10 +301,7 @@ export class SupabaseService {
       .eq('id', bookingId)
       .single();
 
-    return {
-      ...result,
-      data: this.normalizeBookingPaymentState(result.data),
-    };
+    return result;
   }
 
   async addVehicle(vehicle: any) {
@@ -364,14 +361,14 @@ export class SupabaseService {
     return {
       data: (result.data ?? []).map((booking: any) => {
         const quotation = Array.isArray(booking.quotation) ? booking.quotation[0] ?? null : booking.quotation ?? null;
-        return this.normalizeBookingPaymentState({
+        return {
           ...booking,
           quotation,
           quote_status: quotation?.status ?? null,
           quote_reference: quotation?.quote_reference ?? null,
           total_price: quotation?.final_amount ?? booking.total_price ?? null,
           latest_payment: latestPayments.data.get(booking.id) ?? null,
-        });
+        };
       }),
       error: null,
     };
@@ -1040,7 +1037,7 @@ export class SupabaseService {
     };
   }
 
-  async confirmWalkInBooking(bookingId: string, customerChannel?: 'email' | 'sms' | 'whatsapp' | null) {
+  async confirmWalkInBooking(bookingId: string, advanceMode: 'online' | 'offline' = 'online', customerChannel?: 'email' | 'sms' | 'whatsapp' | null) {
       const request = await this.getAdminBookingDetails(bookingId);
     if (request.error || !request.data) {
       return { data: null, error: request.error ?? new Error('Booking not found') };
@@ -1048,7 +1045,7 @@ export class SupabaseService {
 
     const quotationUpdate = await this.supabase
       .from('quotations')
-      .update({ status: 'submitted', sent_at: new Date().toISOString() })
+      .update({ status: 'submitted', sent_at: new Date().toISOString(), advance_mode: advanceMode })
       .eq('booking_id', bookingId)
       .select()
       .single();
@@ -1215,6 +1212,16 @@ export class SupabaseService {
         return { data: null, error: quotationUpdate.error };
       }
 
+      if (quotation?.advance_mode === 'offline') {
+        const payment = await this.getPaymentByBooking(bookingId);
+        if (payment.data?.status === 'paid') {
+          await this.supabase
+            .from('bookings')
+            .update({ status: 'in_service', updated_at: new Date().toISOString() })
+            .eq('id', bookingId);
+        }
+      }
+
       const vehicleUpdate = await this.supabase
         .from('vehicle')
         .update({ next_available_date: booking.end_date })
@@ -1276,7 +1283,7 @@ export class SupabaseService {
         .from('bookings')
         .select('id', { count: 'exact', head: true })
         .eq('vehicle_id', booking.vehicle_id)
-        .in('status', ['pending', 'approved', 'in_service'])
+        .in('status', this.blockingBookingStatuses)
         .neq('id', bookingId);
 
       if (activeBookings.error) {
@@ -1397,7 +1404,7 @@ export class SupabaseService {
 
     return {
       data: {
-        ...this.normalizeBookingPaymentState(data),
+        ...data,
         quotation: quotation.data,
         advisor_name: advisorName,
       },
@@ -1517,7 +1524,7 @@ export class SupabaseService {
     const { data, error } = await this.supabase
       .from('bookings')
       .select('id, vehicle_id, end_date')
-      .eq('status', 'approved')
+      .in('status', ['approved', 'in_service'])
       .lt('end_date', today);
 
     if (error) {
@@ -1659,6 +1666,7 @@ export class SupabaseService {
       'discount_amount',
       'id_proof_url',
       'sent_at',
+      'advance_mode',
     ];
 
     return Object.fromEntries(allowed.filter((key) => key in payload).map((key) => [key, payload[key]]));
@@ -1710,6 +1718,24 @@ export class SupabaseService {
       .eq('id', bookingId);
   }
 
+  async verifyAndActivatePayment(bookingId: string, currentBookingStatus: string): Promise<{ activated: boolean; error: any }> {
+    if (!['approved', 'confirmed'].includes(currentBookingStatus)) {
+      return { activated: false, error: null };
+    }
+
+    const paymentResult = await this.getPaymentByBooking(bookingId);
+    if (paymentResult.data?.status !== 'paid') {
+      return { activated: false, error: null };
+    }
+
+    const { error } = await this.supabase
+      .from('bookings')
+      .update({ status: 'in_service', updated_at: new Date().toISOString() })
+      .eq('id', bookingId);
+
+    return { activated: !error, error };
+  }
+
   async getPaymentByBooking(bookingId: string) {
     const result = await this.supabase
       .from('payments')
@@ -1749,7 +1775,7 @@ export class SupabaseService {
     const result = await this.supabase
       .from('bookings')
       .select(`
-        id, status, payment_status, start_date, end_date, pickup_location, drop_location, created_at, user_id, total_price,
+        id, status, start_date, end_date, pickup_location, drop_location, created_at, user_id, total_price,
         customers(full_name, mobile, customer_type),
         vehicle(brand, model),
         quotations!quotations_booking_id_fkey(quote_reference, final_amount)
@@ -1767,7 +1793,7 @@ export class SupabaseService {
 
     return {
       ...result,
-      data: (result.data ?? []).map((row: any) => this.normalizeBookingPaymentState({
+      data: (result.data ?? []).map((row: any) => ({
         ...row,
         latest_payment: latestPayments.data.get(row.id) ?? null,
       })),
@@ -1971,27 +1997,6 @@ export class SupabaseService {
     }
 
     return { data: latestByBooking, error: null };
-  }
-
-  private normalizeBookingPaymentState<T extends Record<string, any> | null>(booking: T): T {
-    if (!booking) {
-      return booking;
-    }
-
-    const status = String(booking['status'] ?? '').toLowerCase();
-    const paymentStatus = String(booking['payment_status'] ?? '').toLowerCase();
-    const hasReceivedAdvance = status === 'payment_received'
-      || paymentStatus === 'payment_received'
-      || paymentStatus === 'paid';
-
-    if (!hasReceivedAdvance || booking['status'] === 'payment_received') {
-      return booking;
-    }
-
-    return {
-      ...booking,
-      status: 'payment_received',
-    } as T;
   }
 
   private normalizePaymentState<T extends Record<string, any> | null>(payment: T): T {

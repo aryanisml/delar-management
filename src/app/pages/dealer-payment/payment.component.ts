@@ -73,17 +73,25 @@ export class PaymentComponent implements OnInit {
     );
   });
 
+  readonly advanceMode = computed(() => (this.quotation()?.advance_mode ?? 'online') as 'online' | 'offline');
+  readonly isOfflineMode = computed(() => this.advanceMode() === 'offline');
+
   readonly amountDueNow = computed(() => {
     const p = this.resolvedPricing();
-    return Number(p.final_amount ?? 0) - Number(p.advance ?? 0);
+    // Online: customer pays complete final amount in one Cashfree transaction
+    // Offline: advance already collected; balance due at vehicle return
+    return this.isOfflineMode()
+      ? Number(p.final_amount ?? 0) - Number(p.advance ?? 0)
+      : Number(p.final_amount ?? 0);
   });
   readonly vehicleName = computed(() => `${this.vehicle()?.brand || this.vehicle()?.make || ''} ${this.vehicle()?.model || ''}`.trim() || 'Vehicle');
   readonly quoteReference = computed(() => this.quotation()?.quote_reference || `QT-${String(this.booking()?.id || '').replace(/-/g, '').slice(0, 8).toUpperCase()}`);
   readonly isAlreadyPaid = computed(() =>
-    Boolean(this.existingPayment())
-    || this.booking()?.status === 'payment_received'
-    || this.booking()?.payment_status === 'payment_received'
+    this.existingPayment()?.status === 'paid'
+    || this.booking()?.status === 'in_service'
   );
+
+  readonly canProceedToInspection = computed(() => this.booking()?.status === 'in_service');
 
   async ngOnInit() {
     const bookingId = this.route.snapshot.paramMap.get('bookingId');
@@ -109,7 +117,37 @@ export class PaymentComponent implements OnInit {
     this.quotation.set(quotationResult.data ?? null);
     this.existingPayment.set(paymentResult.data ?? null);
     this.pricingSource.set(quotationResult.data?.final_amount ? 'database' : 'local');
+
+    const returningFromGateway = !!this.route.snapshot.queryParamMap.get('cf_order_id');
+    if (returningFromGateway) {
+      await this.activateAfterReturn(bookingId, booking.status);
+    } else if (paymentResult.data?.status === 'paid' && ['approved', 'confirmed'].includes(booking.status ?? '')) {
+      const result = await this.supabase.verifyAndActivatePayment(bookingId, booking.status);
+      if (result.activated) {
+        await this.flow.loadBooking(bookingId, true);
+      }
+    }
+
     this.loading.set(false);
+  }
+
+  private async activateAfterReturn(bookingId: string, bookingStatus: string) {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) await new Promise<void>(r => setTimeout(r, 2000));
+
+      const fresh = await this.supabase.getPaymentByBooking(bookingId);
+      this.existingPayment.set(fresh.data);
+
+      if (fresh.data?.status === 'paid') {
+        const result = await this.supabase.verifyAndActivatePayment(bookingId, bookingStatus);
+        if (result.activated) {
+          await this.flow.loadBooking(bookingId, true);
+          this.messageService.add({ severity: 'success', summary: 'Payment confirmed', detail: 'Your booking is now active.' });
+          await this.router.navigate(['/dealer/inspection', bookingId]);
+        }
+        return;
+      }
+    }
   }
 
   openPaymentDialog() {
@@ -152,6 +190,10 @@ export class PaymentComponent implements OnInit {
       this.processingPayment.set(false);
       this.messageService.add({ severity: 'error', summary: 'Payment error', detail: sdkErr?.message || 'Cashfree SDK error.' });
     }
+  }
+
+  async goToInspection() {
+    await this.router.navigate(['/dealer/inspection', this.booking()?.id]);
   }
 
   async backToBookings() {

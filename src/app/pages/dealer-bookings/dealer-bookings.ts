@@ -154,6 +154,17 @@ export class DealerBookings {
   readonly offlinePaymentRecorded = signal(false);
   readonly advisorContact = signal<{ name: string; email: string }>({ name: 'Rental Advisor', email: 'advisor@autoflow.in' });
 
+  readonly onlinePaymentInfoText = computed(() => {
+    const amount = this.formatCurrency(this.quotationAmount('final_amount'));
+    return `Customer pays ${amount} in full online via Cashfree — no cash collection needed. Booking activates automatically on payment confirmation.`;
+  });
+
+  readonly offlineConfirmedText = computed(() => {
+    const advance = this.quotationAmount('advance');
+    const balance = this.quotationAmount('final_amount') - advance;
+    return `Advance of ${this.formatCurrency(advance)} recorded as collected. Remaining balance of ${this.formatCurrency(balance)} will be collected at vehicle return.`;
+  });
+
   readonly purposeOptions = ['Corporate', 'Airport Transfer', 'Personal', 'Business Visit', 'Event']
     .map((value) => ({ label: value, value }));
   readonly locationOptions = [
@@ -565,7 +576,7 @@ export class DealerBookings {
         : this.sendState().sms
           ? 'sms'
           : null;
-    const { error } = await this.supabase.confirmWalkInBooking(this.generatedBooking().id, preferredChannel);
+    const { error } = await this.supabase.confirmWalkInBooking(this.generatedBooking().id, this.advanceCollectionMode(), preferredChannel);
     this.confirmingBooking.set(false);
 
     if (error) {
@@ -655,7 +666,7 @@ export class DealerBookings {
     return `${year}-${month}-${day}`;
   }
 
-  private formatCurrency(value: number) {
+  protected formatCurrency(value: number) {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
       currency: 'INR',
