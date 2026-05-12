@@ -128,7 +128,7 @@ export class SupabaseService {
   }
 
   async getUserRole(userId: string) {
-    const { data, error } = await this.supabase.from('user_roles').select('role').eq('user_id', userId).maybeSingle();
+    const { data, error } = await this.supabase.from('user_roles').select('role').eq('user_id', userId).limit(1).maybeSingle();
 
     if (error) {
       console.error('Error fetching role:', error);
@@ -727,7 +727,7 @@ export class SupabaseService {
   }
 
   async createOrFetchQuotation(input: CreateQuotationInput) {
-    const existing = await this.supabase.from('quotations').select('*').eq('booking_id', input.bookingId).maybeSingle();
+    const existing = await this.supabase.from('quotations').select('*').eq('booking_id', input.bookingId).limit(1).maybeSingle();
     if (existing.error) {
       return { data: null, error: existing.error };
     }
@@ -784,9 +784,17 @@ export class SupabaseService {
       discount_amount: 0,
     };
 
+    if (existing.data) {
+      return await this.supabase
+        .from('quotations')
+        .update(quotationPayload)
+        .eq('booking_id', input.bookingId)
+        .select()
+        .single();
+    }
     return await this.supabase
       .from('quotations')
-      .upsert(quotationPayload, { onConflict: 'booking_id' })
+      .insert(quotationPayload)
       .select()
       .single();
   }

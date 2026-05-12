@@ -174,9 +174,15 @@
                   {{ vehicleAvailabilityCaption(vehicle) }}
                 </div>
               }
-              <div class="vehicle-grid-card__rate-pill">
-                {{ displayVehicle.dailyRate | currency:'INR':'symbol':'1.0-0' }}/day
-              </div>
+              @if (vehicle.tier_id) {
+                <div class="vehicle-grid-card__rate-pill">
+                  {{ displayVehicle.dailyRate | currency:'INR':'symbol':'1.0-0' }}/day
+                </div>
+              } @else {
+                <div class="vehicle-grid-card__rate-pill vehicle-grid-card__rate-pill--no-pricing">
+                  No pricing
+                </div>
+              }
             </div>
 
             <div class="vehicle-grid-card__body">
@@ -205,6 +211,10 @@
                 <p-progressBar [value]="displayVehicle.fillRate" [showValue]="false"></p-progressBar>
                 <p class="vehicle-grid-card__utilization-copy">{{ displayVehicle.fillRate }}% fill rate</p>
               </div>
+
+              @if (!vehicle.tier_id) {
+                <p-message severity="warn" text="This vehicle has no pricing configured. Contact an admin."></p-message>
+              }
 
               @if (selectedVehicle()?.id === vehicle.id && insuranceStatus()) {
                 <p-message severity="error" text="Insurance expires within 30 days."></p-message>

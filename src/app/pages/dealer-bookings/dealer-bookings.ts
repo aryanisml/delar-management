@@ -267,6 +267,14 @@ export class DealerBookings {
       });
       return;
     }
+    if (!vehicle.tier_id) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'No pricing configured',
+        detail: 'This vehicle has no pricing tier assigned. Ask an admin to configure pricing before booking.',
+      });
+      return;
+    }
     this.selectedVehicle.set(vehicle);
     this.step.set(2);
     this.generatedBooking.set(null);
