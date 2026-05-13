@@ -2,90 +2,121 @@
 <p-confirmDialog></p-confirmDialog>
 
 <div class="admin-page-shell">
-  <div class="flex flex-wrap items-start justify-between gap-4">
+  <div class="af-page-header">
     <div>
-      <h2 class="admin-page-title m-0">My Bookings</h2>
-      <p class="admin-page-subtitle mt-1 mb-0">Track approval status and review the bookings you generated as a rental advisor.</p>
+      <h2 class="af-page-title m-0">My Bookings</h2>
+      <p class="af-page-sub mt-1 mb-0">Track approval status and review the bookings you generated as a rental advisor.</p>
     </div>
   </div>
 
   <!-- Desktop table -->
   <div class="hidden md:block">
-  <p-card>
-    <p-table [value]="bookings()" responsiveLayout="scroll">
-      <ng-template pTemplate="header">
-        <tr>
-          <th>Booking ID</th>
-          <th>Quote Ref</th>
-          <th>Vehicle</th>
-          <th>Pickup</th>
-          <th>Dates</th>
-          <th>Total</th>
-          <th>Payment</th>
-          <th>Status</th>
-          <th>Actions</th>
-        </tr>
-      </ng-template>
-      <ng-template pTemplate="body" let-row>
-        <tr [class]="row.status === 'payment_received' ? 'bg-green-50' : ''">
-          <td class="font-mono text-sm text-blue-700">{{ row.id }}</td>
-          <td class="font-mono text-xs text-slate-600">{{ quoteReference(row) }}</td>
-          <td>{{ row.vehicle_display }}</td>
-          <td>{{ row.pickup_location }}</td>
-          <td>{{ row.start_date | date:'mediumDate' }} - {{ row.end_date | date:'mediumDate' }}</td>
-          <td>
-            @if (hasPricing(row)) {
-              {{ finalAmount(row) | currency:'INR':'symbol':'1.0-0' }}
-            } @else {
-              <span class="italic text-slate-400">Pricing pending...</span>
-            }
-          </td>
-          <td><p-tag [value]="paymentBadgeLabel(row.latest_payment)" [severity]="paymentBadgeSeverity(row.latest_payment)"></p-tag></td>
-          <td><p-tag [value]="statusLabel(row.status)" [severity]="statusSeverity(row.status)"></p-tag></td>
-          <td>
-            <div class="flex gap-1 items-center">
-              <button pButton type="button" icon="pi pi-eye" text (click)="openDetail(row)"></button>
+    <div class="af-table-card">
+      <table class="af-table">
+        <thead>
+          <tr>
+            <th>Booking ID</th>
+            <th>Quote Ref</th>
+            <th>Vehicle</th>
+            <th>Pickup</th>
+            <th>Dates</th>
+            <th>Total</th>
+            <th>Payment</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of bookings(); track row.id) {
+            <tr>
+              <td><span class="font-mono text-sm text-blue-700">{{ row.id }}</span></td>
+              <td><span class="font-mono text-xs text-slate-600">{{ quoteReference(row) }}</span></td>
+              <td>{{ row.vehicle_display }}</td>
+              <td>{{ row.pickup_location }}</td>
+              <td class="text-xs">{{ row.start_date | date:'mediumDate' }} — {{ row.end_date | date:'mediumDate' }}</td>
+              <td>
+                @if (hasPricing(row)) {
+                  <span class="font-semibold">{{ finalAmount(row) | currency:'INR':'symbol':'1.0-0' }}</span>
+                } @else {
+                  <span class="italic text-slate-400 text-xs">Pending</span>
+                }
+              </td>
+              <td>
+                <span class="af-badge" [ngClass]="{
+                  'af-badge--paid': row.latest_payment?.status === 'paid',
+                  'af-badge--unpaid': row.latest_payment?.status && row.latest_payment?.status !== 'paid',
+                  'af-badge--grey': !row.latest_payment || !row.latest_payment?.status
+                }">{{ paymentBadgeLabel(row.latest_payment) }}</span>
+              </td>
+              <td>
+                <span class="af-badge" [ngClass]="{
+                  'af-badge--pending': row.status === 'pending',
+                  'af-badge--approved': row.status === 'approved',
+                  'af-badge--inservice': row.status === 'in_service',
+                  'af-badge--completed': row.status === 'completed' || row.status === 'payment_received',
+                  'af-badge--rejected': row.status === 'rejected' || row.status === 'cancelled'
+                }">{{ statusLabel(row.status) }}</span>
+              </td>
+              <td>
+                <div class="flex gap-1 items-center">
+                  <button pButton type="button" icon="pi pi-eye" text (click)="openDetail(row)"></button>
 
-              @if (row.status === 'pending') {
-                <button pButton type="button" icon="pi pi-times" text severity="danger" (click)="cancelBooking(row)"></button>
-              }
+                  @if (row.status === 'pending') {
+                    <button pButton type="button" icon="pi pi-times" text severity="danger" (click)="cancelBooking(row)"></button>
+                  }
 
-              @if (row.status === 'approved' && !hasPaidPayment(row.latest_payment)) {
-                <button pButton type="button" icon="pi pi-credit-card" text severity="success" title="Make Payment" (click)="openPayment(row)"></button>
-              }
+                  @if (row.status === 'approved' && !hasPaidPayment(row.latest_payment)) {
+                    <button pButton type="button" icon="pi pi-credit-card" text severity="success" title="Make Payment" (click)="openPayment(row)"></button>
+                  }
 
-              @if (row.status === 'in_service') {
-                <button pButton type="button" icon="pi pi-clipboard" text severity="success" title="Start Inspection" (click)="openInspection(row)"></button>
-                <button pButton type="button" icon="pi pi-sign-out" text severity="danger" title="Return Vehicle" (click)="openReturn(row)"></button>
-              }
+                  @if (row.status === 'in_service') {
+                    <button pButton type="button" icon="pi pi-clipboard" text severity="success" title="Start Inspection" (click)="openInspection(row)"></button>
+                    <button pButton type="button" icon="pi pi-sign-out" text severity="danger" title="Return Vehicle" (click)="openReturn(row)"></button>
+                  }
 
-              @if (row.status === 'payment_received') {
-                <button pButton type="button" label="View Details" icon="pi pi-arrow-right" iconPos="right" text severity="success" size="small" (click)="openDetail(row)"></button>
-              }
-            </div>
-          </td>
-        </tr>
-      </ng-template>
-    </p-table>
-  </p-card>
-  </div><!-- /hidden md:block -->
+                  @if (row.status === 'payment_received') {
+                    <button pButton type="button" label="View" icon="pi pi-arrow-right" iconPos="right" text severity="success" size="small" (click)="openDetail(row)"></button>
+                  }
+                </div>
+              </td>
+            </tr>
+          }
+          @if (!bookings().length) {
+            <tr>
+              <td colspan="9" class="text-center py-10 text-gray-400 italic text-sm">No bookings found.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
 
   <!-- Mobile booking cards -->
   <div class="md:hidden flex flex-col gap-3">
     @for (row of bookings(); track row.id) {
-      <div class="mb-booking-card" (click)="openDetail(row)" style="cursor:pointer">
+      <div class="af-booking-card" (click)="openDetail(row)" style="cursor:pointer">
         <div class="flex items-start justify-between gap-2 mb-2">
           <div class="min-w-0">
             <p class="m-0 font-semibold text-gray-900 truncate">{{ row.vehicle_display }}</p>
             <p class="m-0 font-mono text-xs text-blue-700 mt-0.5 truncate">{{ row.id }}</p>
           </div>
-          <p-tag [value]="statusLabel(row.status)" [severity]="statusSeverity(row.status)"></p-tag>
+          <span class="af-badge" [ngClass]="{
+            'af-badge--pending': row.status === 'pending',
+            'af-badge--approved': row.status === 'approved',
+            'af-badge--inservice': row.status === 'in_service',
+            'af-badge--completed': row.status === 'completed' || row.status === 'payment_received',
+            'af-badge--rejected': row.status === 'rejected' || row.status === 'cancelled'
+          }">{{ statusLabel(row.status) }}</span>
         </div>
         <p class="m-0 text-xs text-gray-500">
           {{ row.start_date | date:'d MMM y' }} &rarr; {{ row.end_date | date:'d MMM y' }}
         </p>
         <div class="flex items-center justify-between mt-3 pt-3" style="border-top: 1px solid #e8eaed">
-          <p-tag [value]="paymentBadgeLabel(row.latest_payment)" [severity]="paymentBadgeSeverity(row.latest_payment)"></p-tag>
+          <span class="af-badge" [ngClass]="{
+            'af-badge--paid': row.latest_payment?.status === 'paid',
+            'af-badge--unpaid': row.latest_payment?.status && row.latest_payment?.status !== 'paid',
+            'af-badge--grey': !row.latest_payment || !row.latest_payment?.status
+          }">{{ paymentBadgeLabel(row.latest_payment) }}</span>
           <div class="flex gap-1">
             @if (row.status === 'approved' && !hasPaidPayment(row.latest_payment)) {
               <button pButton type="button" icon="pi pi-credit-card" text severity="success" size="small" (click)="$event.stopPropagation(); openPayment(row)"></button>
@@ -111,17 +142,27 @@
   (visibleChange)="detailVisible.set($event)"
   [modal]="true"
   [draggable]="false"
-  [style]="{ width: '780px', maxWidth: '95vw' }">
+  [style]="{ maxWidth: '740px', width: '95vw' }">
   @if (selectedBooking(); as booking) {
-    <!-- Header row -->
-    <div class="flex items-start justify-between gap-4 mb-5">
-      <div>
-        <p class="m-0 text-xs uppercase tracking-wide text-gray-400">{{ booking.vehicle_display }}</p>
+    <!-- Top summary block -->
+    <div class="af-modal-summary">
+      <div class="af-modal-summary__left">
+        <p class="m-0 text-xs uppercase tracking-wide text-gray-400 font-semibold">{{ booking.vehicle_display }}</p>
         <p class="m-0 mt-1 font-mono text-xs text-slate-500">{{ quoteReference(booking) }}</p>
       </div>
-      <div class="flex items-center gap-3 flex-wrap justify-end">
-        <p-tag [value]="statusLabel(booking.status)" [severity]="statusSeverity(booking.status)"></p-tag>
-        <p-tag [value]="paymentBadgeLabel(selectedPayment() || booking.latest_payment)" [severity]="paymentBadgeSeverity(selectedPayment() || booking.latest_payment)"></p-tag>
+      <div class="flex items-center gap-2 flex-wrap justify-end">
+        <span class="af-badge" [ngClass]="{
+          'af-badge--pending': booking.status === 'pending',
+          'af-badge--approved': booking.status === 'approved',
+          'af-badge--inservice': booking.status === 'in_service',
+          'af-badge--completed': booking.status === 'completed' || booking.status === 'payment_received',
+          'af-badge--rejected': booking.status === 'rejected' || booking.status === 'cancelled'
+        }">{{ statusLabel(booking.status) }}</span>
+        <span class="af-badge" [ngClass]="{
+          'af-badge--paid': (selectedPayment() || booking.latest_payment)?.status === 'paid',
+          'af-badge--unpaid': (selectedPayment() || booking.latest_payment)?.status && (selectedPayment() || booking.latest_payment)?.status !== 'paid',
+          'af-badge--grey': !(selectedPayment() || booking.latest_payment) || !(selectedPayment() || booking.latest_payment)?.status
+        }">{{ paymentBadgeLabel(selectedPayment() || booking.latest_payment) }}</span>
         @if (hasPaidPayment(selectedPayment() || booking.latest_payment)) {
           <button pButton type="button" label="Download Receipt" icon="pi pi-download" outlined size="small" (click)="downloadPaymentConfirmation(booking)"></button>
         }
@@ -256,7 +297,7 @@
       }
 
       @if (booking.status === 'in_service') {
-        <div class="rounded-xl border border-blue-200 bg-blue-50 p-3" class="col-span-full">
+        <div class="rounded-xl border border-blue-200 bg-blue-50 p-3 col-span-full">
           <div class="flex items-center gap-2">
             <i class="pi pi-car text-blue-600"></i>
             <p class="m-0 text-xs uppercase tracking-wide text-blue-600 font-semibold">Vehicle In Service</p>
@@ -266,7 +307,7 @@
       }
 
       @if (booking.status === 'completed') {
-        <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-3" class="col-span-full">
+        <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-3 col-span-full">
           <div class="flex items-center gap-2">
             <i class="pi pi-check text-emerald-600"></i>
             <p class="m-0 text-xs uppercase tracking-wide text-emerald-600 font-semibold">Trip Completed</p>
@@ -276,7 +317,7 @@
       }
 
       @if (booking.rejection_reason) {
-        <div class="rounded-xl border border-red-200 bg-red-50 p-3" class="col-span-full">
+        <div class="rounded-xl border border-red-200 bg-red-50 p-3 col-span-full">
           <p class="m-0 text-xs uppercase tracking-wide text-red-500">Rejection Reason</p>
           <p class="m-0 mt-1 text-sm text-red-700">{{ booking.rejection_reason }}</p>
         </div>

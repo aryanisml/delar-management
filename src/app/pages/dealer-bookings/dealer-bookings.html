@@ -153,7 +153,13 @@
         </div>
       </p-card>
 
-      <div class="vehicle-grid">
+      <div class="af-discover-header">
+        <div>
+          <h2 class="af-discover-title">Available Vehicles</h2>
+          <p class="af-discover-sub">Select a vehicle to begin your booking</p>
+        </div>
+      </div>
+      <div class="af-vehicle-grid vehicle-grid">
         @for (vehicle of vehicles(); track vehicle.id; let index = $index) {
           @let displayVehicle = adminVehicleCard(vehicle, index);
 
@@ -165,6 +171,17 @@
             tabindex="0"
             (click)="selectVehicle(vehicle)"
             (keyup.enter)="selectVehicle(vehicle)">
+
+            <!-- Teal accent bar at top of card -->
+            <div class="vehicle-grid-card__accent"></div>
+
+            <!-- Selected checkmark badge -->
+            @if (selectedVehicle()?.id === vehicle.id) {
+              <span class="vehicle-grid-card__selected-badge" aria-label="Selected">
+                <i class="pi pi-check"></i>
+              </span>
+            }
+
             <div class="vehicle-grid-card__media">
               <img [src]="displayVehicle.imageUrl" [alt]="displayVehicle.make" class="vehicle-grid-card__image" />
               <div
@@ -194,14 +211,15 @@
             <div class="vehicle-grid-card__body">
               <div class="vehicle-grid-card__heading">
                 <p class="vehicle-grid-card__title">{{ displayVehicle.make }} {{ displayVehicle.model }}</p>
+                <p class="vehicle-grid-card__reg">{{ vehicle.registration_no || ('Year ' + displayVehicle.year) }}</p>
                 <p class="vehicle-grid-card__meta">{{ displayVehicle.year }} &middot; {{ displayVehicle.location }}</p>
               </div>
 
-              <div class="vehicle-grid-card__specs">
-                <span class="vehicle-grid-card__spec-pill">{{ displayVehicle.type }}</span>
-                <span class="vehicle-grid-card__spec-pill">{{ displayVehicle.fuel }}</span>
-                <span class="vehicle-grid-card__spec-pill">{{ vehicle.transmission || 'Automatic' }}</span>
-                <span class="vehicle-grid-card__spec-pill">{{ displayVehicle.capacity }} Seats</span>
+              <div class="vehicle-grid-card__specs af-spec-pills">
+                <span class="vehicle-grid-card__spec-pill af-spec-pill">{{ displayVehicle.type }}</span>
+                <span class="vehicle-grid-card__spec-pill af-spec-pill">{{ displayVehicle.fuel }}</span>
+                <span class="vehicle-grid-card__spec-pill af-spec-pill">{{ vehicle.transmission || 'Automatic' }}</span>
+                <span class="vehicle-grid-card__spec-pill af-spec-pill">{{ displayVehicle.capacity }} Seats</span>
               </div>
 
               <div class="vehicle-grid-card__mileage">
@@ -251,7 +269,7 @@
   }
 
   @if (step() === 2) {
-    <section class="wizard-grid wizard-grid--two">
+    <section class="wizard-grid wizard-grid--two af-wizard-shell">
       <p-card styleClass="wizard-card">
         <div class="card-heading">
           <div>
@@ -262,6 +280,12 @@
         </div>
 
         <div class="filter-grid trip-detail-grid">
+
+          <div class="af-form-section-head trip-detail-grid__full">
+            <span class="af-form-section-head__icon"><i class="pi pi-map-marker"></i></span>
+            <span class="af-form-section-head__label">Location</span>
+          </div>
+
           <div class="field">
             <label>Pickup Location</label>
             <p-select [options]="locationOptions" [ngModel]="trip().pickup_location" (ngModelChange)="updateTrip('pickup_location', $event)" [editable]="true" placeholder="Select or type location" appendTo="body"></p-select>
@@ -270,6 +294,12 @@
             <label>Drop Location</label>
             <p-select [options]="locationOptions" [ngModel]="trip().drop_location" (ngModelChange)="updateTrip('drop_location', $event)" [editable]="true" placeholder="Select or type location" appendTo="body"></p-select>
           </div>
+
+          <div class="af-form-section-head trip-detail-grid__full">
+            <span class="af-form-section-head__icon"><i class="pi pi-calendar"></i></span>
+            <span class="af-form-section-head__label">Schedule</span>
+          </div>
+
           <div class="field">
             <label>Pickup Date</label>
             <p-datepicker [ngModel]="trip().pickup_date" (ngModelChange)="updateTrip('pickup_date', $event)" appendTo="body"></p-datepicker>
@@ -286,6 +316,12 @@
             <label>Drop-off Time</label>
             <input pInputText type="time" [ngModel]="trip().dropoff_time" (ngModelChange)="updateTrip('dropoff_time', $event)" />
           </div>
+
+          <div class="af-form-section-head trip-detail-grid__full">
+            <span class="af-form-section-head__icon"><i class="pi pi-info-circle"></i></span>
+            <span class="af-form-section-head__label">Trip Details</span>
+          </div>
+
           <div class="field">
             <label>Purpose</label>
             <p-select [options]="purposeOptions" [ngModel]="trip().purpose" (ngModelChange)="updateTrip('purpose', $event)" optionLabel="label" optionValue="value" placeholder="Select purpose"></p-select>
@@ -301,16 +337,37 @@
         </div>
       </p-card>
 
-      <p-card styleClass="wizard-card summary-card summary-card--snapshot">
-        <h3>Trip Snapshot</h3>
-        <div class="summary-list">
-          <div><span>Vehicle</span><strong>{{ selectedVehicle()?.brand }} {{ selectedVehicle()?.model }}</strong></div>
-          <div><span>Total Days</span><strong>{{ totalDays() }}</strong></div>
-          <div><span>Daily Rate</span><strong>{{ (selectedVehicle()?.tier?.daily_rate || 0) | currency:'INR':'symbol':'1.0-0' }}</strong></div>
-          <div><span>Passengers</span><strong>{{ trip().number_of_passengers || '-' }}</strong></div>
+      <div class="af-receipt-card">
+        <p class="af-receipt-card__eyebrow">Trip Snapshot</p>
+        <p class="af-receipt-card__vehicle">{{ selectedVehicle()?.brand }} {{ selectedVehicle()?.model || '—' }}</p>
+        <div class="af-receipt-card__rows">
+          <div class="af-receipt-row">
+            <span class="af-receipt-row__label">Days</span>
+            <span class="af-receipt-row__value">{{ totalDays() }}</span>
+          </div>
+          <div class="af-receipt-row">
+            <span class="af-receipt-row__label">Daily Rate</span>
+            <span class="af-receipt-row__value">{{ (selectedVehicle()?.tier?.daily_rate || 0) | currency:'INR':'symbol':'1.0-0' }}</span>
+          </div>
+          <div class="af-receipt-row">
+            <span class="af-receipt-row__label">Passengers</span>
+            <span class="af-receipt-row__value">{{ trip().number_of_passengers || '—' }}</span>
+          </div>
+          <div class="af-receipt-row af-receipt-row--total">
+            <span class="af-receipt-row__label">Est. Rental</span>
+            <span class="af-receipt-row__value">{{ ((selectedVehicle()?.tier?.daily_rate || 0) * (totalDays() || 1)) | currency:'INR':'symbol':'1.0-0' }}</span>
+          </div>
         </div>
-        <button pButton type="button" label="Continue to Customer" icon="pi pi-arrow-right" iconPos="right" [disabled]="tripInvalid()" (click)="continueToCustomer()"></button>
-      </p-card>
+        <button
+          pButton
+          type="button"
+          label="Continue to Customer"
+          icon="pi pi-arrow-right"
+          iconPos="right"
+          class="af-receipt-card__action"
+          [disabled]="tripInvalid()"
+          (click)="continueToCustomer()"></button>
+      </div>
     </section>
   }
 
@@ -472,7 +529,7 @@
   }
 
   @if (step() === 4) {
-    <section class="wizard-grid wizard-grid--two">
+    <section class="wizard-grid wizard-grid--two af-wizard-shell">
       <p-card styleClass="wizard-card">
         <div class="card-heading">
           <div>
@@ -527,7 +584,7 @@
   }
 
   @if (step() === 5) {
-    <section class="wizard-grid wizard-grid--two">
+    <section class="wizard-grid wizard-grid--two af-wizard-shell">
       <p-card styleClass="wizard-card">
         <div class="card-heading">
           <div>
@@ -551,12 +608,27 @@
 	            <button pButton type="button" label="SMS" [outlined]="!sendState().sms" (click)="sendQuote('sms')"></button>
 	            <button pButton type="button" label="WhatsApp" [outlined]="!sendState().whatsapp" (click)="sendQuote('whatsapp')"></button>
 	          </div>
-	          <div class="field">
-	            <label class="field-label-section">HOW IS ADVANCE BEING COLLECTED?</label>
-	            <div class="af-payment-toggle">
-	              <button type="button" [class.is-selected]="advanceCollectionMode() === 'online'" (click)="advanceCollectionMode.set('online')">Pay Online</button>
-	              <button type="button" [class.is-selected]="advanceCollectionMode() === 'offline'" (click)="advanceCollectionMode.set('offline')">Collected Offline</button>
-	            </div>
+	          <div class="af-pay-options">
+	            <button class="af-pay-card" [class.af-pay-card--active]="advanceCollectionMode() === 'online'" (click)="advanceCollectionMode.set('online')">
+	              <div class="af-pay-card__dot" [class.af-pay-card__dot--on]="advanceCollectionMode() === 'online'"></div>
+	              <div>
+	                <p class="af-pay-card__title">Pay Online Now</p>
+	                <p class="af-pay-card__sub">Advance collected via Cashfree gateway</p>
+	              </div>
+	            </button>
+	            <button class="af-pay-card" [class.af-pay-card--active]="advanceCollectionMode() === 'offline'" (click)="advanceCollectionMode.set('offline')">
+	              <div class="af-pay-card__dot" [class.af-pay-card__dot--on]="advanceCollectionMode() === 'offline'"></div>
+	              <div>
+	                <p class="af-pay-card__title">Collected Offline</p>
+	                <p class="af-pay-card__sub">Cash or UPI collected in person by advisor</p>
+	              </div>
+	            </button>
+	          </div>
+
+	          <div class="af-amount-box">
+	            <p class="af-amount-box__label">Amount Due</p>
+	            <p class="af-amount-box__value">{{ generatedQuotation()?.final_amount | currency:'INR':'symbol':'1.0-0' }}</p>
+	            <p class="af-amount-box__sub">Advance: {{ generatedQuotation()?.advance | currency:'INR':'symbol':'1.0-0' }} &nbsp;&middot;&nbsp; Deposit: {{ generatedQuotation()?.security_deposit | currency:'INR':'symbol':'1.0-0' }}</p>
 	          </div>
 	          @if (advanceCollectionMode() === 'online') {
 	            <p-message severity="info" [text]="onlinePaymentInfoText()"></p-message>

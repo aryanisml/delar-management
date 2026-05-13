@@ -336,3 +336,128 @@ app-my-bookings .mb-booking-card {
   70% { opacity: 0; transform: scale(1.8); }
   100% { opacity: 0; transform: scale(1.8); }
 }
+
+// ─── My Bookings — page header ────────────────────────────────────────────────
+
+app-my-bookings .af-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+app-my-bookings .af-page-title {
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: #111827;
+  letter-spacing: -0.01em;
+}
+
+app-my-bookings .af-page-sub {
+  font-size: 0.8125rem;
+  color: #9ca3af;
+}
+
+// ─── My Bookings — native table ───────────────────────────────────────────────
+
+app-my-bookings .af-table-card {
+  background: white;
+  border-radius: 16px;
+  border: 1px solid #f0f0f0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+}
+
+app-my-bookings .af-table {
+  width: 100%;
+  border-collapse: collapse;
+
+  thead tr {
+    background: #f8f9fa;
+    border-bottom: 1px solid #f0f0f0;
+
+    th {
+      padding: 0.75rem 1.25rem;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #9ca3af;
+      text-align: left;
+      white-space: nowrap;
+    }
+  }
+
+  tbody tr {
+    border-bottom: 1px solid #f7f8fa;
+    transition: background 120ms ease;
+
+    &:hover { background: #fafafa; }
+    &:last-child { border-bottom: none; }
+
+    td {
+      padding: 0.875rem 1.25rem;
+      font-size: 0.875rem;
+      color: #374151;
+      vertical-align: middle;
+    }
+  }
+}
+
+// ─── My Bookings — badge system ───────────────────────────────────────────────
+
+app-my-bookings .af-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.625rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  white-space: nowrap;
+
+  &.af-badge--pending  { background: #fef3c7; color: #92400e; }
+  &.af-badge--approved { background: #dbeafe; color: #1e40af; }
+  &.af-badge--inservice { background: #d1fae5; color: #065f46; }
+  &.af-badge--completed { background: #f3f4f6; color: #374151; }
+  &.af-badge--rejected  { background: #fee2e2; color: #991b1b; }
+  &.af-badge--paid      { background: #d1fae5; color: #065f46; }
+  &.af-badge--unpaid    { background: #fef3c7; color: #92400e; }
+  &.af-badge--grey      { background: #f3f4f6; color: #6b7280; }
+}
+
+// ─── My Bookings — mobile card ────────────────────────────────────────────────
+
+app-my-bookings .af-booking-card {
+  background: white;
+  border-radius: 14px;
+  border: 1px solid #f0f0f0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  padding: 1rem 1.125rem;
+  transition: box-shadow 150ms ease, transform 150ms ease;
+
+  &:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    transform: translateY(-1px);
+  }
+}
+
+// ─── My Bookings — detail modal summary block ─────────────────────────────────
+
+app-my-bookings .af-modal-summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  background: #f7f8fa;
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+
+  &__left {
+    flex: 1;
+    min-width: 0;
+  }
+}
