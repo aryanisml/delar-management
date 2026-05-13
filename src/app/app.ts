@@ -1,8 +1,6 @@
-import { Component, Inject, signal } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
-import { SupabaseService } from './services/supabase';
 import { Auth } from './services/auth';
-import { inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { ToastModule } from 'primeng/toast';
 
@@ -16,7 +14,6 @@ export class App {
 
   auth = inject(Auth);
   router = inject(Router);
-  private supabase = inject(SupabaseService);
 
   async ngOnInit() {
     try {

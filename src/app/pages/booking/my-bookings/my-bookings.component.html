@@ -2,98 +2,68 @@
 <p-confirmDialog></p-confirmDialog>
 
 <div class="admin-page-shell">
-  <div class="flex flex-wrap items-start justify-between gap-4">
-    <div>
-      <h2 class="admin-page-title m-0">My Bookings</h2>
-      <p class="admin-page-subtitle mt-1 mb-0">Track approval status and review the bookings you generated as a rental advisor.</p>
-    </div>
-    <div class="flex gap-3">
-      <button pButton type="button" label="Single Bookings" [outlined]="activeTab() !== 'single'" (click)="activeTab.set('single')"></button>
-      <button pButton type="button" label="Bulk Bookings" [outlined]="activeTab() !== 'bulk'" (click)="activeTab.set('bulk')"></button>
-    </div>
+  <div>
+    <h2 class="admin-page-title m-0">My Bookings</h2>
+    <p class="admin-page-subtitle mt-1 mb-0">Track approval status and review the bookings you generated as a rental advisor.</p>
   </div>
 
-  @if (activeTab() === 'single') {
-    <p-card>
-      <p-table [value]="bookings()" responsiveLayout="scroll">
-        <ng-template pTemplate="header">
-          <tr>
-            <th>Booking ID</th>
-            <th>Quote Ref</th>
-            <th>Vehicle</th>
-            <th>Pickup</th>
-            <th>Dates</th>
-            <th>Total</th>
-            <th>Payment</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
-        </ng-template>
-        <ng-template pTemplate="body" let-row>
-          <tr [class]="row.status === 'payment_received' ? 'bg-green-50' : ''">
-            <td class="font-mono text-sm text-blue-700">{{ row.id }}</td>
-            <td class="font-mono text-xs text-slate-600">{{ quoteReference(row) }}</td>
-            <td>{{ row.vehicle_display }}</td>
-            <td>{{ row.pickup_location }}</td>
-            <td>{{ row.start_date | date:'mediumDate' }} - {{ row.end_date | date:'mediumDate' }}</td>
-            <td>
-              @if (hasPricing(row)) {
-                {{ finalAmount(row) | currency:'INR':'symbol':'1.0-0' }}
-              } @else {
-                <span class="italic text-slate-400">Pricing pending...</span>
+  <p-card>
+    <p-table [value]="bookings()" responsiveLayout="scroll">
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Booking ID</th>
+          <th>Quote Ref</th>
+          <th>Vehicle</th>
+          <th>Pickup</th>
+          <th>Dates</th>
+          <th>Total</th>
+          <th>Payment</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-row>
+        <tr [class]="row.status === 'payment_received' ? 'bg-green-50' : ''">
+          <td class="font-mono text-sm text-blue-700">{{ row.id }}</td>
+          <td class="font-mono text-xs text-slate-600">{{ quoteReference(row) }}</td>
+          <td>{{ row.vehicle_display }}</td>
+          <td>{{ row.pickup_location }}</td>
+          <td>{{ row.start_date | date:'mediumDate' }} - {{ row.end_date | date:'mediumDate' }}</td>
+          <td>
+            @if (hasPricing(row)) {
+              {{ finalAmount(row) | currency:'INR':'symbol':'1.0-0' }}
+            } @else {
+              <span class="italic text-slate-400">Pricing pending...</span>
+            }
+          </td>
+          <td><p-tag [value]="paymentBadgeLabel(row.latest_payment)" [severity]="paymentBadgeSeverity(row.latest_payment)"></p-tag></td>
+          <td><p-tag [value]="statusLabel(row.status)" [severity]="statusSeverity(row.status)"></p-tag></td>
+          <td>
+            <div class="flex gap-1 items-center">
+              <button pButton type="button" icon="pi pi-eye" text (click)="openDetail(row)"></button>
+
+              @if (row.status === 'pending') {
+                <button pButton type="button" icon="pi pi-times" text severity="danger" (click)="cancelBooking(row)"></button>
               }
-            </td>
-            <td><p-tag [value]="paymentBadgeLabel(row.latest_payment)" [severity]="paymentBadgeSeverity(row.latest_payment)"></p-tag></td>
-            <td><p-tag [value]="statusLabel(row.status)" [severity]="statusSeverity(row.status)"></p-tag></td>
-            <td>
-              <div class="flex gap-1 items-center">
-                <button pButton type="button" icon="pi pi-eye" text (click)="openDetail(row)"></button>
 
-                @if (row.status === 'pending') {
-                  <button pButton type="button" icon="pi pi-times" text severity="danger" (click)="cancelBooking(row)"></button>
-                }
+              @if (row.status === 'approved' && !hasPaidPayment(row.latest_payment)) {
+                <button pButton type="button" icon="pi pi-credit-card" text severity="success" title="Make Payment" (click)="openPayment(row)"></button>
+              }
 
-                @if (row.status === 'approved' && !hasPaidPayment(row.latest_payment)) {
-                  <button pButton type="button" icon="pi pi-credit-card" text severity="success" title="Make Payment" (click)="openPayment(row)"></button>
-                }
+              @if (row.status === 'in_service') {
+                <button pButton type="button" icon="pi pi-clipboard" text severity="success" title="Start Inspection" (click)="openInspection(row)"></button>
+                <button pButton type="button" icon="pi pi-sign-out" text severity="danger" title="Return Vehicle" (click)="openReturn(row)"></button>
+              }
 
-                @if (row.status === 'in_service') {
-                  <button pButton type="button" icon="pi pi-clipboard" text severity="success" title="Start Inspection" (click)="openInspection(row)"></button>
-                }
-
-                @if (row.status === 'payment_received') {
-                  <button pButton type="button" label="View Details" icon="pi pi-arrow-right" iconPos="right" text severity="success" size="small" (click)="openDetail(row)"></button>
-                }
-              </div>
-            </td>
-          </tr>
-        </ng-template>
-      </p-table>
-    </p-card>
-  } @else {
-    <p-card>
-      <p-table [value]="groupedBulkRows()" responsiveLayout="scroll">
-        <ng-template pTemplate="header">
-          <tr>
-            <th>Bulk ID</th>
-            <th>Status</th>
-            <th>Total Vehicles</th>
-            <th>Summary</th>
-            <th>Created</th>
-          </tr>
-        </ng-template>
-        <ng-template pTemplate="body" let-row>
-          <tr>
-            <td class="font-mono text-sm text-blue-700">{{ row.id }}</td>
-            <td><p-tag [value]="statusLabel(row.status)" [severity]="statusSeverity(row.status)"></p-tag></td>
-            <td>{{ row.itemCount }}</td>
-            <td>{{ row.summary || '-' }}</td>
-            <td>{{ row.created_at | date:'medium' }}</td>
-          </tr>
-        </ng-template>
-      </p-table>
-    </p-card>
-  }
+              @if (row.status === 'payment_received') {
+                <button pButton type="button" label="View Details" icon="pi pi-arrow-right" iconPos="right" text severity="success" size="small" (click)="openDetail(row)"></button>
+              }
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </p-card>
 </div>
 
 <p-dialog
@@ -237,6 +207,13 @@
         <div style="grid-column: 1 / -1">
           <button pButton type="button" label="Start Inspection" icon="pi pi-clipboard" severity="success"
             (click)="detailVisible.set(false); openInspection(booking)"></button>
+        </div>
+      }
+
+      @if (booking.status === 'in_service' && hasCheckoutInspection()) {
+        <div style="grid-column: 1 / -1">
+          <button pButton type="button" label="Return Vehicle" icon="pi pi-sign-out" severity="danger"
+            (click)="detailVisible.set(false); openReturn(booking)"></button>
         </div>
       }
 
