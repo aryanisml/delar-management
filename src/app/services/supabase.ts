@@ -1746,7 +1746,7 @@ export class SupabaseService {
   async updateVehicleAfterReturn(vehicleId: string, mileage: number) {
     return this.supabase
       .from('vehicle')
-      .update({ vehicle_status: 'dirty', mileage, updated_at: new Date().toISOString() })
+      .update({ vehicle_status: 'dirty', mileage })
       .eq('id', vehicleId);
   }
 
