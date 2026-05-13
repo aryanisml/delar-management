@@ -251,9 +251,11 @@ export class ReturnComponent implements OnInit {
         inspector_id: currentUser?.id ?? null,
         odometer_reading: odometer,
         fuel_level: this.returnFuelLevel(),
+        tyre_condition: this.checkoutInspection()?.tyre_condition ?? 'Not Assessed',
         body_condition: this.returnBodyCondition(),
         interior_condition: this.returnInteriorCondition(),
         damage_notes: this.returnDamageNotes() || null,
+        special_remarks: null,
         inspection_type: 'checkin',
         status: 'completed',
       });
