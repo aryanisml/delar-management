@@ -1,5 +1,5 @@
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ConfirmationService, MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
@@ -9,7 +9,6 @@ import { DialogModule } from 'primeng/dialog';
 import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
 import { ToastModule } from 'primeng/toast';
-import { Booking } from '../../../models/booking';
 import { labelForStatus, tagSeverityForStatus } from '../../../admin-ui.models';
 import { QuotationPdfInput, QuotationPdfService } from '../../../services/quotation-pdf';
 import { SupabaseService } from '../../../services/supabase';
@@ -34,24 +33,11 @@ export class MyBookingsComponent implements OnInit, OnDestroy {
   private pendingBookingIdToOpen: string | null = null;
 
   readonly bookings = signal<any[]>([]);
-  readonly bulkBookings = signal<any[]>([]);
-  readonly activeTab = signal<'single' | 'bulk'>('single');
   readonly detailVisible = signal(false);
   readonly selectedBooking = signal<any | null>(null);
   readonly selectedPayment = signal<any | null>(null);
+  readonly hasCheckoutInspection = signal(false);
   readonly advisorContact = signal<{ name: string; email: string }>({ name: 'Rental Advisor', email: 'advisor@autoflow.in' });
-
-  readonly groupedBulkRows = computed(() =>
-    this.bulkBookings().map((bulk) => ({
-      ...bulk,
-      itemCount: (bulk.bookings ?? []).reduce((sum: number, booking: Booking) => sum + Number(booking.quantity ?? 1), 0),
-      summary: (bulk.bookings ?? [])
-        .map((booking: any) => `${booking.vehicle?.brand || booking.vehicle?.make || ''} ${booking.vehicle?.model || ''}`.trim())
-        .filter(Boolean)
-        .slice(0, 3)
-        .join(', '),
-    }))
-  );
 
   async ngOnInit() {
     const user = await this.supabase.getCurrentUser();
@@ -80,10 +66,7 @@ export class MyBookingsComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const [{ data: bookings }, { data: bulkBookings }] = await Promise.all([
-      this.supabase.getMyBookings(user.id),
-      this.supabase.getMyBulkBookings(user.id),
-    ]);
+    const { data: bookings } = await this.supabase.getMyBookings(user.id);
 
     this.bookings.set(
       (bookings ?? []).map((booking: any) => ({
@@ -91,7 +74,6 @@ export class MyBookingsComponent implements OnInit, OnDestroy {
         vehicle_display: `${booking.vehicle?.brand || booking.vehicle?.make || ''} ${booking.vehicle?.model || ''}`.trim() || 'Unknown Vehicle',
       }))
     );
-    this.bulkBookings.set(bulkBookings ?? []);
     await this.tryAutoOpenBooking();
   }
 
@@ -155,9 +137,18 @@ export class MyBookingsComponent implements OnInit, OnDestroy {
   async openDetail(row: any) {
     this.selectedBooking.set(row);
     this.selectedPayment.set(null);
+    this.hasCheckoutInspection.set(false);
     this.detailVisible.set(true);
-    const { data } = await this.supabase.getPaymentByBooking(row.id);
-    this.selectedPayment.set(data ?? row.latest_payment ?? null);
+    const [paymentResult, hasCheckout] = await Promise.all([
+      this.supabase.getPaymentByBooking(row.id),
+      row.status === 'in_service' ? this.supabase.checkHasCheckoutInspection(row.id) : Promise.resolve(false),
+    ]);
+    this.selectedPayment.set(paymentResult.data ?? row.latest_payment ?? null);
+    this.hasCheckoutInspection.set(hasCheckout);
+  }
+
+  async openReturn(row: any) {
+    await this.router.navigate(['/dealer/return', row.id]);
   }
 
   async openPayment(row: any) {

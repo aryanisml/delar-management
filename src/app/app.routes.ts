@@ -20,6 +20,7 @@ import { PaymentComponent } from './pages/dealer-payment/payment.component';
 import { Login } from './pages/login/login';
 import { ProfileComponent } from './pages/profile/profile';
 import { QuotationComponent } from './pages/dealer-quotation/quotation.component';
+import { ReturnComponent } from './pages/booking/return/return.component';
 
 export const routes: Routes = [
   { path: 'login', component: Login },
@@ -55,6 +56,7 @@ export const routes: Routes = [
 	    { path: 'inspection/:bookingId', component: InspectionPlaceholderComponent },
 	    { path: 'booking/:bookingId/quotation', component: QuotationComponent },
 	    { path: 'booking/:bookingId/payments', component: PaymentComponent },
+	    { path: 'return/:bookingId', component: ReturnComponent },
 	  ],
 	},
       { path: 'profile', component: ProfileComponent, data: { title: 'Profile' } },

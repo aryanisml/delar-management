@@ -1,5 +1,7 @@
 :host {
   display: block;
+
+  // Core palette
   --wizard-teal: #00b69b;
   --wizard-teal-dark: #009a84;
   --wizard-success: #10b981;
@@ -12,6 +14,32 @@
   --wizard-surface: #ffffff;
   --wizard-surface-muted: #f1f5f9;
   --wizard-border: #e2e8f0;
+
+  // Extended design tokens (af-*)
+  --af-white: #ffffff;
+  --af-surface: #f8f9fb;
+  --af-border: #e8eaed;
+  --af-border-strong: #d1d5db;
+  --af-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --af-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+  --af-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.10), 0 4px 8px rgba(0, 0, 0, 0.04);
+  --af-radius-sm: 8px;
+  --af-radius-md: 12px;
+  --af-radius-lg: 16px;
+  --af-radius-xl: 20px;
+  --af-teal: #0f766e;
+  --af-teal-light: #ccfbf1;
+  --af-teal-mid: #14b8a6;
+  --af-pending: #f59e0b;
+  --af-pending-bg: #fef3c7;
+  --af-approved: #3b82f6;
+  --af-approved-bg: #dbeafe;
+  --af-inservice: #10b981;
+  --af-inservice-bg: #d1fae5;
+  --af-completed: #6b7280;
+  --af-completed-bg: #f3f4f6;
+  --af-rejected: #ef4444;
+  --af-rejected-bg: #fee2e2;
 }
 
 .wizard-page {
@@ -420,7 +448,7 @@
 
 .vehicle-grid {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 20px;
 }
 
@@ -1065,6 +1093,51 @@
   background: #fff;
 }
 
+// Segmented payment toggle (Step 5 advance-collection mode)
+.af-payment-toggle {
+  display: flex;
+  background: var(--wizard-surface-muted);
+  border: 1px solid var(--wizard-border);
+  border-radius: var(--af-radius-md);
+  padding: 4px;
+  gap: 4px;
+}
+
+.af-payment-toggle button {
+  flex: 1;
+  padding: 0.625rem 1rem;
+  border-radius: var(--af-radius-sm);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 150ms ease;
+  border: none;
+  background: transparent;
+  color: var(--wizard-muted);
+  text-align: center;
+}
+
+.af-payment-toggle button.is-selected {
+  background: var(--wizard-surface);
+  color: var(--wizard-teal);
+  box-shadow: var(--af-shadow-sm);
+  font-weight: 600;
+}
+
+// Section-label style for HOW IS ADVANCE BEING COLLECTED heading
+.field-label-section {
+  display: block;
+  width: 100%;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--wizard-soft);
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--wizard-border);
+  margin-bottom: 0.25rem;
+}
+
 @keyframes fadeInUp {
   from {
     opacity: 0;
@@ -1083,15 +1156,9 @@
   }
 }
 
-@media (min-width: 768px) {
+@media (max-width: 559px) {
   .vehicle-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1280px) {
-  .vehicle-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
 }
 

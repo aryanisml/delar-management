@@ -1,6 +1,7 @@
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { Component, ElementRef, OnDestroy, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { ConfirmationService, MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
@@ -48,6 +49,7 @@ export class AdminDealerPerformance implements OnInit, OnDestroy {
   private supabase = inject(SupabaseService);
   private confirmationService = inject(ConfirmationService);
   private messageService = inject(MessageService);
+  private router = inject(Router);
 
   private bookingChannel: any = null;
 
@@ -61,6 +63,7 @@ export class AdminDealerPerformance implements OnInit, OnDestroy {
   readonly rejectDialogVisible = signal(false);
   readonly rejectDialogBooking = signal<any | null>(null);
   readonly rejectReason = signal('');
+  readonly hasCheckoutInspection = signal(false);
 
   readonly tabs: { key: LedgerTab; label: string }[] = [
     { key: 'all', label: 'All' },
@@ -162,9 +165,11 @@ export class AdminDealerPerformance implements OnInit, OnDestroy {
   }
 
   async viewDetails(row: any) {
-    const [detailResult, paymentResult] = await Promise.all([
+    this.hasCheckoutInspection.set(false);
+    const [detailResult, paymentResult, hasCheckout] = await Promise.all([
       this.supabase.getAdminBookingDetails(row.id),
       this.supabase.getPaymentByBooking(row.id),
+      row.status === 'in_service' ? this.supabase.checkHasCheckoutInspection(row.id) : Promise.resolve(false),
     ]);
     if (detailResult.error || !detailResult.data) {
       this.messageService.add({ severity: 'error', summary: 'Details unavailable', detail: (detailResult.error as any)?.message || 'Could not load booking details.' });
@@ -172,7 +177,13 @@ export class AdminDealerPerformance implements OnInit, OnDestroy {
     }
     this.selectedDetail.set(detailResult.data);
     this.selectedPayment.set(paymentResult.data ?? null);
+    this.hasCheckoutInspection.set(hasCheckout);
     this.detailVisible.set(true);
+  }
+
+  openReturn(detail: any) {
+    this.detailVisible.set(false);
+    this.router.navigate(['/dealer/return', detail.id]);
   }
 
   markInService(row: any) {

@@ -38,6 +38,9 @@ export type QuotationPdfInput = {
     finalAmount: number;
     extraMileageRate: number;
   };
+  additionalCharges?: { label: string; amount: number }[];
+  remainingBalance?: number;
+  securityDepositRefund?: number;
 };
 
 @Injectable({ providedIn: 'root' })
@@ -131,13 +134,16 @@ export class QuotationPdfService {
       `Passengers: ${input.passengers}`,
     ];
 
+    const extraCharges = (input.additionalCharges ?? []).filter(c => c.amount > 0);
     const rows = [
       ['Daily Rate', `${money(input.amounts.dailyRate)}/day x ${input.amounts.days} day(s)`, money(input.amounts.baseCost)],
       ['GST (18%)', '', money(input.amounts.gst)],
       ...(input.amounts.discountAmount > 0 ? [['Discount', '', `- ${money(input.amounts.discountAmount)}`]] : []),
       ['Total Rental Cost', '', money(input.amounts.finalAmount)],
-      ['Security Deposit (refundable)', '', money(input.amounts.securityDeposit)],
-      ['Advance Payable Now', '', money(input.amounts.advance)],
+      ...(extraCharges.length > 0 ? extraCharges.map(c => [c.label, '', money(c.amount)]) : []),
+      ['Security Deposit', '', money(input.amounts.securityDeposit)],
+      ...(input.remainingBalance !== undefined ? [['Remaining Balance Collected', '', money(input.remainingBalance)]] : [['Advance Payable Now', '', money(input.amounts.advance)]]),
+      ...(input.securityDepositRefund !== undefined ? [[input.securityDepositRefund >= 0 ? 'Deposit Refund to Customer' : 'Additional Amount from Customer', '', money(Math.abs(input.securityDepositRefund))]] : []),
     ];
 
     text(input.companyName, 42, 806, { font: 'F2', size: 24, color: brand });
@@ -211,24 +217,27 @@ export class QuotationPdfService {
       text(rows[i][2], tableLeft + col1 + col2 + col3 - 8, rowY - 16, { font: i >= rows.length - 3 ? 'F2' : 'F1', size: 9, color: ink, align: 'right' });
     }
 
-    const paymentY = 252;
+    const tableBottom = tableTop - (rows.length + 1) * rowHeight;
+    const paymentY = Math.min(252, tableBottom - 28);
     text('Payment Status', 42, paymentY, { font: 'F2', size: 10, color: slate });
     const paymentLabel = this.truncate(this.titleCase((input.paymentStatusLabel || 'pending').replace(/_/g, ' ')), 22);
-    pill(paymentLabel, 132, paymentY + 2, /paid|received/i.test(paymentLabel) ? success : pending, 110);
+    pill(paymentLabel, 132, paymentY + 2, /paid|received|invoice/i.test(paymentLabel) ? success : pending, 110);
 
+    const disclaimerY = paymentY - 30;
     text(
-      `This is a system-generated quotation by AUTOFLOW Fleet Operations. Valid for 7 days from date of issue. For queries contact ${input.advisorEmail || '-'}.`,
+      `This is a system-generated document by AUTOFLOW Fleet Operations. For queries contact ${input.advisorEmail || '-'}.`,
       42,
-      222,
+      disclaimerY,
       { size: 8, color: slate }
     );
 
-    line(42, 208, 553, 208, border, 0.8);
-    text('Terms & Conditions', 42, 194, { font: 'F2', size: 9, color: ink });
-    text('1. Security deposit is fully refundable upon vehicle return in original condition.', 42, 180, { size: 8, color: slate });
-    text(`2. Fuel policy: ${this.truncate(input.fuelPolicy || 'Full-to-Full', 54)}.`, 42, 167, { size: 8, color: slate });
-    text(`3. Extra mileage charged at ${money(input.amounts.extraMileageRate)}/km beyond included km.`, 42, 154, { size: 8, color: slate });
-    text('4. Cancellation policy applies.', 42, 141, { size: 8, color: slate });
+    const termsLineY = disclaimerY - 14;
+    line(42, termsLineY, 553, termsLineY, border, 0.8);
+    text('Terms & Conditions', 42, termsLineY - 14, { font: 'F2', size: 9, color: ink });
+    text('1. Security deposit is fully refundable upon vehicle return in original condition.', 42, termsLineY - 27, { size: 8, color: slate });
+    text(`2. Fuel policy: ${this.truncate(input.fuelPolicy || 'Full-to-Full', 54)}.`, 42, termsLineY - 40, { size: 8, color: slate });
+    text(`3. Extra mileage charged at ${money(input.amounts.extraMileageRate)}/km beyond included km.`, 42, termsLineY - 53, { size: 8, color: slate });
+    text('4. Cancellation policy applies.', 42, termsLineY - 66, { size: 8, color: slate });
 
     const content = commands.join('\n');
     const stream = `<< /Length ${content.length} >>\nstream\n${content}\nendstream`;

@@ -7,93 +7,102 @@
       <h2 class="admin-page-title m-0">My Bookings</h2>
       <p class="admin-page-subtitle mt-1 mb-0">Track approval status and review the bookings you generated as a rental advisor.</p>
     </div>
-    <div class="flex gap-3">
-      <button pButton type="button" label="Single Bookings" [outlined]="activeTab() !== 'single'" (click)="activeTab.set('single')"></button>
-      <button pButton type="button" label="Bulk Bookings" [outlined]="activeTab() !== 'bulk'" (click)="activeTab.set('bulk')"></button>
-    </div>
   </div>
 
-  @if (activeTab() === 'single') {
-    <p-card>
-      <p-table [value]="bookings()" responsiveLayout="scroll">
-        <ng-template pTemplate="header">
-          <tr>
-            <th>Booking ID</th>
-            <th>Quote Ref</th>
-            <th>Vehicle</th>
-            <th>Pickup</th>
-            <th>Dates</th>
-            <th>Total</th>
-            <th>Payment</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
-        </ng-template>
-        <ng-template pTemplate="body" let-row>
-          <tr [class]="row.status === 'payment_received' ? 'bg-green-50' : ''">
-            <td class="font-mono text-sm text-blue-700">{{ row.id }}</td>
-            <td class="font-mono text-xs text-slate-600">{{ quoteReference(row) }}</td>
-            <td>{{ row.vehicle_display }}</td>
-            <td>{{ row.pickup_location }}</td>
-            <td>{{ row.start_date | date:'mediumDate' }} - {{ row.end_date | date:'mediumDate' }}</td>
-            <td>
-              @if (hasPricing(row)) {
-                {{ finalAmount(row) | currency:'INR':'symbol':'1.0-0' }}
-              } @else {
-                <span class="italic text-slate-400">Pricing pending...</span>
+  <!-- Desktop table -->
+  <div class="hidden md:block">
+  <p-card>
+    <p-table [value]="bookings()" responsiveLayout="scroll">
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Booking ID</th>
+          <th>Quote Ref</th>
+          <th>Vehicle</th>
+          <th>Pickup</th>
+          <th>Dates</th>
+          <th>Total</th>
+          <th>Payment</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-row>
+        <tr [class]="row.status === 'payment_received' ? 'bg-green-50' : ''">
+          <td class="font-mono text-sm text-blue-700">{{ row.id }}</td>
+          <td class="font-mono text-xs text-slate-600">{{ quoteReference(row) }}</td>
+          <td>{{ row.vehicle_display }}</td>
+          <td>{{ row.pickup_location }}</td>
+          <td>{{ row.start_date | date:'mediumDate' }} - {{ row.end_date | date:'mediumDate' }}</td>
+          <td>
+            @if (hasPricing(row)) {
+              {{ finalAmount(row) | currency:'INR':'symbol':'1.0-0' }}
+            } @else {
+              <span class="italic text-slate-400">Pricing pending...</span>
+            }
+          </td>
+          <td><p-tag [value]="paymentBadgeLabel(row.latest_payment)" [severity]="paymentBadgeSeverity(row.latest_payment)"></p-tag></td>
+          <td><p-tag [value]="statusLabel(row.status)" [severity]="statusSeverity(row.status)"></p-tag></td>
+          <td>
+            <div class="flex gap-1 items-center">
+              <button pButton type="button" icon="pi pi-eye" text (click)="openDetail(row)"></button>
+
+              @if (row.status === 'pending') {
+                <button pButton type="button" icon="pi pi-times" text severity="danger" (click)="cancelBooking(row)"></button>
               }
-            </td>
-            <td><p-tag [value]="paymentBadgeLabel(row.latest_payment)" [severity]="paymentBadgeSeverity(row.latest_payment)"></p-tag></td>
-            <td><p-tag [value]="statusLabel(row.status)" [severity]="statusSeverity(row.status)"></p-tag></td>
-            <td>
-              <div class="flex gap-1 items-center">
-                <button pButton type="button" icon="pi pi-eye" text (click)="openDetail(row)"></button>
 
-                @if (row.status === 'pending') {
-                  <button pButton type="button" icon="pi pi-times" text severity="danger" (click)="cancelBooking(row)"></button>
-                }
+              @if (row.status === 'approved' && !hasPaidPayment(row.latest_payment)) {
+                <button pButton type="button" icon="pi pi-credit-card" text severity="success" title="Make Payment" (click)="openPayment(row)"></button>
+              }
 
-                @if (row.status === 'approved' && !hasPaidPayment(row.latest_payment)) {
-                  <button pButton type="button" icon="pi pi-credit-card" text severity="success" title="Make Payment" (click)="openPayment(row)"></button>
-                }
+              @if (row.status === 'in_service') {
+                <button pButton type="button" icon="pi pi-clipboard" text severity="success" title="Start Inspection" (click)="openInspection(row)"></button>
+                <button pButton type="button" icon="pi pi-sign-out" text severity="danger" title="Return Vehicle" (click)="openReturn(row)"></button>
+              }
 
-                @if (row.status === 'in_service') {
-                  <button pButton type="button" icon="pi pi-clipboard" text severity="success" title="Start Inspection" (click)="openInspection(row)"></button>
-                }
+              @if (row.status === 'payment_received') {
+                <button pButton type="button" label="View Details" icon="pi pi-arrow-right" iconPos="right" text severity="success" size="small" (click)="openDetail(row)"></button>
+              }
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </p-card>
+  </div><!-- /hidden md:block -->
 
-                @if (row.status === 'payment_received') {
-                  <button pButton type="button" label="View Details" icon="pi pi-arrow-right" iconPos="right" text severity="success" size="small" (click)="openDetail(row)"></button>
-                }
-              </div>
-            </td>
-          </tr>
-        </ng-template>
-      </p-table>
-    </p-card>
-  } @else {
-    <p-card>
-      <p-table [value]="groupedBulkRows()" responsiveLayout="scroll">
-        <ng-template pTemplate="header">
-          <tr>
-            <th>Bulk ID</th>
-            <th>Status</th>
-            <th>Total Vehicles</th>
-            <th>Summary</th>
-            <th>Created</th>
-          </tr>
-        </ng-template>
-        <ng-template pTemplate="body" let-row>
-          <tr>
-            <td class="font-mono text-sm text-blue-700">{{ row.id }}</td>
-            <td><p-tag [value]="statusLabel(row.status)" [severity]="statusSeverity(row.status)"></p-tag></td>
-            <td>{{ row.itemCount }}</td>
-            <td>{{ row.summary || '-' }}</td>
-            <td>{{ row.created_at | date:'medium' }}</td>
-          </tr>
-        </ng-template>
-      </p-table>
-    </p-card>
-  }
+  <!-- Mobile booking cards -->
+  <div class="md:hidden flex flex-col gap-3">
+    @for (row of bookings(); track row.id) {
+      <div class="mb-booking-card" (click)="openDetail(row)" style="cursor:pointer">
+        <div class="flex items-start justify-between gap-2 mb-2">
+          <div class="min-w-0">
+            <p class="m-0 font-semibold text-gray-900 truncate">{{ row.vehicle_display }}</p>
+            <p class="m-0 font-mono text-xs text-blue-700 mt-0.5 truncate">{{ row.id }}</p>
+          </div>
+          <p-tag [value]="statusLabel(row.status)" [severity]="statusSeverity(row.status)"></p-tag>
+        </div>
+        <p class="m-0 text-xs text-gray-500">
+          {{ row.start_date | date:'d MMM y' }} &rarr; {{ row.end_date | date:'d MMM y' }}
+        </p>
+        <div class="flex items-center justify-between mt-3 pt-3" style="border-top: 1px solid #e8eaed">
+          <p-tag [value]="paymentBadgeLabel(row.latest_payment)" [severity]="paymentBadgeSeverity(row.latest_payment)"></p-tag>
+          <div class="flex gap-1">
+            @if (row.status === 'approved' && !hasPaidPayment(row.latest_payment)) {
+              <button pButton type="button" icon="pi pi-credit-card" text severity="success" size="small" (click)="$event.stopPropagation(); openPayment(row)"></button>
+            }
+            @if (row.status === 'in_service') {
+              <button pButton type="button" icon="pi pi-clipboard" text severity="success" size="small" (click)="$event.stopPropagation(); openInspection(row)"></button>
+              <button pButton type="button" icon="pi pi-sign-out" text severity="danger" size="small" (click)="$event.stopPropagation(); openReturn(row)"></button>
+            }
+            <button pButton type="button" icon="pi pi-chevron-right" text size="small" (click)="openDetail(row)"></button>
+          </div>
+        </div>
+      </div>
+    }
+    @if (!bookings().length) {
+      <div class="text-center py-10 text-gray-400 italic text-sm">No bookings found.</div>
+    }
+  </div>
 </div>
 
 <p-dialog
@@ -119,10 +128,10 @@
       </div>
     </div>
 
-    <div class="grid gap-4" style="grid-template-columns: 1fr 1fr">
+    <div class="grid gap-4 md:grid-cols-2">
 
       <!-- Trip Details -->
-      <div class="rounded-xl border border-gray-200 p-4">
+      <div class="rounded-xl border border-gray-200 p-4 shadow-sm">
         <p class="m-0 text-xs uppercase tracking-wide text-gray-400 font-semibold mb-3">Trip Details</p>
         <div class="grid grid-cols-2 gap-3">
           <div>
@@ -167,9 +176,9 @@
 
       <!-- Financial Summary -->
       @if (booking.quotation) {
-        <div class="rounded-xl border border-gray-200 p-4" style="grid-column: 1 / -1">
+        <div class="rounded-xl border border-gray-200 p-4 shadow-sm col-span-full">
           <p class="m-0 text-xs uppercase tracking-wide text-gray-400 font-semibold mb-3">Financial Summary</p>
-          <div class="grid gap-3" style="grid-template-columns: repeat(4, 1fr)">
+          <div class="grid gap-3 grid-cols-2 md:grid-cols-4">
             <div>
               <p class="m-0 text-xs text-gray-400">Rate / Day</p>
               <p class="m-0 font-medium mt-0.5">{{ booking.quotation.rate | currency:'INR':'symbol':'1.0-0' }}</p>
@@ -208,9 +217,8 @@
 
       <!-- Payment Status -->
       <div
-        class="rounded-xl border p-4"
-        [ngClass]="paymentPanelClasses(selectedPayment() || booking.latest_payment)"
-        style="grid-column: 1 / -1">
+        class="rounded-xl border p-4 col-span-full"
+        [ngClass]="paymentPanelClasses(selectedPayment() || booking.latest_payment)">
           <div class="flex items-center gap-2 mb-3">
             <i
               class="pi text-xl"
@@ -227,21 +235,28 @@
       </div>
 
       @if (booking.status === 'approved' && !hasPaidPayment(selectedPayment() || booking.latest_payment)) {
-        <div style="grid-column: 1 / -1">
+        <div class="col-span-full">
           <button pButton type="button" label="Make Advance Payment" icon="pi pi-credit-card" severity="success"
             (click)="detailVisible.set(false); openPayment(booking)"></button>
         </div>
       }
 
       @if (booking.status === 'in_service') {
-        <div style="grid-column: 1 / -1">
+        <div class="col-span-full">
           <button pButton type="button" label="Start Inspection" icon="pi pi-clipboard" severity="success"
             (click)="detailVisible.set(false); openInspection(booking)"></button>
         </div>
       }
 
+      @if (booking.status === 'in_service' && hasCheckoutInspection()) {
+        <div class="col-span-full">
+          <button pButton type="button" label="Return Vehicle" icon="pi pi-sign-out" severity="danger"
+            (click)="detailVisible.set(false); openReturn(booking)"></button>
+        </div>
+      }
+
       @if (booking.status === 'in_service') {
-        <div class="rounded-xl border border-blue-200 bg-blue-50 p-3" style="grid-column: 1 / -1">
+        <div class="rounded-xl border border-blue-200 bg-blue-50 p-3" class="col-span-full">
           <div class="flex items-center gap-2">
             <i class="pi pi-car text-blue-600"></i>
             <p class="m-0 text-xs uppercase tracking-wide text-blue-600 font-semibold">Vehicle In Service</p>
@@ -251,7 +266,7 @@
       }
 
       @if (booking.status === 'completed') {
-        <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-3" style="grid-column: 1 / -1">
+        <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-3" class="col-span-full">
           <div class="flex items-center gap-2">
             <i class="pi pi-check text-emerald-600"></i>
             <p class="m-0 text-xs uppercase tracking-wide text-emerald-600 font-semibold">Trip Completed</p>
@@ -261,7 +276,7 @@
       }
 
       @if (booking.rejection_reason) {
-        <div class="rounded-xl border border-red-200 bg-red-50 p-3" style="grid-column: 1 / -1">
+        <div class="rounded-xl border border-red-200 bg-red-50 p-3" class="col-span-full">
           <p class="m-0 text-xs uppercase tracking-wide text-red-500">Rejection Reason</p>
           <p class="m-0 mt-1 text-sm text-red-700">{{ booking.rejection_reason }}</p>
         </div>

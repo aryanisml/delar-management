@@ -21,7 +21,13 @@
           @if (stepDone(index + 1)) {
             <i class="pi pi-check"></i>
           } @else {
-            {{ index + 1 }}
+            @switch (index) {
+              @case (0) { <i class="pi pi-car"></i> }
+              @case (1) { <i class="pi pi-map-marker"></i> }
+              @case (2) { <i class="pi pi-user"></i> }
+              @case (3) { <i class="pi pi-file"></i> }
+              @default { <i class="pi pi-check-circle"></i> }
+            }
           }
         </span>
         <p class="wizard-step__label">{{ item }}</p>
@@ -547,7 +553,7 @@
 	          </div>
 	          <div class="field">
 	            <label class="field-label-section">HOW IS ADVANCE BEING COLLECTED?</label>
-	            <div class="customer-type-toggle">
+	            <div class="af-payment-toggle">
 	              <button type="button" [class.is-selected]="advanceCollectionMode() === 'online'" (click)="advanceCollectionMode.set('online')">Pay Online</button>
 	              <button type="button" [class.is-selected]="advanceCollectionMode() === 'offline'" (click)="advanceCollectionMode.set('offline')">Collected Offline</button>
 	            </div>
