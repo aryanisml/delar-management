@@ -1,744 +1,998 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AUTOFLOW Project Map Explorer</title>
-  <style>
-    :root {
-      color-scheme: light;
-      --bg: #f4efe6;
-      --bg-accent: radial-gradient(circle at top left, rgba(189, 140, 66, 0.18), transparent 30%), linear-gradient(180deg, #f8f4ec 0%, #f1ebdf 100%);
-      --panel: rgba(255, 252, 247, 0.92);
-      --panel-strong: #fffaf1;
-      --panel-soft: #f6efe3;
-      --border: rgba(88, 65, 34, 0.16);
-      --border-strong: rgba(88, 65, 34, 0.3);
-      --text: #2e2419;
-      --muted: #6a5a46;
-      --soft: #8a795f;
-      --brand: #9d5c1f;
-      --brand-strong: #7b4310;
-      --brand-soft: #efe0c8;
-      --nav-active: #f2dfc0;
-      --code-bg: #2a2218;
-      --code-text: #f9e9d2;
-      --shadow: 0 24px 60px rgba(69, 46, 18, 0.12);
-      --radius-xl: 28px;
-      --radius-lg: 20px;
-      --radius-md: 14px;
-      --font-sans: "Segoe UI", "Inter", "Helvetica Neue", Arial, sans-serif;
-      --font-mono: "Consolas", "SFMono-Regular", "Courier New", monospace;
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AUTOFLOW — Codebase Explorer v2</title>
+<style>
+  :root {
+    --bg: #0f1117; --bg2: #161b27; --bg3: #1e2535; --bg4: #252d3d;
+    --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.13);
+    --text: #e2e8f0; --muted: #8892a4; --faint: #4a5568;
+    --purple: #8b5cf6; --purple-soft: #1e1535; --purple-border: #4c2f8a;
+    --teal: #14b8a6; --teal-soft: #0d2623; --teal-border: #0f7066;
+    --amber: #f59e0b; --amber-soft: #231a05; --amber-border: #854d0e;
+    --coral: #f97316; --coral-soft: #271508; --coral-border: #9a3412;
+    --blue: #3b82f6; --blue-soft: #0d1f3c; --blue-border: #1d4ed8;
+    --green: #22c55e; --green-soft: #0a1f0f; --green-border: #15803d;
+    --red: #ef4444; --red-soft: #2a0a0a; --red-border: #991b1b;
+    --pink: #ec4899; --pink-soft: #2a0a1a; --pink-border: #9d174d;
+    --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --radius: 8px; --radius-lg: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font); background: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; font-size: 14px; }
 
-    * {
-      box-sizing: border-box;
-    }
+  /* SIDEBAR */
+  #sidebar { width: 230px; background: var(--bg2); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0; }
+  #sidebar-header { padding: 16px 14px 10px; border-bottom: 1px solid var(--border); }
+  #sidebar-header .app-name { font-size: 13px; font-weight: 700; color: var(--purple); letter-spacing: 0.06em; text-transform: uppercase; }
+  #sidebar-header .app-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  #sidebar-scroll { flex: 1; overflow-y: auto; padding: 8px 0 20px; }
+  #sidebar-scroll::-webkit-scrollbar { width: 4px; }
+  #sidebar-scroll::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 2px; }
+  .nav-group { margin-bottom: 4px; }
+  .nav-group-label { font-size: 10px; font-weight: 600; color: var(--faint); text-transform: uppercase; letter-spacing: 0.1em; padding: 10px 14px 4px; }
+  .nav-item { display: flex; align-items: center; gap: 8px; padding: 7px 14px; cursor: pointer; color: var(--muted); font-size: 12.5px; border-left: 2px solid transparent; transition: all 0.12s; user-select: none; }
+  .nav-item:hover { background: var(--bg3); color: var(--text); }
+  .nav-item.active { background: var(--bg3); color: var(--text); border-left-color: var(--purple); }
+  .nav-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .dot-svc { background: var(--teal); }
+  .dot-dealer { background: var(--purple); }
+  .dot-admin { background: var(--blue); }
+  .dot-flow { background: var(--coral); }
+  .dot-db { background: var(--amber); }
+  .dot-dead { background: var(--red); }
+  .dot-pkg { background: var(--pink); }
+  .dot-home { background: var(--green); }
 
-    html {
-      scroll-behavior: smooth;
-    }
+  /* MAIN */
+  #main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  #topbar { padding: 12px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; background: var(--bg2); flex-shrink: 0; }
+  #topbar .page-title { font-size: 15px; font-weight: 600; color: var(--text); }
+  #topbar .page-path { font-size: 11px; font-family: var(--font-mono); color: var(--muted); background: var(--bg3); padding: 2px 8px; border-radius: 4px; }
+  .topbar-badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 4px; letter-spacing: 0.04em; text-transform: uppercase; }
+  #content { flex: 1; overflow-y: auto; padding: 24px 28px; }
+  #content::-webkit-scrollbar { width: 6px; }
+  #content::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 3px; }
 
-    body {
-      margin: 0;
-      min-height: 100vh;
-      font-family: var(--font-sans);
-      background: var(--bg-accent);
-      color: var(--text);
-    }
+  /* PANELS */
+  .panel { display: none; }
+  .panel.active { display: block; }
 
-    .shell {
-      max-width: 1600px;
-      margin: 0 auto;
-      padding: 28px;
-    }
+  /* FUNCTION CARDS */
+  .fn-section-title { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin: 20px 0 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  .fn-section-title:first-child { margin-top: 0; }
+  .fn-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: 10px; overflow: hidden; transition: border-color 0.15s; }
+  .fn-card:hover { border-color: var(--border2); }
+  .fn-header { display: flex; align-items: flex-start; gap: 12px; padding: 13px 16px; cursor: pointer; }
+  .fn-sig { flex: 1; min-width: 0; }
+  .fn-name-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 5px; }
+  .fn-name { font-family: var(--font-mono); font-size: 13.5px; font-weight: 600; color: var(--amber); }
+  .fn-arrow { color: var(--faint); font-size: 12px; }
+  .fn-desc { font-size: 13px; color: var(--text); line-height: 1.5; }
+  .fn-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+  .tag { font-size: 10.5px; padding: 2px 7px; border-radius: 4px; font-weight: 500; }
+  .tag-table { background: var(--amber-soft); color: var(--amber); border: 1px solid var(--amber-border); }
+  .tag-called { background: var(--purple-soft); color: var(--purple); border: 1px solid var(--purple-border); }
+  .tag-external { background: var(--coral-soft); color: var(--coral); border: 1px solid var(--coral-border); }
+  .tag-dead { background: var(--red-soft); color: var(--red); border: 1px solid var(--red-border); }
+  .tag-private { background: var(--bg3); color: var(--muted); border: 1px solid var(--border); }
+  .tag-note { background: var(--blue-soft); color: var(--blue); border: 1px solid var(--blue-border); }
+  .fn-expand-btn { font-size: 14px; color: var(--faint); transition: transform 0.15s, color 0.15s; margin-top: 2px; cursor: pointer; flex-shrink: 0; }
+  .fn-card.open .fn-expand-btn { transform: rotate(90deg); color: var(--purple); }
+  .fn-detail { display: none; border-top: 1px solid var(--border); padding: 14px 16px; background: var(--bg3); }
+  .fn-card.open .fn-detail { display: block; }
+  .fn-detail-row { display: flex; gap: 10px; margin-bottom: 8px; font-size: 12.5px; line-height: 1.55; }
+  .fn-detail-label { color: var(--muted); font-weight: 600; min-width: 90px; padding-top: 1px; flex-shrink: 0; }
+  .fn-detail-val { color: var(--text); }
+  .fn-detail-val code { font-family: var(--font-mono); font-size: 11.5px; background: var(--bg4); color: var(--amber); padding: 1px 5px; border-radius: 3px; }
+  .fn-detail-val .note-box { background: var(--blue-soft); border: 1px solid var(--blue-border); border-radius: 6px; padding: 7px 10px; font-size: 12px; color: var(--blue); margin-top: 4px; line-height: 1.5; }
+  .fn-detail-val .warn-box { background: var(--red-soft); border: 1px solid var(--red-border); border-radius: 6px; padding: 7px 10px; font-size: 12px; color: var(--red); margin-top: 4px; line-height: 1.5; }
 
-    .hero {
-      display: grid;
-      grid-template-columns: minmax(0, 1.3fr) minmax(300px, 0.7fr);
-      gap: 18px;
-      margin-bottom: 22px;
-    }
+  /* TABS */
+  .tabs { display: flex; gap: 2px; margin-bottom: 20px; background: var(--bg3); border-radius: var(--radius); padding: 4px; flex-wrap: wrap; }
+  .tab-btn { padding: 6px 14px; border-radius: 6px; font-size: 12.5px; cursor: pointer; color: var(--muted); transition: all 0.12s; font-weight: 500; border: none; background: transparent; }
+  .tab-btn:hover { color: var(--text); background: var(--bg4); }
+  .tab-btn.active { background: var(--bg); color: var(--text); box-shadow: 0 0 0 1px var(--border2); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
 
-    .hero-card,
-    .status-card {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-xl);
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(8px);
-    }
+  /* FLOW STEPS */
+  .flow-timeline { margin-top: 4px; }
+  .flow-step { display: flex; gap: 16px; }
+  .flow-left { display: flex; flex-direction: column; align-items: center; width: 28px; flex-shrink: 0; }
+  .flow-num { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+  .flow-line { width: 1px; flex: 1; min-height: 16px; margin: 3px 0; }
+  .flow-body { padding-bottom: 20px; flex: 1; padding-top: 4px; }
+  .flow-who { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 3px; }
+  .flow-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .flow-desc { font-size: 12.5px; color: var(--muted); line-height: 1.55; }
+  .flow-desc code { font-family: var(--font-mono); font-size: 11.5px; background: var(--bg3); color: var(--amber); padding: 1px 5px; border-radius: 3px; }
+  .flow-tables { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px; }
+  .flow-table-chip { font-family: var(--font-mono); font-size: 11px; padding: 2px 6px; border-radius: 4px; background: var(--amber-soft); color: var(--amber); border: 1px solid var(--amber-border); }
+  .flow-status-chip { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; }
 
-    .hero-card {
-      padding: 28px 30px;
-      position: relative;
-      overflow: hidden;
-    }
+  /* DB TABLES */
+  .db-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: 14px; overflow: hidden; }
+  .db-card-header { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
+  .db-table-name { font-family: var(--font-mono); font-size: 14px; font-weight: 700; color: var(--amber); }
+  .db-table-desc { font-size: 12px; color: var(--muted); }
+  .db-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+  .db-col { padding: 12px 16px; }
+  .db-col:first-child { border-right: 1px solid var(--border); }
+  .db-col-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+  .db-col.reads .db-col-label { color: var(--teal); }
+  .db-col.writes .db-col-label { color: var(--coral); }
+  .db-fn-chip { font-family: var(--font-mono); font-size: 11px; padding: 2px 7px; border-radius: 4px; display: inline-block; margin: 2px 3px 2px 0; }
+  .db-col.reads .db-fn-chip { background: var(--teal-soft); color: var(--teal); border: 1px solid var(--teal-border); }
+  .db-col.writes .db-fn-chip { background: var(--coral-soft); color: var(--coral); border: 1px solid var(--coral-border); }
 
-    .hero-card::after {
-      content: "";
-      position: absolute;
-      inset: auto -80px -80px auto;
-      width: 240px;
-      height: 240px;
-      background: radial-gradient(circle, rgba(157, 92, 31, 0.16), transparent 68%);
-      pointer-events: none;
-    }
+  /* HOME CARDS */
+  .home-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px; }
+  .home-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 16px; cursor: pointer; transition: all 0.15s; }
+  .home-card:hover { border-color: var(--border2); background: var(--bg3); transform: translateY(-1px); }
+  .home-card-icon { font-size: 22px; margin-bottom: 10px; }
+  .home-card-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .home-card-sub { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 24px; }
+  .stat-box { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+  .stat-num { font-size: 24px; font-weight: 700; }
+  .stat-label { font-size: 11px; color: var(--muted); margin-top: 3px; }
 
-    .eyebrow {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 7px 12px;
-      border-radius: 999px;
-      background: var(--brand-soft);
-      color: var(--brand-strong);
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
+  /* ALERTS */
+  .alert { border-radius: var(--radius); padding: 10px 14px; font-size: 12.5px; margin-bottom: 14px; line-height: 1.55; }
+  .alert-warn { background: var(--amber-soft); color: var(--amber); border: 1px solid var(--amber-border); }
+  .alert-danger { background: var(--red-soft); color: var(--red); border: 1px solid var(--red-border); }
+  .alert-info { background: var(--blue-soft); color: var(--blue); border: 1px solid var(--blue-border); }
+  .alert-success { background: var(--green-soft); color: var(--green); border: 1px solid var(--green-border); }
 
-    .hero h1 {
-      margin: 16px 0 10px;
-      font-size: clamp(2rem, 4vw, 3.2rem);
-      line-height: 1.04;
-      letter-spacing: -0.04em;
-    }
+  /* DEAD CODE */
+  .dead-item { background: var(--bg2); border: 1px solid var(--red-border); border-left: 3px solid var(--red); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 10px; }
+  .dead-item-name { font-family: var(--font-mono); font-size: 13px; font-weight: 600; color: var(--red); margin-bottom: 4px; }
+  .dead-item-loc { font-size: 11px; color: var(--faint); margin-bottom: 5px; font-family: var(--font-mono); }
+  .dead-item-reason { font-size: 12.5px; color: var(--muted); }
 
-    .hero p {
-      margin: 0;
-      max-width: 70ch;
-      color: var(--muted);
-      font-size: 15px;
-      line-height: 1.7;
-    }
+  /* PKG */
+  .pkg-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 8px; display: flex; gap: 12px; align-items: flex-start; }
+  .pkg-name { font-family: var(--font-mono); font-size: 13px; font-weight: 600; color: var(--pink); min-width: 200px; flex-shrink: 0; }
+  .pkg-body { flex: 1; }
+  .pkg-desc { font-size: 12.5px; color: var(--text); margin-bottom: 4px; }
+  .pkg-sub { font-size: 11.5px; color: var(--muted); }
+  .pkg-unused { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 3px; background: var(--red-soft); color: var(--red); border: 1px solid var(--red-border); margin-left: 8px; vertical-align: middle; }
 
-    .hero-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-top: 18px;
-    }
-
-    .pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 14px;
-      border-radius: 999px;
-      border: 1px solid var(--border);
-      background: rgba(255, 255, 255, 0.55);
-      color: var(--text);
-      font-size: 13px;
-      font-weight: 600;
-    }
-
-    .status-card {
-      padding: 22px;
-      display: grid;
-      gap: 14px;
-      align-content: start;
-    }
-
-    .status-card h2 {
-      margin: 0;
-      font-size: 18px;
-    }
-
-    .stat {
-      padding: 14px 16px;
-      border-radius: var(--radius-lg);
-      background: var(--panel-strong);
-      border: 1px solid var(--border);
-    }
-
-    .stat-label {
-      font-size: 12px;
-      color: var(--soft);
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      font-weight: 700;
-    }
-
-    .stat-value {
-      margin-top: 6px;
-      font-size: 14px;
-      color: var(--text);
-      line-height: 1.6;
-    }
-
-    .workspace {
-      display: grid;
-      grid-template-columns: 320px minmax(0, 1fr);
-      gap: 18px;
-      align-items: start;
-    }
-
-    .nav,
-    .content {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-xl);
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(8px);
-    }
-
-    .nav {
-      position: sticky;
-      top: 18px;
-      padding: 16px;
-      max-height: calc(100vh - 36px);
-      overflow: auto;
-    }
-
-    .nav-header {
-      padding: 8px 8px 14px;
-      border-bottom: 1px solid var(--border);
-      margin-bottom: 14px;
-    }
-
-    .nav-title {
-      margin: 0 0 6px;
-      font-size: 16px;
-      font-weight: 800;
-      letter-spacing: -0.02em;
-    }
-
-    .nav-subtitle {
-      margin: 0;
-      color: var(--muted);
-      font-size: 13px;
-      line-height: 1.5;
-    }
-
-    .toc-group {
-      margin-bottom: 14px;
-    }
-
-    .toc-label {
-      padding: 8px 8px 6px;
-      color: var(--soft);
-      font-size: 11px;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-    }
-
-    .toc-link,
-    .toc-sublink {
-      display: block;
-      text-decoration: none;
-      color: var(--muted);
-      border-radius: 12px;
-      transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
-    }
-
-    .toc-link {
-      padding: 10px 12px;
-      font-size: 13px;
-      font-weight: 700;
-      line-height: 1.45;
-    }
-
-    .toc-sublink {
-      margin-left: 10px;
-      padding: 8px 12px;
-      font-size: 12px;
-      line-height: 1.45;
-    }
-
-    .toc-link:hover,
-    .toc-sublink:hover {
-      background: var(--panel-soft);
-      color: var(--text);
-      transform: translateX(2px);
-    }
-
-    .toc-link.active,
-    .toc-sublink.active {
-      background: var(--nav-active);
-      color: var(--brand-strong);
-    }
-
-    .content {
-      padding: 28px 32px 42px;
-      min-height: 70vh;
-    }
-
-    .loading {
-      display: grid;
-      gap: 14px;
-    }
-
-    .loading-bar {
-      height: 14px;
-      width: 100%;
-      border-radius: 999px;
-      background: linear-gradient(90deg, rgba(157, 92, 31, 0.08), rgba(157, 92, 31, 0.22), rgba(157, 92, 31, 0.08));
-      background-size: 200% 100%;
-      animation: pulse 1.6s linear infinite;
-    }
-
-    @keyframes pulse {
-      0% { background-position: 200% 0; }
-      100% { background-position: -200% 0; }
-    }
-
-    .notice {
-      padding: 16px 18px;
-      border-radius: var(--radius-lg);
-      border: 1px solid var(--border-strong);
-      background: var(--panel-soft);
-      color: var(--muted);
-      margin-bottom: 20px;
-      line-height: 1.6;
-    }
-
-    .notice strong {
-      color: var(--text);
-    }
-
-    .doc h1,
-    .doc h2,
-    .doc h3 {
-      scroll-margin-top: 22px;
-    }
-
-    .doc h1 {
-      margin: 0 0 18px;
-      font-size: clamp(2rem, 3vw, 2.8rem);
-      line-height: 1.08;
-      letter-spacing: -0.04em;
-    }
-
-    .doc h2 {
-      margin: 34px 0 14px;
-      padding: 16px 18px;
-      border-radius: 18px;
-      background: linear-gradient(135deg, rgba(157, 92, 31, 0.12), rgba(255, 255, 255, 0.72));
-      border: 1px solid rgba(157, 92, 31, 0.16);
-      font-size: 22px;
-      line-height: 1.2;
-      letter-spacing: -0.03em;
-    }
-
-    .doc h3 {
-      margin: 28px 0 10px;
-      color: var(--brand-strong);
-      font-size: 18px;
-      line-height: 1.3;
-    }
-
-    .doc p {
-      margin: 0 0 14px;
-      color: var(--text);
-      line-height: 1.74;
-      font-size: 15px;
-    }
-
-    .doc ul,
-    .doc ol {
-      margin: 0 0 16px 22px;
-      color: var(--text);
-      padding: 0;
-    }
-
-    .doc li {
-      margin-bottom: 8px;
-      line-height: 1.68;
-    }
-
-    .doc code {
-      font-family: var(--font-mono);
-      font-size: 0.92em;
-      padding: 2px 7px;
-      border-radius: 8px;
-      background: rgba(157, 92, 31, 0.12);
-      color: var(--brand-strong);
-    }
-
-    .doc pre {
-      margin: 16px 0 22px;
-      padding: 18px 20px;
-      border-radius: 18px;
-      background: var(--code-bg);
-      color: var(--code-text);
-      overflow: auto;
-      border: 1px solid rgba(255, 233, 200, 0.14);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-    }
-
-    .doc pre code {
-      padding: 0;
-      border-radius: 0;
-      background: transparent;
-      color: inherit;
-      font-size: 13px;
-      line-height: 1.6;
-    }
-
-    .doc strong {
-      color: var(--text);
-    }
-
-    .doc a {
-      color: var(--brand-strong);
-    }
-
-    .doc hr {
-      border: 0;
-      border-top: 1px solid var(--border);
-      margin: 26px 0;
-    }
-
-    .footer-note {
-      margin-top: 28px;
-      padding-top: 16px;
-      border-top: 1px solid var(--border);
-      color: var(--soft);
-      font-size: 12px;
-      line-height: 1.6;
-    }
-
-    @media (max-width: 1100px) {
-      .hero,
-      .workspace {
-        grid-template-columns: 1fr;
-      }
-
-      .nav {
-        position: relative;
-        top: 0;
-        max-height: none;
-      }
-    }
-
-    @media (max-width: 720px) {
-      .shell {
-        padding: 16px;
-      }
-
-      .hero-card,
-      .status-card,
-      .nav,
-      .content {
-        border-radius: 20px;
-      }
-
-      .hero-card,
-      .content {
-        padding-left: 20px;
-        padding-right: 20px;
-      }
-    }
-  </style>
+  /* PAGE CARD */
+  .page-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: 16px; overflow: hidden; }
+  .page-card-header { padding: 14px 16px; background: var(--bg3); border-bottom: 1px solid var(--border); }
+  .page-card-route { font-family: var(--font-mono); font-size: 12px; color: var(--teal); margin-bottom: 4px; }
+  .page-card-name { font-size: 15px; font-weight: 700; color: var(--text); }
+  .page-card-body { padding: 14px 16px; }
+  .page-fn-item { display: flex; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 12.5px; }
+  .page-fn-item:last-child { border-bottom: none; }
+  .page-fn-name { font-family: var(--font-mono); color: var(--amber); font-weight: 600; min-width: 200px; flex-shrink: 0; }
+  .page-fn-arrow { color: var(--faint); margin: 0 4px; }
+  .page-fn-desc { color: var(--muted); }
+</style>
 </head>
 <body>
-  <div class="shell">
-    <section class="hero">
-      <div class="hero-card">
-        <div class="eyebrow">AUTOFLOW Fleet Operations</div>
-        <h1>Project map explorer powered by the real markdown file.</h1>
-        <p>
-          This page renders <code>PROJECT_MAP.md</code> directly instead of relying on a hand-maintained summary,
-          so the HTML view stays complete, easier to read, and much less likely to miss a route, service, table, or flow.
-        </p>
-        <div class="hero-actions">
-          <span class="pill">Angular 17+</span>
-          <span class="pill">Supabase</span>
-          <span class="pill">Cashfree</span>
-          <span class="pill">EmailJS</span>
-          <span class="pill">jsPDF</span>
-        </div>
-      </div>
-      <aside class="status-card">
-        <h2>Viewer notes</h2>
-        <div class="stat">
-          <div class="stat-label">Source of truth</div>
-          <div class="stat-value">The viewer loads <code>PROJECT_MAP.md</code> at runtime and builds navigation from its headings.</div>
-        </div>
-        <div class="stat">
-          <div class="stat-label">Completeness</div>
-          <div class="stat-value">Because the markdown itself is rendered, nothing from the map is intentionally re-summarized or omitted here.</div>
-        </div>
-        <div class="stat">
-          <div class="stat-label">Fallback</div>
-          <div class="stat-value">If direct file loading is blocked by the preview environment, the page shows a clear warning instead of stale content.</div>
-        </div>
-      </aside>
-    </section>
 
-    <section class="workspace">
-      <nav class="nav" aria-label="Project map sections">
-        <div class="nav-header">
-          <h2 class="nav-title">On this page</h2>
-          <p class="nav-subtitle">Major sections and sub-sections pulled from the markdown headings.</p>
-        </div>
-        <div id="toc">
-          <div class="loading" aria-hidden="true">
-            <div class="loading-bar"></div>
-            <div class="loading-bar" style="width: 88%;"></div>
-            <div class="loading-bar" style="width: 76%;"></div>
-            <div class="loading-bar" style="width: 91%;"></div>
-          </div>
-        </div>
-      </nav>
+<nav id="sidebar">
+  <div id="sidebar-header">
+    <div class="app-name">AUTOFLOW</div>
+    <div class="app-sub">Fleet Ops · Codebase Explorer</div>
+  </div>
+  <div id="sidebar-scroll">
+    <div class="nav-group">
+      <div class="nav-group-label">Start Here</div>
+      <div class="nav-item active" onclick="nav(this,'home')"><span class="nav-dot dot-home"></span>Home &amp; Overview</div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-label">Services</div>
+      <div class="nav-item" onclick="nav(this,'svc-supabase')"><span class="nav-dot dot-svc"></span>supabase.ts</div>
+      <div class="nav-item" onclick="nav(this,'svc-auth')"><span class="nav-dot dot-svc"></span>auth.ts</div>
+      <div class="nav-item" onclick="nav(this,'svc-bookingflow')"><span class="nav-dot dot-svc"></span>booking-flow.ts</div>
+      <div class="nav-item" onclick="nav(this,'svc-pdf')"><span class="nav-dot dot-svc"></span>quotation-pdf.ts</div>
+      <div class="nav-item" onclick="nav(this,'svc-email')"><span class="nav-dot dot-svc"></span>quotation-email.ts</div>
+      <div class="nav-item" onclick="nav(this,'svc-theme')"><span class="nav-dot dot-svc"></span>theme.ts</div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-label">Dealer Pages</div>
+      <div class="nav-item" onclick="nav(this,'pg-dealer-bookings')"><span class="nav-dot dot-dealer"></span>dealer-bookings</div>
+      <div class="nav-item" onclick="nav(this,'pg-dealer-dashboard')"><span class="nav-dot dot-dealer"></span>dealer-dashboard</div>
+      <div class="nav-item" onclick="nav(this,'pg-dealer-inventory')"><span class="nav-dot dot-dealer"></span>dealer-inventory</div>
+      <div class="nav-item" onclick="nav(this,'pg-dealer-analytics')"><span class="nav-dot dot-dealer"></span>dealer-analytics</div>
+      <div class="nav-item" onclick="nav(this,'pg-customer-details')"><span class="nav-dot dot-dealer"></span>customer-details</div>
+      <div class="nav-item" onclick="nav(this,'pg-quotation')"><span class="nav-dot dot-dealer"></span>quotation</div>
+      <div class="nav-item" onclick="nav(this,'pg-payment')"><span class="nav-dot dot-dealer"></span>payment</div>
+      <div class="nav-item" onclick="nav(this,'pg-my-bookings')"><span class="nav-dot dot-dealer"></span>my-bookings</div>
+      <div class="nav-item" onclick="nav(this,'pg-inspection')"><span class="nav-dot dot-dealer"></span>inspection</div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-label">Admin Pages</div>
+      <div class="nav-item" onclick="nav(this,'pg-admin-overview')"><span class="nav-dot dot-admin"></span>admin-overview</div>
+      <div class="nav-item" onclick="nav(this,'pg-admin-vehicles')"><span class="nav-dot dot-admin"></span>admin-vehicles</div>
+      <div class="nav-item" onclick="nav(this,'pg-admin-bookings')"><span class="nav-dot dot-admin"></span>admin-bookings</div>
+      <div class="nav-item" onclick="nav(this,'pg-admin-users')"><span class="nav-dot dot-admin"></span>admin-users</div>
+      <div class="nav-item" onclick="nav(this,'pg-admin-revenue')"><span class="nav-dot dot-admin"></span>admin-revenue</div>
+      <div class="nav-item" onclick="nav(this,'pg-admin-analytics')"><span class="nav-dot dot-admin"></span>admin-analytics</div>
+      <div class="nav-item" onclick="nav(this,'pg-admin-audit')"><span class="nav-dot dot-admin"></span>admin-audit-logs</div>
+      <div class="nav-item" onclick="nav(this,'pg-auth-login')"><span class="nav-dot dot-admin"></span>login / auth-callback</div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-label">Flows</div>
+      <div class="nav-item" onclick="nav(this,'flow-booking')"><span class="nav-dot dot-flow"></span>Booking flow (end-to-end)</div>
+      <div class="nav-item" onclick="nav(this,'flow-payment')"><span class="nav-dot dot-flow"></span>Payment flow</div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-label">Database</div>
+      <div class="nav-item" onclick="nav(this,'db-tables')"><span class="nav-dot dot-db"></span>All tables + usage</div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-label">Analysis</div>
+      <div class="nav-item" onclick="nav(this,'dead-code')"><span class="nav-dot dot-dead"></span>Dead code</div>
+      <div class="nav-item" onclick="nav(this,'packages')"><span class="nav-dot dot-pkg"></span>Packages</div>
+    </div>
+  </div>
+</nav>
 
-      <main class="content">
-        <div id="content">
-          <div class="loading" aria-hidden="true">
-            <div class="loading-bar"></div>
-            <div class="loading-bar"></div>
-            <div class="loading-bar" style="width: 94%;"></div>
-            <div class="loading-bar" style="width: 86%;"></div>
-            <div class="loading-bar" style="width: 90%;"></div>
-            <div class="loading-bar" style="width: 82%;"></div>
-          </div>
-        </div>
-      </main>
-    </section>
+<div id="main">
+  <div id="topbar">
+    <span id="tb-title" class="page-title">Home</span>
+    <span id="tb-path" class="page-path">AUTOFLOW Fleet Ops</span>
+    <span id="tb-badge" class="topbar-badge" style="background:#0a1f0f;color:#22c55e;border:1px solid #15803d;">Overview</span>
+  </div>
+  <div id="content">
+
+<!-- ======== HOME ======== -->
+<div class="panel active" id="panel-home">
+  <div class="stat-row">
+    <div class="stat-box"><div class="stat-num" style="color:var(--teal)">6</div><div class="stat-label">Service files</div></div>
+    <div class="stat-box"><div class="stat-num" style="color:var(--purple)">14</div><div class="stat-label">Pages / components</div></div>
+    <div class="stat-box"><div class="stat-num" style="color:var(--amber)">12</div><div class="stat-label">Database tables</div></div>
+    <div class="stat-box"><div class="stat-num" style="color:var(--red)">12</div><div class="stat-label">Dead functions</div></div>
+  </div>
+  <div class="home-grid">
+    <div class="home-card" onclick="nav(document.querySelector('.nav-item:nth-child(2)'),'svc-supabase')">
+      <div class="home-card-icon">🗄️</div>
+      <div class="home-card-title">supabase.ts — the brain</div>
+      <div class="home-card-sub">2000+ lines. Every single DB operation lives here — auth, bookings, customers, payments, vehicles, notifications, audits.</div>
+    </div>
+    <div class="home-card" onclick="nav(null,'flow-booking')">
+      <div class="home-card-icon">🚗</div>
+      <div class="home-card-title">Booking flow</div>
+      <div class="home-card-sub">Walk-in wizard (Steps 1–9). Ends at vehicle handover/inspection. 6 DB tables touched.</div>
+    </div>
+    <div class="home-card" onclick="nav(null,'flow-payment')">
+      <div class="home-card-icon">💳</div>
+      <div class="home-card-title">Payment flow</div>
+      <div class="home-card-sub">Two paths: online via Cashfree (Vercel → RPC), or offline cash recorded manually.</div>
+    </div>
+    <div class="home-card" onclick="nav(null,'db-tables')">
+      <div class="home-card-icon">📊</div>
+      <div class="home-card-title">Database tables</div>
+      <div class="home-card-sub">12 tables. See exactly which functions read/write each one.</div>
+    </div>
+    <div class="home-card" onclick="nav(null,'dead-code')">
+      <div class="home-card-icon">🔴</div>
+      <div class="home-card-title">Dead code</div>
+      <div class="home-card-sub">12 functions defined but never called. Unused imports. Server files not wired to UI.</div>
+    </div>
+    <div class="home-card" onclick="nav(null,'packages')">
+      <div class="home-card-icon">📦</div>
+      <div class="home-card-title">Packages</div>
+      <div class="home-card-sub">All npm dependencies — what each does, which files import it, which are unused.</div>
+    </div>
+  </div>
+  <div class="alert alert-warn">⚠️ All API keys (Supabase, Cashfree, EmailJS) are currently <strong>hardcoded</strong> throughout the codebase. Move these to environment variables before going to production.</div>
+  <div class="alert alert-info">ℹ️ Two portals: <code>/dealer/...</code> for dealer staff and <code>/admin/...</code> for admin team. Role is determined at login from the <code>user_roles</code> table — not from JWT claims.</div>
+  <div class="alert alert-danger">🔴 Payment security gap: The current UI marks payments as "paid" and activates bookings immediately after the Cashfree SDK resolves — <strong>without waiting for server-side verification</strong>. The verification endpoint exists (<code>api/confirm-cashfree-payment.js</code>) but is never called.</div>
+</div>
+
+<!-- ======== SUPABASE.TS ======== -->
+<div class="panel" id="panel-svc-supabase">
+  <div class="alert alert-info">ℹ️ This is the largest file in the project (2000+ lines). Every tab below is a different category of functions inside the same file: <code>src/app/services/supabase.ts</code></div>
+  <div class="alert alert-warn">⚠️ Functions marked <span class="tag tag-dead">⚰ never called</span> are defined here but no component in the app currently calls them. They are dead code candidates.</div>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab(this,'sup-auth')">🔐 Auth</button>
+    <button class="tab-btn" onclick="switchTab(this,'sup-vehicle')">🚗 Vehicles</button>
+    <button class="tab-btn" onclick="switchTab(this,'sup-booking')">📋 Bookings</button>
+    <button class="tab-btn" onclick="switchTab(this,'sup-customer')">👤 Customers</button>
+    <button class="tab-btn" onclick="switchTab(this,'sup-quotation')">📄 Quotations</button>
+    <button class="tab-btn" onclick="switchTab(this,'sup-payment')">💳 Payments</button>
+    <button class="tab-btn" onclick="switchTab(this,'sup-notif')">🔔 Notifications</button>
+    <button class="tab-btn" onclick="switchTab(this,'sup-misc')">🔧 Misc</button>
   </div>
 
-  <script>
-    const contentEl = document.getElementById("content");
-    const tocEl = document.getElementById("toc");
+  <div class="tab-panel active" id="tab-sup-auth">
+    <div class="fn-section-title">Authentication functions</div>
+    <div class="fn-section-title" style="color:var(--muted);font-size:11px;border:none;margin-top:0">Why camelCase? In TypeScript/Angular, public methods use camelCase (e.g. <code>signInWithGoogle</code>) by convention. Private helpers sometimes use a leading verb like "get" or "create".</div>
 
-    function escapeHtml(value) {
-      return value
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#39;");
-    }
+    ${fn('signInWithGoogle()','Starts Google OAuth — opens Google login popup/redirect, then Supabase handles the token exchange','Supabase Auth OAuth',null,'login.ts',null)}
+    ${fn('recoverSession()','Refreshes the auth session token if it has expired','Supabase Auth session API',null,'⚰ NEVER CALLED — dead code',['tag-dead'],'⚰ No component calls this. Can be removed or wired to app init.')}
+    ${fn('getCurrentUser()','Returns the currently logged-in user object, or null if nobody is logged in','Supabase Auth API',null,'auth-guard.ts · auth-callback.ts · profile.ts · dealer-analytics.ts · dealer-dashboard.ts · dealer-bookings.ts · quotation.ts · my-bookings.ts · inspection.ts',null)}
+    ${fn('signOut()','Logs the user out and clears the session','Supabase Auth API',null,'layout.ts · dealer-dashboard.ts',null)}
+    ${fn('updateUserMetadata(data)','Updates the auth user\'s metadata (display name etc.) stored in Supabase Auth','Supabase Auth user profile',null,'profile.ts',null)}
+    ${fn('resetPasswordForEmail(email)','Sends a password-reset email that links back to /login','Supabase Auth password reset',null,'profile.ts',null)}
+    ${fn('getUserRole(userId)','Reads the first row from user_roles for this user — returns "admin" or "dealer"','user_roles',null,'profile.ts · ensureUserRoleAndDealer() internal',null)}
+    ${fn('ensureUserRoleAndDealer(user)','If the user has no role row yet, inserts a default "dealer" role AND creates a dealers profile row. Runs after every Google login.','user_roles · dealers',null,'auth-guard.ts · auth.ts · auth-callback.ts',null,'This is what automatically makes new Google logins into dealers.')}
+    ${fn('getAllUserRoles()','Returns every row from user_roles — used by admin to list all users','user_roles',null,'admin-users.ts · admin-audit-logs.ts',null)}
+    ${fn('getAllUsers()','Also reads all rows from user_roles — same as getAllUserRoles()','user_roles',null,'⚰ NEVER CALLED — dead code',['tag-dead'],'Duplicate of getAllUserRoles(). Never called by any component.')}
+    ${fn('updateUserRole(userId, role)','Changes a user\'s role row — e.g. from "dealer" to "admin"','user_roles',null,'admin-users.ts',null)}
+  </div>
 
-    function slugify(value) {
-      return value
-        .toLowerCase()
-        .replace(/[`'"!@#$%^&*()+=[\]{};:,.<>/?\\|~]/g, "")
-        .replace(/\s+/g, "-")
-        .replace(/-+/g, "-")
-        .replace(/^-|-$/g, "");
-    }
+  <div class="tab-panel" id="tab-sup-vehicle">
+    <div class="fn-section-title">Vehicle functions</div>
+    ${fn('getVehicles()','Loads all vehicle rows, normalizes the data, and computes availability based on active booking windows','vehicle · bookings',null,'layout.ts · admin-dashboard.ts · admin-users.ts · admin-revenue.ts · admin-overview.ts · admin-analytics.ts · dealer-dashboard.ts · dealer-inventory.ts',null)}
+    ${fn('getWalkInVehicles(filters?)','Loads vehicles for the booking wizard — includes date conflict checking, vehicle images, and tier/pricing data. The filters param lets you pass date range to show only truly available cars.','vehicle · vehicle_tiers · vehicle_images · bookings',null,'dealer-bookings.ts',null,'This is more powerful than getVehicles() — it knows which cars are free on specific dates.')}
+    ${fn('getBookingWithVehicle(bookingId)','Loads one booking with the full vehicle and vehicle_tier data attached','bookings · vehicle · vehicle_tiers',null,'BookingFlowService.loadBooking()',null)}
+    ${fn('getVehicleById(vehicleId)','Loads a single vehicle row by its ID','vehicle',null,'inspection-placeholder.ts',null)}
+    ${fn('addVehicle(vehicle)','Inserts a brand-new vehicle into the fleet','vehicle',null,'admin-dashboard.ts',null)}
+    ${fn('updateVehicle(id, vehicle)','Updates fields on an existing vehicle (rate, notes, status, etc.)','vehicle',null,'admin-dashboard.ts',null)}
+    ${fn('deleteVehicle(id)','Hard-deletes a vehicle row permanently','vehicle',null,'⚰ NEVER CALLED — dead code',['tag-dead'],'Admin UI archives using updateVehicle({ status:"deleted" }) instead. This hard-delete is never used.')}
+    ${fn('updateVehicleForTrip(vehicleId, mileage)','Sets vehicle_status to "rented" and saves the current odometer reading at handover','vehicle',null,'inspection-placeholder.ts',null)}
+    ${fn('releaseExpiredBookings()','Finds old approved/in-service bookings past their end date and marks the vehicles dirty/available again','bookings · vehicle',null,'admin-overview.ts',null)}
+  </div>
 
-    function formatInline(text) {
-      let safe = escapeHtml(text);
-      safe = safe.replace(/`([^`]+)`/g, "<code>$1</code>");
-      safe = safe.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-      safe = safe.replace(/\*([^*]+)\*/g, "<em>$1</em>");
-      return safe;
-    }
+  <div class="tab-panel" id="tab-sup-booking">
+    <div class="fn-section-title">Booking read functions</div>
+    ${fn('getBookings()','Loads ALL booking rows ordered newest-first — used by admin screens','bookings',null,'layout.ts · admin-users.ts · admin-revenue.ts · admin-overview.ts · admin-analytics.ts',null)}
+    ${fn('getMyBookings(userId)','Loads bookings visible to a specific dealer — joins vehicle, customer, quotation and the latest payment row','customers · bookings · vehicle · quotations · payments',null,'dealer-dashboard.ts · dealer-analytics.ts · my-bookings.ts',null)}
+    ${fn('getPendingBookingRequests()','Loads pending bookings with customer and vehicle data joined — used by admin to see what needs action','bookings · customers · vehicle',null,'admin-overview.ts',null)}
+    ${fn('getAdminBookingLedger()','Full admin ledger — all bookings with customer, vehicle, quotation summary AND latest payment row','bookings · customers · vehicle · quotations · payments',null,'admin-dealer-performance.ts',null,'This is the biggest query in the app. Powers the main admin booking table.')}
+    ${fn('getAdminBookingDetails(bookingId)','Loads rich detail for one booking — customer, vehicle, quotation, and the advisor\'s display name','bookings · customers · vehicle · quotations · dealers',null,'admin-dealer-performance.ts · confirmWalkInBooking() internal',null)}
+    ${fn('getBookingById(bookingId)','Loads a single booking row by ID','bookings',null,'inspection-placeholder.ts',null)}
+    ${fn('getBookingsByVehicle(vehicleId)','Loads all bookings associated with one vehicle','bookings',null,'dealer-dashboard.ts',null)}
+    ${fn('getBookingRequestDetails(bookingId)','Loads booking + vehicle + quotation — used internally during approval/rejection','bookings · vehicle · quotations',null,'Internal to approveBookingRequest() and rejectBookingRequest()',['tag-private'])}
+    ${fn('getMyBulkBookings(userId)','Loads bulk booking header rows and the child individual bookings + vehicle data for a dealer','bulk_bookings · bookings · vehicle',null,'my-bookings.ts',null)}
+    ${fn('getBulkBookings()','Loads all bulk booking headers — admin view','bulk_bookings',null,'⚰ NEVER CALLED — dead code',['tag-dead'],'my-bookings uses getMyBulkBookings() instead.')}
 
-    function buildToc(headings) {
-      if (!headings.length) {
-        tocEl.innerHTML = '<div class="notice"><strong>No headings found.</strong> The markdown loaded, but no section headings were detected.</div>';
-        return;
-      }
+    <div class="fn-section-title">Booking write functions</div>
+    ${fn('createBooking(booking)','Inserts a basic booking request row with status="pending"','bookings',null,'dealer-dashboard.ts',null)}
+    ${fn('createWalkInQuotation(input)','The main walk-in creator: validates availability → creates/finds customer → inserts booking → creates quotation → marks vehicle booked → logs audit. One call does all 5 things.','customers · bookings · quotations · vehicle · audit_logs',null,'dealer-bookings.ts',null,'This is the most complex write operation in the app. Called in Step 4 of the walk-in wizard.')}
+    ${fn('confirmWalkInBooking(bookingId, advanceMode, customerChannel?)','Flips the quotation to "submitted", keeps booking as "pending", stores total_price and advance_mode, notifies all admins, logs audit','quotations · bookings · notifications · user_roles · audit_logs',null,'dealer-bookings.ts',null)}
+    ${fn('updateBookingStatus(bookingId, newStatus)','Simple status update — sets booking.status to any value','bookings',null,'dealer-dashboard.ts · my-bookings.ts',null)}
+    ${fn('approveBookingRequest(bookingId)','Full admin approval: updates booking → quotation → checks for existing cash payment → optionally auto-activates → updates vehicle availability → sends notification + email → logs audit','bookings · quotations · payments · vehicle · notifications · dealers · audit_logs','Supabase edge function send-booking-confirmation','admin-dealer-performance.ts',null,'Most complex write flow. Can auto-skip to in_service if cash was already paid.')}
+    ${fn('rejectBookingRequest(bookingId, reason)','Full admin rejection: rejects booking → quotation → may release vehicle → notifies advisor → logs audit','bookings · quotations · vehicle · notifications · audit_logs',null,'admin-dealer-performance.ts',null)}
+    ${fn('markBookingInService(bookingId)','Sets booking status to "in_service" — happens when payment is confirmed and vehicle is handed over','bookings',null,'payment.ts · admin-dealer-performance.ts · approveBookingRequest() internal',null)}
+    ${fn('approveBooking(bookingId)','Basic booking status helper — just marks booking approved','bookings',null,'⚰ NEVER CALLED — dead code',['tag-dead'],'Admin UI uses approveBookingRequest() instead (which does much more).')}
+    ${fn('rejectBooking(bookingId, reason)','Basic booking status helper — just marks booking rejected','bookings',null,'⚰ NEVER CALLED — dead code',['tag-dead'],'Admin UI uses rejectBookingRequest() instead.')}
+    ${fn('insertBulkBooking(data)','Inserts a bulk booking header row','bulk_bookings',null,'⚰ NEVER CALLED — dead code',['tag-dead'],'No UI currently triggers this.')}
+  </div>
 
-      const groups = [];
-      let current = null;
+  <div class="tab-panel" id="tab-sup-customer">
+    <div class="fn-section-title">Customer functions</div>
+    ${fn('upsertCustomerByMobile(customer)','Smart insert: tries to insert customer; if mobile already exists (23505 duplicate error), fetches the existing row instead. Mobile is the unique key.','customers',null,'submitQuotationRequest() internal only',['tag-private'],'The 23505 is a Postgres unique-constraint error code meaning "duplicate key".')}
+    ${fn('searchCustomers(query)','Broad search across mobile, email, and name fields','customers',null,'⚰ NEVER CALLED — dead code',['tag-dead'],'Current UI uses searchCustomersByField() instead.')}
+    ${fn('searchCustomersByField(field, query)','Targeted returning-customer lookup by either mobile or email','customers',null,'customer-details.ts',null)}
+    ${fn('findCustomerByMobile(mobile)','Exact phone number lookup — returns one customer or null','customers',null,'dealer-bookings.ts',null)}
+    ${fn('getCustomerById(customerId)','Loads a single customer row by UUID','customers',null,'inspection-placeholder.ts',null)}
+    ${fn('uploadCustomerIdProof(file, reference)','Uploads customer ID document to Supabase Storage. Falls back to an inline base64 data URL if the Storage bucket doesn\'t exist.','Supabase Storage',null,'dealer-bookings.ts',null,'The fallback to data URL means the app won\'t crash even if storage isn\'t configured.')}
+    ${fn('generateQuoteReference()','Generates a unique reference like QT-20250513-0042 by counting existing quotations for today','quotations',null,'Internal — called by submitQuotationRequest()',['tag-private'])}
+  </div>
 
-      headings.forEach((heading) => {
-        if (heading.level === 2) {
-          current = { ...heading, children: [] };
-          groups.push(current);
-          return;
-        }
+  <div class="tab-panel" id="tab-sup-quotation">
+    <div class="fn-section-title">Quotation functions</div>
+    ${fn('submitQuotationRequest(input)','The routed-flow finaliser: saves customer → updates booking → upserts quotation → notifies all admins → logs audit. Used by the /quotation route, not the walk-in wizard.','customers · bookings · quotations · user_roles · notifications · audit_logs',null,'quotation.component.ts',null)}
+    ${fn('createOrFetchQuotation(input)','Tries to create a quotation for an existing booking. If one already exists (duplicate key), it fetches and returns the existing one.','quotations · vehicle · vehicle_tiers',null,'dealer-bookings.ts',null)}
+    ${fn('buildQuotationPricingPreview(vehicle, start, end, options?)','Pure memory calculation — computes rate, days, GST, advance, deposit from vehicle tier data. No DB call.','None — memory only',null,'quotation.component.ts · payment.component.ts',null,'This is a pure function (no side effects) — it just does the maths.')}
+    ${fn('saveQuotationDraft(payload)','Upserts a quotation with status="draft" — saves progress without submitting','quotations',null,'quotation.component.ts',null)}
+    ${fn('updateBookingQuoteStatus(bookingId, quoteStatus, status?)','Dual-purpose: if status param is missing, it updates quotation.status. If status is provided, it updates booking.status. Confusing but intentional.','quotations OR bookings',null,'quotation.component.ts',null,'Watch out — this function behaves differently depending on whether you pass the optional 3rd argument.')}
+    ${fn('markQuotationSent(bookingId)','Stamps sent_at timestamp on the quotation — called after emailing/whatsapping the quote','quotations',null,'dealer-bookings.ts · quotation.component.ts',null)}
+    ${fn('getQuotationByBooking(bookingId)','Loads one quotation by booking ID','quotations',null,'BookingFlowService.loadBooking() · payment.ts · my-bookings.ts · inspection.ts',null)}
+    ${fn('validatePromotion(code)','Looks up a promo code — checks if it\'s active, not expired, and within usage limits','promotions',null,'quotation.component.ts',null)}
+  </div>
 
-        if (heading.level === 3 && current) {
-          current.children.push(heading);
-        }
-      });
+  <div class="tab-panel" id="tab-sup-payment">
+    <div class="fn-section-title">Payment functions</div>
+    ${fn('createCashfreeOrder(bookingId, quotationId, amount)','Starts the online payment journey — delegates to private createViaVercelApi() which calls the Vercel function, then saves the payment record via a privileged database RPC','payments (via RPC insert_payment_record)','Vercel /api/create-cashfree-order → Cashfree API','payment.ts',null)}
+    ${fn('recordOfflineAdvancePayment(bookingId, amount)','Inserts a paid cash advance payment row directly — no external API needed','payments',null,'dealer-bookings.ts · payment.ts',null)}
+    ${fn('getPaymentByBooking(bookingId)','Loads the latest payment row for a booking. Normalises "success" status to "paid" for consistency.','payments',null,'admin-dealer-performance.ts · payment.ts · my-bookings.ts',null)}
+    ${fn('updatePaymentStatusByBookingId(bookingId, status)','Updates payment row(s) for a booking to a new status (e.g. "paid")','payments',null,'payment.ts',null)}
+    ${fn('verifyAndActivatePayment(bookingId, currentStatus)','If an approved booking already has a paid payment row, flips booking to in_service','payments · bookings',null,'⚰ NEVER CALLED — dead code',['tag-dead'],'Should be called after Cashfree webhook or return URL, but isn\'t currently wired up.')}
+    ${fn('updatePaymentStatus(cfOrderId, status, cfPaymentId?)','Calls the database RPC update_payment_status (a privileged stored function)','Database RPC update_payment_status',null,'⚰ NEVER CALLED — dead code',['tag-dead'],'The SQL for this RPC is not present in the repo.')}
+    <div class="alert alert-danger" style="margin-top:12px">🔴 <strong>Security note:</strong> The online payment flow marks payments as "paid" immediately after the Cashfree SDK resolves on the frontend — <em>without server-side verification</em>. <code>api/confirm-cashfree-payment.js</code> exists but is never called by the UI.</div>
+  </div>
 
-      const sections = groups.map((group) => {
-        const children = group.children.map((child) => (
-          `<a class="toc-sublink" href="#${child.id}">${escapeHtml(child.text)}</a>`
-        )).join("");
+  <div class="tab-panel" id="tab-sup-notif">
+    <div class="fn-section-title">Notification functions</div>
+    ${fn('insertNotification(userId, title, message, bookingId?, type?)','Convenience wrapper to insert a notification row for any user','notifications',null,'⚰ NEVER CALLED externally — dead code',['tag-dead'],'Internals use insertNotificationPayload() directly instead.')}
+    ${fn('insertNotificationPayload(payload)','Inserts one notification row — the actual low-level insert used internally','notifications',null,'approveBookingRequest() internal · rejectBookingRequest() internal',['tag-private'])}
+    ${fn('notifyAdminsOfBookingRequest(booking, quotation, vehicle, advisorName)','Finds all admin/superadmin users and sends each a booking request notification','user_roles · notifications',null,'submitQuotationRequest() internal · confirmWalkInBooking() internal',['tag-private'])}
+    ${fn('getMyNotifications()','Loads latest unread notifications for the currently logged-in user','notifications',null,'layout.ts',null)}
+    ${fn('markNotificationsRead(userId)','Marks ALL unread notifications for a user as read at once','notifications',null,'layout.ts',null)}
+    ${fn('markNotificationRead(notificationId)','Marks a single specific notification as read','notifications',null,'layout.ts',null)}
+    ${fn('subscribeToNotifications(userId, callback)','Opens a Supabase Realtime websocket channel — fires the callback whenever a new notification arrives for this user','Supabase Realtime on notifications',null,'layout.ts',null,'This is why notifications appear instantly without refreshing the page.')}
+    ${fn('subscribeToAllBookingChanges(callback)','Realtime subscription for ALL booking changes — admin can see bookings update live','Supabase Realtime on bookings',null,'admin-dealer-performance.ts',null)}
+    ${fn('subscribeToMyBookingChanges(userId, callback)','Realtime subscription for a specific dealer\'s bookings','Supabase Realtime on bookings',null,'my-bookings.ts',null)}
+  </div>
 
-        return `
-          <div class="toc-group">
-            <div class="toc-label">Section</div>
-            <a class="toc-link" href="#${group.id}">${escapeHtml(group.text)}</a>
-            ${children}
-          </div>
-        `;
-      }).join("");
+  <div class="tab-panel" id="tab-sup-misc">
+    <div class="fn-section-title">Profile & dealer functions</div>
+    ${fn('getDealerProfile(userId)','Loads the dealers table row for a user — returns company name, phone, address, GST etc.','dealers',null,'profile.ts · service internals',null)}
+    ${fn('upsertDealerProfile(payload)','Updates the dealer profile or inserts a new row if one doesn\'t exist yet','dealers',null,'profile.ts · ensureUserRoleAndDealer() internal',null)}
 
-      tocEl.innerHTML = sections;
-      setupActiveToc();
-    }
+    <div class="fn-section-title">Email via Supabase Edge Function</div>
+    ${fn('sendCustomerConfirmationEmail(booking)','Invokes the Supabase Edge Function "send-booking-confirmation" which uses Resend to email the customer. Falls back to logging in audit_logs if the customer has no email.','dealers','Supabase Edge Function: send-booking-confirmation','approveBookingRequest() internal',['tag-private'])}
+    ${fn('sendQuotationEmail(payload)','Server-side quotation email sender using the same Supabase Edge Function. Has a PDF attachment.','dealers','Supabase Edge Function: send-booking-confirmation','⚰ NEVER CALLED — dead code',['tag-dead'],'UI uses QuotationEmailService (EmailJS) instead of this server-side path.')}
 
-    function setupActiveToc() {
-      const links = [...document.querySelectorAll(".toc-link, .toc-sublink")];
-      const sections = links
-        .map((link) => document.getElementById(link.getAttribute("href").slice(1)))
-        .filter(Boolean);
+    <div class="fn-section-title">Audit</div>
+    ${fn('logAudit(action, entityId?)','Inserts an audit_logs row for the current user. Called throughout the service for important actions.','audit_logs',null,'admin-dashboard.ts + many service internals',null)}
+    ${fn('getAuditLogs()','Loads all audit log rows — used by the admin audit page','audit_logs',null,'admin-audit-logs.ts',null)}
+  </div>
+</div>
 
-      const observer = new IntersectionObserver((entries) => {
-        entries.forEach((entry) => {
-          if (!entry.isIntersecting) {
-            return;
-          }
+<!-- ======== AUTH.TS ======== -->
+<div class="panel" id="panel-svc-auth">
+  <div class="alert alert-info">ℹ️ This is a <strong>thin wrapper</strong> — it delegates almost everything to supabase.ts. Its job is to give other files a clean "auth" service to inject rather than importing the giant supabase.ts everywhere. File: <code>src/app/services/auth.ts</code></div>
+  ${fn('getCurrentUser()','Calls supabase.auth.getUser() and returns the user, or null if nobody is logged in','Supabase Auth API',null,'app.ts · layout.ts · Auth.getUserRole()',null)}
+  ${fn('getUserRole()','Gets current user, then calls SupabaseService.ensureUserRoleAndDealer() to read/create the role row. Returns "admin" or "dealer".','user_roles · dealers (indirectly)',null,'auth-guard.ts · layout.ts',null,'This is the function that decides which portal you land on after login.')}
+  ${fn('signOut()','Calls supabase.auth.signOut() — ends the session','Supabase Auth API',null,'layout.ts',null)}
+  ${fn('signInWithGoogle()','Triggers Google OAuth — redirects to Google, then back to /auth/callback','Supabase Auth + Google OAuth',null,'login.ts',null)}
+</div>
 
-          const id = entry.target.id;
-          links.forEach((link) => {
-            const active = link.getAttribute("href") === `#${id}`;
-            link.classList.toggle("active", active);
-          });
-        });
-      }, {
-        rootMargin: "-18% 0px -70% 0px",
-        threshold: 0.1
-      });
+<!-- ======== BOOKING-FLOW.TS ======== -->
+<div class="panel" id="panel-svc-bookingflow">
+  <div class="alert alert-info">ℹ️ This service is a <strong>shared state holder</strong> for the routed booking flow: <code>/customer-details → /quotation → /payment</code>. It is NOT used by the walk-in wizard (dealer-bookings.ts). File: <code>src/app/services/booking-flow.ts</code></div>
+  <div class="alert alert-warn">⚠️ Angular uses "signals" for reactive state — when a signal changes, any component reading it automatically updates. That's what this service uses internally.</div>
+  ${fn('loadBooking(bookingId, forceRefresh?)','Loads booking + vehicle + vehicle_tier + quotation-derived customer details into shared signal state. The forceRefresh flag skips the cache and re-fetches from DB.','bookings · vehicle · vehicle_tiers · quotations',null,'customer-details.ts · quotation.ts · payment.ts',null,'This is how the three route steps share the same booking data without passing it through URL params.')}
+  ${fn('setCustomer(details)','Stores customer form data in shared signal state — persists across route steps','None — memory only',null,'customer-details.ts',null)}
+  ${fn('patchQuotation(draft)','Stores local quotation edits (promo code, discount) before saving to DB','None — memory only',null,'quotation.ts',null)}
+  ${fn('emptyCustomer()','Returns the blank default customer object shape — used internally to reset state','None — memory only',null,'Service internals only',['tag-private'])}
+</div>
 
-      sections.forEach((section) => observer.observe(section));
-    }
+<!-- ======== QUOTATION-PDF.TS ======== -->
+<div class="panel" id="panel-svc-pdf">
+  <div class="alert alert-success">✅ This service has no Supabase calls. All data is passed in and the PDF is built entirely in memory using jsPDF. File: <code>src/app/services/quotation-pdf.ts</code></div>
+  ${fn('buildPdfBlob(input)','Assembles the full quotation PDF (customer info, vehicle details, pricing breakdown, terms) and returns it as a binary Blob — used for browser download','None — uses jsPDF library',null,'dealer-bookings.ts · quotation.ts · my-bookings.ts',null)}
+  ${fn('buildPdfBase64(input)','Same as buildPdfBlob but returns the PDF as a base64 string — used to attach it to emails','None — uses jsPDF library',null,'dealer-bookings.ts · quotation.ts',null)}
+  ${fn('buildFileName(quoteReference)','Sanitises the quote reference (e.g. QT-20250513-0042) into a safe PDF filename','None — pure string operation',null,'dealer-bookings.ts · quotation.ts · my-bookings.ts',null)}
+</div>
 
-    function renderMarkdown(markdown) {
-      const lines = markdown.replace(/\r\n/g, "\n").split("\n");
-      const headings = [];
-      const html = [];
+<!-- ======== QUOTATION-EMAIL.TS ======== -->
+<div class="panel" id="panel-svc-email">
+  <div class="alert alert-warn">⚠️ EmailJS API key is hardcoded in this file. File: <code>src/app/services/quotation-email.service.ts</code></div>
+  <div class="alert alert-info">ℹ️ Note: there is also a server-side email function in supabase.ts (<code>sendQuotationEmail</code>) but it is never called. THIS service (EmailJS) is the live email path.</div>
+  ${fn('sendQuotationEmail(payload)','Sends the quotation to a customer email via EmailJS REST API. The PDF can be embedded as base64 in the email payload.','EmailJS REST API: api.emailjs.com',null,'dealer-bookings.ts · quotation.ts',null)}
+</div>
 
-      let paragraph = [];
-      let listItems = [];
-      let listType = null;
-      let codeFence = null;
-      let codeLines = [];
+<!-- ======== THEME.TS ======== -->
+<div class="panel" id="panel-svc-theme">
+  <div class="alert alert-success">✅ Tiny service. Just two functions. File: <code>src/app/services/theme.ts</code></div>
+  ${fn('toggle()','Flips between dark and light mode by toggling a CSS class on document.body, then saves the choice to localStorage so it persists after refresh','Browser: document.body.classList · localStorage',null,'layout.html via AdminTopbar theme toggle button',null)}
+  ${fn('getTheme()','Reads the saved theme preference from localStorage. Returns "light" or "dark". Defaults to "light" if nothing saved.','Browser: localStorage',null,'layout.ts on init',null)}
+</div>
 
-      function flushParagraph() {
-        if (!paragraph.length) {
-          return;
-        }
-        html.push(`<p>${formatInline(paragraph.join(" "))}</p>`);
-        paragraph = [];
-      }
+<!-- ======== DEALER BOOKINGS PAGE ======== -->
+<div class="panel" id="panel-pg-dealer-bookings">
+  <div class="alert alert-info">ℹ️ Route: <code>/dealer/bookings</code> · Dealer only · This is the most complex page in the app — a self-contained 5-step walk-in booking wizard. It does NOT use BookingFlowService.</div>
+  <div class="page-card">
+    <div class="page-card-header"><div class="page-card-route">/dealer/bookings</div><div class="page-card-name">DealerBookings — walk-in wizard</div></div>
+    <div class="page-card-body">
+      <div class="page-fn-item"><span class="page-fn-name">loadVehicles()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Step 1. Calls getWalkInVehicles() to show available cars with images and pricing. Filters by the date range the dealer entered.</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">selectVehicle(vehicle)</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Stores selected vehicle in local state, advances wizard to Step 2 (trip details).</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">updateTrip() / tripInvalid()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Step 2 validators. Checks pickup location, purpose, dates are filled in before letting the dealer advance.</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">continueToCustomer()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Validates Step 2 and moves to Step 3 (customer lookup/create).</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">lookupCustomerByMobile()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Step 3. Calls findCustomerByMobile() — auto-fills the form if the customer has booked before.</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">onIdProofSelected()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Handles ID document upload. Calls uploadCustomerIdProof() — tries Supabase Storage, falls back to data URL.</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">generateQuotation()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Step 4. The big one — calls createWalkInQuotation() which writes to 4 tables at once (customer, booking, quotation, vehicle). Builds the pricing display.</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">sendQuote('email'|'sms'|'whatsapp')</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Optional Step 4a. Email path: builds PDF → sends via EmailJS → stamps sent_at on quotation. SMS/WhatsApp: opens native link, no DB write.</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">confirmOfflineCollection()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Records cash advance before admin approval — calls recordOfflineAdvancePayment(). Means when admin approves, booking auto-activates.</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">confirmBooking()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Step 5. Calls confirmWalkInBooking() — submits quotation, notifies admins, logs audit. Navigates to /dealer/my-bookings on success.</span></div>
+    </div>
+  </div>
+</div>
 
-      function flushList() {
-        if (!listItems.length) {
-          return;
-        }
-        const tag = listType === "ol" ? "ol" : "ul";
-        html.push(`<${tag}>${listItems.map((item) => `<li>${formatInline(item)}</li>`).join("")}</${tag}>`);
-        listItems = [];
-        listType = null;
-      }
+<!-- ======== DEALER DASHBOARD ======== -->
+<div class="panel" id="panel-pg-dealer-dashboard">
+  <div class="alert alert-info">ℹ️ Route: <code>/dealer/dashboard</code> · Dealer home screen with realtime subscriptions.</div>
+  <div class="page-card">
+    <div class="page-card-header"><div class="page-card-route">/dealer/dashboard</div><div class="page-card-name">DealerDashboard</div></div>
+    <div class="page-card-body">
+      <div class="page-fn-item"><span class="page-fn-name">loadUserInfo()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Gets current user + dealer profile on page init.</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">loadVehicles()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Calls getVehicles() to show the fleet inventory snapshot.</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">loadMyBookings()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Calls getMyBookings() to show the dealer's own bookings.</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">submitBooking()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Quick booking from the simple dialog modal — calls createBooking() with basic data.</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">cancelBooking()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Calls updateBookingStatus(id, 'cancelled').</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">openQuotation() / openBooking()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Navigates to /dealer/bookings (walk-in wizard) or opens the old simple booking dialog.</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">setupRealtimeSubscriptions()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Opens Supabase Realtime channels — bookings and notifications update live without refreshing.</span></div>
+    </div>
+  </div>
+</div>
 
-      function flushCode() {
-        if (codeFence === null) {
-          return;
-        }
-        html.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
-        codeFence = null;
-        codeLines = [];
-      }
+<!-- ======== DEALER INVENTORY ======== -->
+<div class="panel" id="panel-pg-dealer-inventory">
+  <div class="alert alert-info">ℹ️ Route: <code>/dealer/inventory</code> · Browse and export the fleet. Can start a booking from here.</div>
+  <div class="page-card">
+    <div class="page-card-header"><div class="page-card-route">/dealer/inventory</div><div class="page-card-name">DealerInventory</div></div>
+    <div class="page-card-body">
+      <div class="page-fn-item"><span class="page-fn-name">ngOnInit()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Angular lifecycle hook — always runs when the component is created. Calls getVehicles() to load the full fleet.</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">exportCsv()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Generates a CSV of the current vehicle list and triggers a browser download. Pure client-side — no DB call.</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">bookVehicle(vehicle)</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Navigates to /dealer/bookings?vehicleId=... so the walk-in wizard pre-selects this vehicle.</span></div>
+    </div>
+  </div>
+</div>
 
-      lines.forEach((line) => {
-        if (line.startsWith("```")) {
-          flushParagraph();
-          flushList();
-          if (codeFence === null) {
-            codeFence = line.slice(3).trim();
-          } else {
-            flushCode();
-          }
-          return;
-        }
+<!-- ======== DEALER ANALYTICS ======== -->
+<div class="panel" id="panel-pg-dealer-analytics">
+  <div class="alert alert-info">ℹ️ Route: <code>/dealer/analytics</code> · Dealer-only charts — only sees their own booking data.</div>
+  <div class="page-card">
+    <div class="page-card-header"><div class="page-card-route">/dealer/analytics</div><div class="page-card-name">DealerAnalytics</div></div>
+    <div class="page-card-body">
+      <div class="page-fn-item"><span class="page-fn-name">ngOnInit()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Gets current user, calls getMyBookings() and getVehicles(), then computes all chart data client-side (revenue by month, bookings by status, top vehicles). No separate analytics DB calls.</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">downloadReport()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Exports a CSV of the dealer's booking/revenue data.</span></div>
+    </div>
+  </div>
+</div>
 
-        if (codeFence !== null) {
-          codeLines.push(line);
-          return;
-        }
+<!-- ======== CUSTOMER DETAILS ======== -->
+<div class="panel" id="panel-pg-customer-details">
+  <div class="alert alert-info">ℹ️ Route: <code>/dealer/booking/:bookingId/customer-details</code> · Step in the routed flow (not the walk-in wizard). Part of the newer stateful booking path.</div>
+  <div class="page-card">
+    <div class="page-card-header"><div class="page-card-route">/dealer/booking/:bookingId/customer-details</div><div class="page-card-name">CustomerDetailsComponent</div></div>
+    <div class="page-card-body">
+      <div class="page-fn-item"><span class="page-fn-name">ngOnInit()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Calls BookingFlowService.loadBooking() to load the booking + vehicle into shared state. Pre-fills any existing customer data.</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">queueCustomerSearch()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Debounced search — waits for the dealer to stop typing before calling searchCustomersByField(). Prevents a DB call on every keystroke.</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">selectSuggestion(customer)</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">When dealer picks a suggestion from the dropdown, pre-fills the entire form with that customer's data.</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">continueToQuotation()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Calls BookingFlowService.setCustomer() to save the customer data, then navigates to /dealer/booking/:id/quotation.</span></div>
+    </div>
+  </div>
+</div>
 
-        if (!line.trim()) {
-          flushParagraph();
-          flushList();
-          return;
-        }
+<!-- ======== QUOTATION PAGE ======== -->
+<div class="panel" id="panel-pg-quotation">
+  <div class="alert alert-info">ℹ️ Route: <code>/dealer/booking/:bookingId/quotation</code> · The routed quotation builder. Separate from the walk-in wizard's Step 4.</div>
+  <div class="page-card">
+    <div class="page-card-header"><div class="page-card-route">/dealer/booking/:id/quotation</div><div class="page-card-name">QuotationComponent</div></div>
+    <div class="page-card-body">
+      <div class="page-fn-item"><span class="page-fn-name">ngOnInit()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Reads vehicle + customer from BookingFlowService, calls buildQuotationPricingPreview() to compute costs.</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">applyPromo()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Calls validatePromotion(code) → if valid, applies discount and recalculates totals.</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">saveDraft()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Calls saveQuotationDraft() — saves current pricing without submitting for approval.</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">sendQuote()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Builds PDF (buildPdfBlob), sends via EmailJS, stamps sent_at (markQuotationSent).</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">confirmBooking()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Calls submitQuotationRequest() — saves everything and notifies admins. Navigates to /dealer/my-bookings.</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">openPreview()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Opens a preview modal/panel showing the PDF before sending.</span></div>
+    </div>
+  </div>
+</div>
 
-        const headingMatch = line.match(/^(#{1,6})\s+(.*)$/);
-        if (headingMatch) {
-          flushParagraph();
-          flushList();
-          const level = headingMatch[1].length;
-          const rawText = headingMatch[2].trim();
-          const text = rawText.replace(/`/g, "");
-          const id = slugify(text);
-          if (level <= 3) {
-            headings.push({ level, text, id });
-          }
-          html.push(`<h${level} id="${id}">${formatInline(rawText)}</h${level}>`);
-          return;
-        }
+<!-- ======== PAYMENT PAGE ======== -->
+<div class="panel" id="panel-pg-payment">
+  <div class="alert alert-warn">⚠️ Route: <code>/dealer/booking/:bookingId/payments</code> · Only accessible for bookings with status="approved".</div>
+  <div class="page-card">
+    <div class="page-card-header"><div class="page-card-route">/dealer/booking/:id/payments</div><div class="page-card-name">PaymentComponent</div></div>
+    <div class="page-card-body">
+      <div class="page-fn-item"><span class="page-fn-name">ngOnInit()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Calls BookingFlowService.loadBooking() and getPaymentByBooking() to check if payment already exists. Calls buildQuotationPricingPreview() for amounts.</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">proceedToGateway()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Online payment path: calls createCashfreeOrder() → gets session_id → opens Cashfree SDK checkout widget. After SDK resolves, immediately marks paid and activates booking.</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">confirmOfflineCollection()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Cash path: calls recordOfflineAdvancePayment() → then markBookingInService() → then navigates to inspection.</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">goToInspection()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Navigates to /dealer/inspection/:bookingId after payment confirmed.</span></div>
+    </div>
+  </div>
+</div>
 
-        const ulMatch = line.match(/^-\s+(.*)$/);
-        if (ulMatch) {
-          flushParagraph();
-          if (listType && listType !== "ul") {
-            flushList();
-          }
-          listType = "ul";
-          listItems.push(ulMatch[1]);
-          return;
-        }
+<!-- ======== MY BOOKINGS ======== -->
+<div class="panel" id="panel-pg-my-bookings">
+  <div class="alert alert-info">ℹ️ Route: <code>/dealer/my-bookings</code> · Dealer's booking ledger — shows all their bookings with actions.</div>
+  <div class="page-card">
+    <div class="page-card-header"><div class="page-card-route">/dealer/my-bookings</div><div class="page-card-name">MyBookingsComponent</div></div>
+    <div class="page-card-body">
+      <div class="page-fn-item"><span class="page-fn-name">loadData()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Calls getMyBookings() and getMyBulkBookings() — loads both individual and group bookings.</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">openDetail(booking)</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Opens a side drawer showing full booking + quotation + payment details. Calls getQuotationByBooking() and getPaymentByBooking().</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">openPayment(booking)</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Navigates to /dealer/booking/:id/payments.</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">openInspection(booking)</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Navigates to /dealer/inspection/:id — only shown when booking is in_service.</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">cancelBooking(id)</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Calls updateBookingStatus(id, 'cancelled').</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">downloadPaymentConfirmation()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Calls buildPdfBlob() to generate a payment receipt PDF and triggers browser download.</span></div>
+    </div>
+  </div>
+</div>
 
-        const olMatch = line.match(/^\d+\.\s+(.*)$/);
-        if (olMatch) {
-          flushParagraph();
-          if (listType && listType !== "ol") {
-            flushList();
-          }
-          listType = "ol";
-          listItems.push(olMatch[1]);
-          return;
-        }
+<!-- ======== INSPECTION ======== -->
+<div class="panel" id="panel-pg-inspection">
+  <div class="alert alert-warn">⚠️ Route: <code>/dealer/inspection/:bookingId</code> · Only accessible when booking status = "in_service". ngOnInit() blocks access otherwise.</div>
+  <div class="page-card">
+    <div class="page-card-header"><div class="page-card-route">/dealer/inspection/:bookingId</div><div class="page-card-name">InspectionPlaceholderComponent</div></div>
+    <div class="page-card-body">
+      <div class="page-fn-item"><span class="page-fn-name">ngOnInit()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Calls getBookingById(), getCustomerById(), getVehicleById() to load context. Checks booking.status — if not in_service, redirects away (access guard).</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">submitInspection()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Saves the full inspection record: calls createInspection() (inserts into inspections table), then updateVehicleForTrip() (sets vehicle_status = "rented", saves odometer). Navigates to /dealer/my-bookings.</span></div>
+    </div>
+  </div>
+</div>
 
-        flushList();
-        paragraph.push(line.trim());
-      });
+<!-- ======== ADMIN PAGES ======== -->
+<div class="panel" id="panel-pg-admin-overview">
+  <div class="alert alert-info">ℹ️ Route: <code>/admin/dashboard</code> · Admin only · Executive KPI dashboard.</div>
+  <div class="page-card">
+    <div class="page-card-header"><div class="page-card-route">/admin/dashboard → AdminOverview</div><div class="page-card-name">Admin Overview / Dashboard</div></div>
+    <div class="page-card-body">
+      <div class="page-fn-item"><span class="page-fn-name">loadDashboard()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Calls releaseExpiredBookings() on load, then loads vehicles + all bookings + pending requests. Builds KPI cards, charts, and an action feed of pending items.</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">goTo(section)</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Deep-link helper — navigates to /admin/bookings, /admin/vehicles, etc. from the KPI cards.</span></div>
+    </div>
+  </div>
+</div>
 
-      flushParagraph();
-      flushList();
-      flushCode();
+<div class="panel" id="panel-pg-admin-vehicles">
+  <div class="alert alert-info">ℹ️ Route: <code>/admin/vehicles</code> · Vehicle CRUD — add, edit, archive fleet vehicles.</div>
+  <div class="page-card">
+    <div class="page-card-header"><div class="page-card-route">/admin/vehicles → AdminDashboard</div><div class="page-card-name">Admin Vehicle Management</div></div>
+    <div class="page-card-body">
+      <div class="page-fn-item"><span class="page-fn-name">loadVehicles()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Calls getVehicles() — shows all vehicles with tier info, status, daily rate.</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">openNew() / openEdit(vehicle)</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Opens the vehicle form modal (create mode or edit mode).</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">saveVehicle()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Calls addVehicle() or updateVehicle() depending on whether it's a new or existing vehicle.</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">confirmDelete(id)</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Archives the vehicle (sets status = "archived") — does NOT hard delete. logAudit() is called.</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">exportCsv()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Downloads current vehicle list as CSV.</span></div>
+    </div>
+  </div>
+</div>
 
-      contentEl.innerHTML = `
-        <div class="notice">
-          <strong>Live view:</strong> this page is rendering the current <code>PROJECT_MAP.md</code> file, so the HTML view follows the markdown exactly instead of maintaining a second manual summary.
+<div class="panel" id="panel-pg-admin-bookings">
+  <div class="alert alert-info">ℹ️ Route: <code>/admin/bookings</code> · Main booking operations for admin — approve, reject, mark in-service. Has live realtime updates.</div>
+  <div class="page-card">
+    <div class="page-card-header"><div class="page-card-route">/admin/bookings → AdminDealerPerformance</div><div class="page-card-name">Admin Booking Ledger</div></div>
+    <div class="page-card-body">
+      <div class="page-fn-item"><span class="page-fn-name">loadLedger()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Calls getAdminBookingLedger() — the biggest query in the app. Then subscribes to Supabase Realtime via subscribeToAllBookingChanges() so the table updates live.</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">viewDetails(bookingId)</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Calls getAdminBookingDetails() and opens a drawer with full customer + vehicle + quotation + payment info.</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">approveBooking(id)</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Calls approveBookingRequest() — the most complex write in the app. Updates 6 tables and sends an email.</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">rejectBooking(id, reason)</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Calls rejectBookingRequest() — rejects, notifies, logs.</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">markInService(id)</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Calls markBookingInService() — admin can manually trigger this if needed.</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="panel" id="panel-pg-admin-users">
+  <div class="page-card">
+    <div class="page-card-header"><div class="page-card-route">/admin/users → AdminUsers</div><div class="page-card-name">Admin Users</div></div>
+    <div class="page-card-body">
+      <div class="page-fn-item"><span class="page-fn-name">loadUsers()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Calls getAllUserRoles() to list all users. Derives booking stats per user from getBookings().</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">applyTabFilter()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Client-side filter — shows all users, dealers only, or admins only.</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">toggleRole(userId)</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Calls updateUserRole() — promotes a dealer to admin or demotes an admin to dealer.</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">toggleActive(userId)</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Enables/disables a user account.</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">openProfile(userId)</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Opens a drawer showing dealer profile, booking history, and total revenue for that user.</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="panel" id="panel-pg-admin-revenue">
+  <div class="alert alert-warn">⚠️ Revenue figures here are computed by bucketing current booking data — they reflect booking totals, not actual cash collected from payments.</div>
+  <div class="page-card">
+    <div class="page-card-header"><div class="page-card-route">/admin/reports → AdminRevenue</div><div class="page-card-name">Admin Revenue / Reports</div></div>
+    <div class="page-card-body">
+      <div class="page-fn-item"><span class="page-fn-name">ngOnInit()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Loads all bookings + vehicles + payments, then groups by week/month/quarter to build KPI cards and charts.</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">export(format)</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Exports as CSV or triggers browser print.</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="panel" id="panel-pg-admin-analytics">
+  <div class="page-card">
+    <div class="page-card-header"><div class="page-card-route">/admin/analytics → AdminAnalytics</div><div class="page-card-name">Admin Analytics</div></div>
+    <div class="page-card-body">
+      <div class="page-fn-item"><span class="page-fn-name">ngOnInit()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Loads all vehicles and bookings, then computes revenue by month, fleet utilisation, booking volume, and top vehicles — all client-side from the loaded data.</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="panel" id="panel-pg-admin-audit">
+  <div class="page-card">
+    <div class="page-card-header"><div class="page-card-route">/admin/audit → AdminAuditLogs</div><div class="page-card-name">Admin Audit Logs</div></div>
+    <div class="page-card-body">
+      <div class="page-fn-item"><span class="page-fn-name">loadLogs()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Calls getAuditLogs() — loads all audit rows. Supports filter by user, action type, and date range. Calls getAllUserRoles() to show user names alongside audit entries.</span></div>
+      <div class="page-fn-item"><span class="page-fn-name">exportLogs()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Exports the filtered audit log as CSV.</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="panel" id="panel-pg-auth-login">
+  <div class="page-card">
+    <div class="page-card-header"><div class="page-card-route">/login → Login</div><div class="page-card-name">Login page</div></div>
+    <div class="page-card-body">
+      <div class="page-fn-item"><span class="page-fn-name">googleLogin()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Calls SupabaseService.signInWithGoogle(). Only one button — no username/password. Google OAuth only. Supabase then redirects to /auth/callback.</span></div>
+    </div>
+  </div>
+  <div class="page-card" style="margin-top:12px">
+    <div class="page-card-header"><div class="page-card-route">/auth/callback → AuthCallback</div><div class="page-card-name">OAuth landing page</div></div>
+    <div class="page-card-body">
+      <div class="page-fn-item"><span class="page-fn-name">ngOnInit()</span><span class="page-fn-arrow">→</span><span class="page-fn-desc">Waits for Supabase to complete the OAuth handshake. Then calls ensureUserRoleAndDealer() — creates a dealer role+profile if this is a new user. Reads the role, then routes to /admin/dashboard (if admin) or /dealer/dashboard (if dealer). Navigates to /login on any error.</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ======== BOOKING FLOW ======== -->
+<div class="panel" id="panel-flow-booking">
+  <div class="alert alert-success">✅ This flow works end-to-end. All 9 steps are wired and functioning.</div>
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab(this,'flow-walkin')">Walk-in wizard (Steps 1–6)</button>
+    <button class="tab-btn" onclick="switchTab(this,'flow-admin')">Admin approval (Step 7)</button>
+    <button class="tab-btn" onclick="switchTab(this,'flow-payinspect')">Payment → Inspection (Steps 8–9)</button>
+  </div>
+
+  <div class="tab-panel active" id="tab-flow-walkin">
+    <div class="flow-timeline">
+      ${fstep(1,'#8b5cf6','Dealer','Step 1 — Vehicle selection','loadVehicles() → getWalkInVehicles(filters)','Reads vehicle, vehicle_tiers, vehicle_images, bookings (conflict check). No DB writes yet.',['vehicle','vehicle_tiers','vehicle_images','bookings'],'none')}
+      ${fstep(2,'#8b5cf6','Dealer','Step 2 — Trip details','updateTrip() / tripInvalid() / continueToCustomer()','Captures pickup, drop, purpose, dates, passengers. Validation only — no DB writes.',[],'none')}
+      ${fstep(3,'#8b5cf6','Dealer','Step 3 — Customer','lookupCustomerByMobile() → findCustomerByMobile() / onIdProofSelected()','Search for returning customer. Upload ID proof. No booking DB write yet — that happens in Step 4.',['customers','Supabase Storage'],'none')}
+      ${fstep(4,'#14b8a6','System','Step 4 — Quotation generated','generateQuotation() → createWalkInQuotation()','The big write. All 4 tables written in sequence. Booking created with status = "pending".',['customers','bookings','quotations','vehicle','audit_logs'],'pending')}
+      ${fstep('4a','#f59e0b','Optional','Step 4a — Send quote','sendQuote(\'email\'|\'sms\'|\'whatsapp\')','Email: builds PDF → EmailJS → stamps sent_at. SMS/WhatsApp: opens native link, no DB write.',['quotations (sent_at)'],'pending')}
+      ${fstep(5,'#8b5cf6','Dealer','Step 5 — Cash advance (optional)','confirmOfflineCollection() → recordOfflineAdvancePayment()','If dealer collects cash now, a paid payment row is inserted. Later admin approval will auto-activate the booking.',['payments'],'pending')}
+      ${fstep(6,'#8b5cf6','Dealer','Step 6 — Submit for approval','confirmBooking() → confirmWalkInBooking()','Flips quotation to "submitted". Notifies all admins. Logs audit. Navigates to my-bookings.',['quotations','bookings','notifications','audit_logs'],'pending')}
+    </div>
+  </div>
+
+  <div class="tab-panel" id="tab-flow-admin">
+    <div class="flow-timeline">
+      ${fstep(7,'#3b82f6','Admin','Step 7 — Admin review + approval','approveBooking() → approveBookingRequest()','Most complex write: booking → quotation → check payments → maybe auto-activate → vehicle update → notification → email → audit.',['bookings','quotations','payments','vehicle','notifications','audit_logs'],'approved (or in_service if cash was pre-paid)')}
+    </div>
+    <div class="alert alert-info">ℹ️ <strong>Auto-activation:</strong> If the dealer collected cash in Step 5 (before approval), approveBookingRequest() detects the existing paid payment row and immediately calls markBookingInService() — skipping the payment step entirely. Booking goes straight from pending → in_service.</div>
+  </div>
+
+  <div class="tab-panel" id="tab-flow-payinspect">
+    <div class="flow-timeline">
+      ${fstep(8,'#f97316','Dealer','Step 8 — Payment','proceedToGateway() (online) OR confirmOfflineCollection() (cash)','Online: Cashfree SDK. Cash: direct DB insert. Both end with booking status = in_service.',['payments','bookings'],'in_service')}
+      ${fstep(9,'#14b8a6','Dealer','Step 9 — Inspection / handover','submitInspection() → createInspection() + updateVehicleForTrip()','Dealer fills the inspection form. Saves inspection record. Updates vehicle to "rented". Booking stays in_service.',['inspections','vehicle'],'in_service (remains)')}
+    </div>
+  </div>
+</div>
+
+<!-- ======== PAYMENT FLOW ======== -->
+<div class="panel" id="panel-flow-payment">
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab(this,'pay-online')">💳 Online — Cashfree</button>
+    <button class="tab-btn" onclick="switchTab(this,'pay-offline-wizard')">💵 Cash — in wizard (before approval)</button>
+    <button class="tab-btn" onclick="switchTab(this,'pay-offline-page')">💵 Cash — payment page (after approval)</button>
+  </div>
+
+  <div class="tab-panel active" id="tab-pay-online">
+    <div class="alert alert-danger">🔴 Security gap: The UI marks payment as "paid" immediately after Cashfree SDK resolves — without server-side verification. <code>api/confirm-cashfree-payment.js</code> exists but is never called.</div>
+    <div class="flow-timeline">
+      ${fstep(1,'#8b5cf6','Dealer','Clicks "Pay online"','openPaymentDialog() → proceedToGateway()','Booking must be status = "approved".',[],'approved')}
+      ${fstep(2,'#14b8a6','System','createCashfreeOrder()','createViaVercelApi() — checks for existing initiated payment first (idempotency)','Queries payments table for a recent initiated session to avoid double-charging.',['payments'],'approved')}
+      ${fstep(3,'#f59e0b','Vercel','POST /api/create-cashfree-order','Vercel function calls Cashfree POST /orders','Returns cf_order_id and payment_session_id.',[],'approved')}
+      ${fstep(4,'#14b8a6','System','Insert payment record via RPC','supabase.rpc("insert_payment_record", ...)','SECURITY DEFINER function — bypasses RLS. Saves payment row with status = "initiated".',['payments (via RPC)'],'approved')}
+      ${fstep(5,'#f97316','Cashfree','Cashfree SDK checkout','window.Cashfree(...).checkout(...)','User pays via card/UPI/netbanking in the Cashfree overlay.',[],'approved')}
+      ${fstep(6,'#8b5cf6','Dealer','SDK resolves (success)','updatePaymentStatusByBookingId(bookingId, "paid")','Frontend immediately marks payment paid — no server verify call.',['payments'],'approved')}
+      ${fstep(7,'#14b8a6','System','Activate booking','markBookingInService(bookingId)','Booking flipped to in_service. Navigation to /dealer/inspection/:id.',['bookings'],'in_service')}
+    </div>
+  </div>
+
+  <div class="tab-panel" id="tab-pay-offline-wizard">
+    <div class="alert alert-success">✅ This path is clean and safe — cash is recorded, then admin approves, which auto-activates.</div>
+    <div class="flow-timeline">
+      ${fstep(1,'#8b5cf6','Dealer','Collects cash during wizard','confirmOfflineCollection() in DealerBookings','Happens in Step 5 — before admin even sees the booking.',[],'pending')}
+      ${fstep(2,'#14b8a6','System','Insert payment row','recordOfflineAdvancePayment(bookingId, amount)','payment_type = "advance", payment_mode = "cash", status = "paid".',['payments'],'pending')}
+      ${fstep(3,'#8b5cf6','Dealer','Submits booking','confirmBooking() → confirmWalkInBooking()','Quotation submitted, admins notified.',['quotations','bookings','notifications'],'pending')}
+      ${fstep(4,'#3b82f6','Admin','Approves booking','approveBookingRequest()','Detects existing paid cash row → calls markBookingInService() automatically.',['bookings','quotations','vehicle','notifications','audit_logs'],'in_service (auto!)')}
+    </div>
+  </div>
+
+  <div class="tab-panel" id="tab-pay-offline-page">
+    <div class="flow-timeline">
+      ${fstep(1,'#8b5cf6','Dealer','Clicks "Record cash" on payment page','confirmOfflineCollection() in PaymentComponent','Booking is already approved at this point.',[],'approved')}
+      ${fstep(2,'#14b8a6','System','Insert payment row','recordOfflineAdvancePayment(bookingId, advance)','Same as wizard path — paid cash row.',['payments'],'approved')}
+      ${fstep(3,'#14b8a6','System','Activate booking','markBookingInService(bookingId)','Booking immediately flipped to in_service.',['bookings'],'in_service')}
+      ${fstep(4,'#14b8a6','System','Navigate to inspection','flow.loadBooking(bookingId, true)','Refreshes shared state, navigates to /dealer/inspection/:id.',[],'in_service')}
+    </div>
+  </div>
+</div>
+
+<!-- ======== DATABASE TABLES ======== -->
+<div class="panel" id="panel-db-tables">
+  <div class="alert alert-warn">⚠️ All tables are queried directly from the browser using the Supabase anon key. RLS policies control what each role can see/write. Key tables use SECURITY DEFINER RPCs to bypass RLS for privileged operations.</div>
+  ${dbt('bookings','Core booking record — the central table everything else relates to',['getBookings()','getMyBookings()','getAdminBookingLedger()','getBookingWithVehicle()','getBookingById()','getPendingBookingRequests()','getBookingsByVehicle()','isVehicleAvailable() internal'],['createBooking()','createWalkInQuotation()','confirmWalkInBooking()','approveBookingRequest()','rejectBookingRequest()','markBookingInService()','updateBookingStatus()'])}
+  ${dbt('customers','Customer profiles — mobile is the unique key',['searchCustomersByField()','findCustomerByMobile()','getCustomerById()','getMyBookings()','getAdminBookingLedger()'],['upsertCustomerByMobile()','createWalkInQuotation()','submitQuotationRequest()'])}
+  ${dbt('vehicle','Fleet vehicles',['getVehicles()','getWalkInVehicles()','getBookingWithVehicle()','getVehicleById()','getPendingBookingRequests()'],['addVehicle()','updateVehicle()','createWalkInQuotation() (marks booked)','approveBookingRequest() (sets next_available_date)','rejectBookingRequest()','updateVehicleForTrip() (marks rented)'])}
+  ${dbt('quotations','Pricing records — 1:1 with bookings via unique constraint',['getQuotationByBooking()','getAdminBookingLedger()','createOrFetchQuotation()'],['createWalkInQuotation()','confirmWalkInBooking()','submitQuotationRequest()','saveQuotationDraft()','updateBookingQuoteStatus()','approveBookingRequest()','rejectBookingRequest()','markQuotationSent()'])}
+  ${dbt('payments','Payment records — status: initiated → paid',['getPaymentByBooking()','getAdminBookingLedger()','approveBookingRequest() (cash check)'],['recordOfflineAdvancePayment()','createCashfreeOrder() via RPC insert_payment_record','updatePaymentStatusByBookingId()'])}
+  ${dbt('notifications','In-app notifications — realtime subscribed',['getMyNotifications()'],['insertNotificationPayload()','notifyAdminsOfBookingRequest()','markNotificationsRead()','markNotificationRead()'])}
+  ${dbt('audit_logs','Immutable action audit trail',['getAuditLogs()'],['logAudit() — called inside service for every important action'])}
+  ${dbt('inspections','Vehicle checkout/handover records — written once per booking',['None currently read in app'],['createInspection()'])}
+  ${dbt('user_roles','Role assignments — "admin" or "dealer"',['getUserRole()','getAllUserRoles()','notifyAdminsOfBookingRequest() (finds admin IDs)'],['ensureUserRoleAndDealer() (creates on first login)','updateUserRole()'])}
+  ${dbt('dealers','Dealer company profiles',['getDealerProfile()','sendCustomerConfirmationEmail() internal'],['upsertDealerProfile()','ensureUserRoleAndDealer()'])}
+  ${dbt('vehicle_tiers','Pricing tier definitions — daily rate, deposit, mileage limits',['getVehicleTiers()','getBookingWithVehicle()','getWalkInVehicles()','createOrFetchQuotation()'],['No writes from app code — managed directly in Supabase dashboard'])}
+  ${dbt('bulk_bookings','Group/fleet booking headers',['getMyBulkBookings()'],['insertBulkBooking() — defined but never called'])}
+</div>
+
+<!-- ======== DEAD CODE ======== -->
+<div class="panel" id="panel-dead-code">
+  <div class="alert alert-danger">🔴 These are all defined in the codebase but never called by any component. They're safe to remove or mark with a TODO comment.</div>
+  <div class="fn-section-title">Functions in supabase.ts with no callers</div>
+  <div class="dead-item"><div class="dead-item-name">recoverSession()</div><div class="dead-item-loc">supabase.ts line ~102</div><div class="dead-item-reason">No component or service calls this. Could be wired to app init to refresh stale sessions automatically.</div></div>
+  <div class="dead-item"><div class="dead-item-name">getAllUsers()</div><div class="dead-item-loc">supabase.ts line ~180</div><div class="dead-item-reason">Duplicates getAllUserRoles() exactly. Never called. One of them should be removed.</div></div>
+  <div class="dead-item"><div class="dead-item-name">deleteVehicle(id)</div><div class="dead-item-loc">supabase.ts line ~315</div><div class="dead-item-reason">Admin UI uses updateVehicle({ status: 'deleted' }) for soft-archive instead. Hard delete never used.</div></div>
+  <div class="dead-item"><div class="dead-item-name">searchCustomers(query)</div><div class="dead-item-loc">supabase.ts line ~385</div><div class="dead-item-reason">Current UI uses searchCustomersByField() instead. This broad-search version has no callers.</div></div>
+  <div class="dead-item"><div class="dead-item-name">approveBooking(bookingId)</div><div class="dead-item-loc">supabase.ts line ~1480</div><div class="dead-item-reason">Admin UI uses approveBookingRequest() which does much more. This simple version is never called.</div></div>
+  <div class="dead-item"><div class="dead-item-name">rejectBooking(bookingId, reason)</div><div class="dead-item-loc">supabase.ts line ~1488</div><div class="dead-item-reason">Admin UI uses rejectBookingRequest() instead. Same story as approveBooking.</div></div>
+  <div class="dead-item"><div class="dead-item-name">insertBulkBooking(data)</div><div class="dead-item-loc">supabase.ts line ~1495</div><div class="dead-item-reason">No UI currently triggers bulk booking creation.</div></div>
+  <div class="dead-item"><div class="dead-item-name">getBulkBookings()</div><div class="dead-item-loc">supabase.ts line ~1499</div><div class="dead-item-reason">Dealer UI uses getMyBulkBookings() instead. This admin version has no callers.</div></div>
+  <div class="dead-item"><div class="dead-item-name">insertNotification(...)</div><div class="dead-item-loc">supabase.ts line ~1503</div><div class="dead-item-reason">Internals use insertNotificationPayload() directly. This convenience wrapper is never called externally.</div></div>
+  <div class="dead-item"><div class="dead-item-name">sendQuotationEmail(payload) in supabase.ts</div><div class="dead-item-loc">supabase.ts line ~1640</div><div class="dead-item-reason">UI uses QuotationEmailService (EmailJS) instead of this server-side Supabase Edge Function path.</div></div>
+  <div class="dead-item"><div class="dead-item-name">verifyAndActivatePayment(...)</div><div class="dead-item-loc">supabase.ts line ~1783</div><div class="dead-item-reason">Should be called after Cashfree payment return to verify server-side. Currently not wired into the payment flow.</div></div>
+  <div class="dead-item"><div class="dead-item-name">updatePaymentStatus(cfOrderId, status, cfPaymentId?)</div><div class="dead-item-loc">supabase.ts line ~1802</div><div class="dead-item-reason">Calls RPC update_payment_status whose SQL definition is not present in the repo.</div></div>
+
+  <div class="fn-section-title" style="margin-top:24px">Unused files & placeholders</div>
+  <div class="dead-item"><div class="dead-item-name">src/app/pages/booking/contract/.gitkeep</div><div class="dead-item-loc">No route, no component</div><div class="dead-item-reason">Empty folder placeholder for a future contract step.</div></div>
+  <div class="dead-item"><div class="dead-item-name">src/app/pages/booking/settlement/.gitkeep</div><div class="dead-item-loc">No route, no component</div><div class="dead-item-reason">Empty folder placeholder for a future settlement flow.</div></div>
+  <div class="dead-item"><div class="dead-item-name">src/app/app.config.ts</div><div class="dead-item-loc">Not imported by main.ts</div><div class="dead-item-reason">An alternate app config exists but the current bootstrap in main.ts doesn't use it.</div></div>
+  <div class="dead-item"><div class="dead-item-name">api/confirm-cashfree-payment.js</div><div class="dead-item-loc">api/ folder</div><div class="dead-item-reason">No frontend fetch call found. Current UI skips server-side payment verification entirely — this is a security issue.</div></div>
+  <div class="dead-item"><div class="dead-item-name">supabase/functions/create-cashfree-order/index.ts</div><div class="dead-item-loc">supabase/functions/</div><div class="dead-item-reason">App uses POST /api/create-cashfree-order (Vercel) instead of supabase.functions.invoke().</div></div>
+  <div class="dead-item"><div class="dead-item-name">supabase/functions/confirm-cashfree-payment/index.ts</div><div class="dead-item-loc">supabase/functions/</div><div class="dead-item-reason">No invoke call found anywhere in the frontend.</div></div>
+
+  <div class="fn-section-title" style="margin-top:24px">Imported but unused in component files</div>
+  <div class="dead-item"><div class="dead-item-name">Auth + Router injected in login.ts</div><div class="dead-item-loc">src/app/pages/login/login.ts lines 16–18</div><div class="dead-item-reason">Constructor injects Auth and Router but googleLogin() only uses SupabaseService.</div></div>
+  <div class="dead-item"><div class="dead-item-name">Inject, signal, SupabaseService in app.ts</div><div class="dead-item-loc">src/app/app.ts lines 1–5, 19</div><div class="dead-item-reason">Imported/injected but never used in the class body.</div></div>
+</div>
+
+<!-- ======== PACKAGES ======== -->
+<div class="panel" id="panel-packages">
+  <div class="fn-section-title">Runtime dependencies</div>
+  ${pkg('@angular/animations','Angular animation runtime','Likely indirectly required by PrimeNG — no direct import in app code',false)}
+  ${pkg('@angular/common','Common Angular directives and pipes like NgIf, NgFor, DatePipe','Most components and pages',false)}
+  ${pkg('@angular/core','The Angular framework itself — Component, Injectable, signal, etc.','Almost every .ts file in src/app',false)}
+  ${pkg('@angular/forms','Template-driven and reactive forms','Form-based pages, admin-topbar.ts',false)}
+  ${pkg('@angular/router','Routing, guards, navigation, ActivatedRoute','main.ts, app.routes.ts, all navigating pages',false)}
+  ${pkg('@supabase/supabase-js','The Supabase client — all DB/auth/realtime/storage operations','src/app/services/supabase.ts only',false)}
+  ${pkg('primeng','The UI component library — tables, dialogs, toast, dropdowns, charts','main.ts, nearly every page and component',false)}
+  ${pkg('primeicons','Icon font used by PrimeNG components','src/styles.scss',false)}
+  ${pkg('@primeng/themes','PrimeNG Aura theme preset','main.ts',false)}
+  ${pkg('@primeuix/themes','Extra Prime/PrimeUIX theme package','⚠️ No direct import found — appears unused',true)}
+  ${pkg('chart.js','Chart rendering — used under PrimeNG chart components','No direct import — transitively required by primeng/chart',false)}
+  ${pkg('rxjs','Reactive utilities — Observable, Subject, forkJoin','layout.ts, admin-overview.ts',false)}
+  ${pkg('tslib','TypeScript runtime helper (async/await helpers etc.)','No direct import — used by build tooling',false)}
+
+  <div class="fn-section-title" style="margin-top:24px">Dev dependencies (build tools — not in app code)</div>
+  ${pkg('@angular/cli','Angular CLI — ng build, ng serve, ng generate','Not imported in app — CLI tool only',false)}
+  ${pkg('typescript','TypeScript compiler','Not imported — build tool only',false)}
+  ${pkg('tailwindcss','Tailwind CSS build tooling','⚠️ No Tailwind classes found in app source — may be unused',true)}
+  ${pkg('autoprefixer','CSS vendor prefix automation','Not imported — PostCSS plugin',false)}
+  ${pkg('postcss','CSS build tooling','Not imported — build tool',false)}
+  ${pkg('vitest','Test runner','Not imported — no active tests found wired to vitest',false)}
+  ${pkg('jsdom','DOM runtime for tests','Not imported directly',false)}
+</div>
+
+  </div><!-- end content -->
+</div><!-- end main -->
+
+<script>
+function fn(name, desc, tables, external, callers, extraTags, note) {
+  const id = 'f' + Math.random().toString(36).slice(2,8);
+  const dead = callers && callers.includes('⚰');
+  const headerBg = dead ? 'background:rgba(239,68,68,0.05);border-color:rgba(239,68,68,0.25)' : '';
+  let tags = '';
+  if(tables) tags += tables.split('·').map(t=>t.trim()).filter(Boolean).map(t=>`<span class="tag tag-table">🗄 ${t}</span>`).join('');
+  if(external) tags += `<span class="tag tag-external">🌐 ${external}</span>`;
+  if(dead) tags += `<span class="tag tag-dead">⚰ never called</span>`;
+  if(extraTags && extraTags.includes('tag-private')) tags += `<span class="tag tag-private">🔒 private/internal</span>`;
+  let callerHtml = callers ? callers.split('·').map(c=>c.trim()).filter(Boolean).map(c=>`<code>${c}</code>`).join(' ').replace('⚰ NEVER CALLED — dead code','<span style="color:var(--red)">⚰ Never called — dead code</span>') : '';
+  let noteHtml = note ? `<div class="fn-detail-row"><span class="fn-detail-label">💡 Note</span><span class="fn-detail-val"><div class="note-box">${note}</div></span></div>` : '';
+  return `<div class="fn-card${dead?' open':''}" id="${id}" style="${headerBg}">
+    <div class="fn-header" onclick="toggleCard('${id}')">
+      <div class="fn-sig">
+        <div class="fn-name-row">
+          <span class="fn-name">${name}</span>
+          <span class="fn-arrow">—</span>
+          <span class="fn-desc">${desc}</span>
         </div>
-        <article class="doc">${html.join("\n")}</article>
-        <div class="footer-note">
-          Built as a styled reader for <code>PROJECT_MAP.md</code>. Update the markdown file when the project changes and this viewer will pick it up automatically.
-        </div>
-      `;
+        <div class="fn-tags">${tags}</div>
+      </div>
+      <span class="fn-expand-btn${dead?' open':''}">›</span>
+    </div>
+    <div class="fn-detail">
+      <div class="fn-detail-row"><span class="fn-detail-label">📋 What it does</span><span class="fn-detail-val">${desc}</span></div>
+      ${tables?`<div class="fn-detail-row"><span class="fn-detail-label">🗄 DB tables</span><span class="fn-detail-val">${tables}</span></div>`:''}
+      ${external?`<div class="fn-detail-row"><span class="fn-detail-label">🌐 External</span><span class="fn-detail-val">${external}</span></div>`:''}
+      <div class="fn-detail-row"><span class="fn-detail-label">📞 Called by</span><span class="fn-detail-val">${callerHtml}</span></div>
+      ${noteHtml}
+    </div>
+  </div>`;
+}
 
-      buildToc(headings);
-    }
+function fstep(num, color, who, title, fnCall, desc, tables, status, isLast) {
+  const chips = tables ? tables.map(t=>`<span class="flow-table-chip">${t}</span>`).join('') : '';
+  const statusColor = status === 'none' ? 'var(--faint)' : status.includes('in_service') ? 'var(--teal)' : status.includes('approved') ? 'var(--green)' : 'var(--amber)';
+  return `<div class="flow-step">
+    <div class="flow-left">
+      <div class="flow-num" style="background:${color}22;color:${color};border:1px solid ${color}44">${num}</div>
+      ${!isLast?`<div class="flow-line" style="background:${color}33"></div>`:''}
+    </div>
+    <div class="flow-body">
+      <div class="flow-who" style="color:${color}">${who}</div>
+      <div class="flow-title">${title}</div>
+      <div class="flow-desc" style="margin-bottom:5px"><code>${fnCall}</code></div>
+      <div class="flow-desc">${desc}</div>
+      ${chips?`<div class="flow-tables">${chips}</div>`:''}
+      ${status&&status!=='none'?`<div style="margin-top:6px"><span class="flow-status-chip" style="background:${statusColor}22;color:${statusColor};border:1px solid ${statusColor}44">Status: ${status}</span></div>`:''}
+    </div>
+  </div>`;
+}
 
-    async function loadProjectMap() {
-      try {
-        const response = await fetch("./PROJECT_MAP.md", { cache: "no-store" });
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-        const markdown = await response.text();
-        renderMarkdown(markdown);
-      } catch (error) {
-        tocEl.innerHTML = `
-          <div class="notice">
-            <strong>Could not load PROJECT_MAP.md.</strong> This preview environment may block relative file fetches. Open this page through a local static server or an IDE preview that serves files over HTTP so the full project map can render here.
-          </div>
-        `;
-        contentEl.innerHTML = `
-          <div class="notice">
-            <strong>Rendering paused.</strong> The old HTML summary was removed because it could miss sections from the actual project map. This viewer now depends on loading <code>PROJECT_MAP.md</code> directly.
-            <br /><br />
-            Error detail: <code>${escapeHtml(String(error && error.message ? error.message : error))}</code>
-          </div>
-        `;
-      }
-    }
+function dbt(name, desc, reads, writes) {
+  const rChips = reads.map(r=>`<span class="db-fn-chip">${r}</span>`).join('');
+  const wChips = writes.map(w=>`<span class="db-fn-chip">${w}</span>`).join('');
+  return `<div class="db-card">
+    <div class="db-card-header"><span class="db-table-name">${name}</span><span class="db-table-desc">${desc}</span></div>
+    <div class="db-grid">
+      <div class="db-col reads"><div class="db-col-label">📖 Reads</div>${rChips}</div>
+      <div class="db-col writes"><div class="db-col-label">✏️ Writes</div>${wChips}</div>
+    </div>
+  </div>`;
+}
 
-    loadProjectMap();
-  </script>
+function pkg(name, desc, usedBy, unused) {
+  const unusedBadge = unused ? `<span class="pkg-unused">⚠ UNUSED</span>` : '';
+  return `<div class="pkg-card">
+    <div class="pkg-name">${name}${unusedBadge}</div>
+    <div class="pkg-body">
+      <div class="pkg-desc">${desc}</div>
+      <div class="pkg-sub">Used by: ${usedBy}</div>
+    </div>
+  </div>`;
+}
+
+const topbarData = {
+  home: {title:'Home & Overview',path:'AUTOFLOW Fleet Ops',badge:'Overview',color:'var(--green)'},
+  'svc-supabase': {title:'supabase.ts',path:'src/app/services/supabase.ts',badge:'Service',color:'var(--teal)'},
+  'svc-auth': {title:'auth.ts',path:'src/app/services/auth.ts',badge:'Service',color:'var(--teal)'},
+  'svc-bookingflow': {title:'booking-flow.ts',path:'src/app/services/booking-flow.ts',badge:'Service',color:'var(--teal)'},
+  'svc-pdf': {title:'quotation-pdf.ts',path:'src/app/services/quotation-pdf.ts',badge:'Service',color:'var(--teal)'},
+  'svc-email': {title:'quotation-email.ts',path:'src/app/services/quotation-email.service.ts',badge:'Service',color:'var(--teal)'},
+  'svc-theme': {title:'theme.ts',path:'src/app/services/theme.ts',badge:'Service',color:'var(--teal)'},
+  'pg-dealer-bookings':{title:'dealer-bookings',path:'/dealer/bookings',badge:'Dealer Page',color:'var(--purple)'},
+  'pg-dealer-dashboard':{title:'dealer-dashboard',path:'/dealer/dashboard',badge:'Dealer Page',color:'var(--purple)'},
+  'pg-dealer-inventory':{title:'dealer-inventory',path:'/dealer/inventory',badge:'Dealer Page',color:'var(--purple)'},
+  'pg-dealer-analytics':{title:'dealer-analytics',path:'/dealer/analytics',badge:'Dealer Page',color:'var(--purple)'},
+  'pg-customer-details':{title:'customer-details',path:'/dealer/booking/:id/customer-details',badge:'Dealer Page',color:'var(--purple)'},
+  'pg-quotation':{title:'quotation',path:'/dealer/booking/:id/quotation',badge:'Dealer Page',color:'var(--purple)'},
+  'pg-payment':{title:'payment',path:'/dealer/booking/:id/payments',badge:'Dealer Page',color:'var(--purple)'},
+  'pg-my-bookings':{title:'my-bookings',path:'/dealer/my-bookings',badge:'Dealer Page',color:'var(--purple)'},
+  'pg-inspection':{title:'inspection',path:'/dealer/inspection/:id',badge:'Dealer Page',color:'var(--purple)'},
+  'pg-admin-overview':{title:'admin-overview',path:'/admin/dashboard',badge:'Admin Page',color:'var(--blue)'},
+  'pg-admin-vehicles':{title:'admin-vehicles',path:'/admin/vehicles',badge:'Admin Page',color:'var(--blue)'},
+  'pg-admin-bookings':{title:'admin-bookings',path:'/admin/bookings',badge:'Admin Page',color:'var(--blue)'},
+  'pg-admin-users':{title:'admin-users',path:'/admin/users',badge:'Admin Page',color:'var(--blue)'},
+  'pg-admin-revenue':{title:'admin-revenue',path:'/admin/reports',badge:'Admin Page',color:'var(--blue)'},
+  'pg-admin-analytics':{title:'admin-analytics',path:'/admin/analytics',badge:'Admin Page',color:'var(--blue)'},
+  'pg-admin-audit':{title:'admin-audit-logs',path:'/admin/audit',badge:'Admin Page',color:'var(--blue)'},
+  'pg-auth-login':{title:'login / auth-callback',path:'/login · /auth/callback',badge:'Auth',color:'var(--coral)'},
+  'flow-booking':{title:'Booking flow (end-to-end)',path:'Walk-in wizard Steps 1–9',badge:'Flow',color:'var(--coral)'},
+  'flow-payment':{title:'Payment flow',path:'Online (Cashfree) + Offline (Cash)',badge:'Flow',color:'var(--coral)'},
+  'db-tables':{title:'All database tables',path:'Supabase · 12 tables',badge:'Database',color:'var(--amber)'},
+  'dead-code':{title:'Dead code',path:'Unused functions, files, imports',badge:'Analysis',color:'var(--red)'},
+  packages:{title:'Package dependencies',path:'package.json',badge:'Analysis',color:'var(--pink)'},
+};
+
+function nav(el, id) {
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  if(el) el.classList.add('active');
+  else {
+    document.querySelectorAll('.nav-item').forEach(n=>{
+      if(n.getAttribute('onclick')&&n.getAttribute('onclick').includes("'"+id+"'")) n.classList.add('active');
+    });
+  }
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  const panel = document.getElementById('panel-'+id);
+  if(panel) panel.classList.add('active');
+  const d = topbarData[id]||{title:id,path:'',badge:'',color:'var(--text)'};
+  document.getElementById('tb-title').textContent = d.title;
+  document.getElementById('tb-path').textContent = d.path;
+  const badge = document.getElementById('tb-badge');
+  badge.textContent = d.badge;
+  badge.style.cssText = `background:${d.color}22;color:${d.color};border:1px solid ${d.color}44`;
+  document.getElementById('content').scrollTop = 0;
+}
+
+function toggleCard(id) {
+  const card = document.getElementById(id);
+  const btn = card.querySelector('.fn-expand-btn');
+  card.classList.toggle('open');
+  btn.classList.toggle('open');
+}
+
+function switchTab(btn, tabId) {
+  const container = btn.closest('.panel');
+  container.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  container.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  const target = document.getElementById('tab-'+tabId);
+  if(target) target.classList.add('active');
+}
+</script>
 </body>
 </html>
