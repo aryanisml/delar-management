@@ -21,10 +21,12 @@ import { Login } from './pages/login/login';
 import { ProfileComponent } from './pages/profile/profile';
 import { QuotationComponent } from './pages/dealer-quotation/quotation.component';
 import { ReturnComponent } from './pages/booking/return/return.component';
+import { ChatbotPageComponent } from './pages/chatbot-page/chatbot-page.component';
 
 export const routes: Routes = [
   { path: 'login', component: Login },
   { path: 'auth/callback', component: AuthCallback },
+  { path: 'ai-assistant', component: ChatbotPageComponent, canActivate: [authGuard], data: { title: 'AI Chatbot' } },
   {
     path: '',
     component: Layout,

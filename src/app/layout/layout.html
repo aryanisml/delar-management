@@ -55,7 +55,8 @@
         (searchChange)="onSearchChange($event)"
         (markAllRead)="markNotificationsRead()"
         (notificationClick)="openNotification($event)"
-        (themeToggle)="theme.toggle()">
+        (themeToggle)="theme.toggle()"
+        (chatToggle)="chatDrawerOpen.set(true)">
       </app-admin-topbar>
 
       <main class="flex-1 overflow-y-auto p-4 lg:p-6">
@@ -116,7 +117,8 @@
         (searchChange)="onSearchChange($event)"
         (markAllRead)="markNotificationsRead()"
         (notificationClick)="openNotification($event)"
-        (themeToggle)="theme.toggle()">
+        (themeToggle)="theme.toggle()"
+        (chatToggle)="chatDrawerOpen.set(true)">
       </app-admin-topbar>
 
       <main class="flex-1 overflow-y-auto p-4 lg:p-6">
@@ -125,3 +127,15 @@
     </div>
   </div>
 }
+
+<!-- Chat Drawer -->
+<p-drawer
+  [visible]="chatDrawerOpen()"
+  (visibleChange)="chatDrawerOpen.set($event)"
+  position="right"
+  [modal]="true"
+  [style]="{ width: '100%', maxWidth: '500px' }"
+  styleClass="p-drawer-md"
+  header="AI Assistant">
+  <app-chatbot></app-chatbot>
+</p-drawer>
