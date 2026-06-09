@@ -1,3 +1,7 @@
+@if (bookingAgentEnabled && initialized()) {
+  <app-booking-assistant />
+}
+
 @if (!initialized()) {
   <div class="flex min-h-screen items-center justify-center bg-slate-50 text-sm text-slate-500">
     Loading workspace...

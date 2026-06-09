@@ -11,17 +11,21 @@ import { ThemeService } from '../services/theme';
 import { buildBookings, normalizeVehicle } from '../admin-ui.models';
 import { AdminSidebar } from './admin-sidebar';
 import { AdminTopbar } from './admin-topbar';
+import { BookingAssistant } from '../components/booking-assistant/booking-assistant';
+import { environment } from '../../environments/environment';
 
 type DealerMenuItem = { section: string; label: string; icon: string; route: string };
 
 @Component({
   selector: 'app-layout',
   standalone: true,
-  imports: [CommonModule, RouterModule, DrawerModule, ButtonModule, AdminSidebar, AdminTopbar],
+  imports: [CommonModule, RouterModule, DrawerModule, ButtonModule, AdminSidebar, AdminTopbar, BookingAssistant],
   templateUrl: './layout.html',
   styleUrl: './layout.scss',
 })
 export class Layout {
+  // Booking Assistant is additive and fully gated by this flag (default false).
+  readonly bookingAgentEnabled = environment.enableBookingAgent;
   private auth = inject(Auth);
   private supabase = inject(SupabaseService);
   private router = inject(Router);
