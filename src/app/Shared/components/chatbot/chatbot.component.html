@@ -1,0 +1,248 @@
+<div class="chatbot-container">
+  <!-- Configuration Toast -->
+  <p-toast></p-toast>
+
+  <!-- Config Dialog - Append to body to escape drawer -->
+  <p-dialog
+    [(visible)]="showConfigDialog"
+    [header]="'Configure LLM'"
+    [modal]="true"
+    [style]="{ width: '90%', maxWidth: '600px' }"
+    [draggable]="false"
+    appendTo="body"
+  >
+    <div class="config-form">
+      <!-- Provider Selection -->
+      <div class="form-group">
+        <label>LLM Provider:</label>
+        <p-dropdown
+          [(ngModel)]="selectedProvider"
+          [options]="providers"
+          optionLabel="label"
+          optionValue="value"
+          (onChange)="onProviderChange()"
+          class="full-width"
+        ></p-dropdown>
+      </div>
+
+      <!-- API Key -->
+      <div class="form-group" *ngIf="selectedProvider !== 'ollama'">
+        <label>API Key:</label>
+        <input
+          pInputText
+          [(ngModel)]="apiKey"
+          type="password"
+          class="full-width"
+          placeholder="Enter your API key"
+        />
+      </div>
+
+      <!-- Base URL (for self-hosted) -->
+      <div class="form-group">
+        <label>Base URL (Optional):</label>
+        <input
+          pInputText
+          [(ngModel)]="baseUrl"
+          class="full-width"
+          [placeholder]="baseUrlPlaceholder[selectedProvider]"
+        />
+      </div>
+
+      <!-- Model Selection -->
+      <div class="form-group">
+        <label>Model:</label>
+        <p-dropdown
+          [(ngModel)]="model"
+          [options]="getAvailableModels()"
+          class="full-width"
+          editable="true"
+          placeholder="Select or type a model"
+        ></p-dropdown>
+      </div>
+
+      <!-- Temperature -->
+      <div class="form-group">
+        <label>Temperature (Creativity): {{ temperature.toFixed(1) }}</label>
+        <input
+          type="range"
+          [(ngModel)]="temperature"
+          min="0"
+          max="2"
+          step="0.1"
+          class="full-width"
+        />
+      </div>
+
+      <!-- Max Tokens -->
+      <div class="form-group">
+        <label>Max Tokens:</label>
+        <input
+          pInputText
+          [(ngModel)]="maxTokens"
+          type="number"
+          class="full-width"
+          min="256"
+          max="8192"
+        />
+      </div>
+
+      <ng-template pTemplate="footer">
+        <button
+          pButton
+          type="button"
+          label="Cancel"
+          (click)="showConfigDialog = false"
+          class="p-button-text"
+        ></button>
+        <button
+          pButton
+          type="button"
+          label="Test Connection"
+          icon="pi pi-flash"
+          (click)="testConnection()"
+          [loading]="testingConnection"
+          class="p-button-info"
+        ></button>
+        <button
+          pButton
+          type="button"
+          label="Save Configuration"
+          (click)="saveLLMConfig()"
+          class="p-button-success"
+        ></button>
+      </ng-template>
+    </div>
+  </p-dialog>
+
+  <!-- Main Chat Card -->
+  <p-card class="chat-card">
+    <ng-template pTemplate="header">
+      <div class="chat-header">
+        <h3>Vehicle Rental Assistant</h3>
+        <button
+          pButton
+          type="button"
+          [icon]="isConfigured ? 'pi pi-check-circle' : 'pi pi-cog'"
+          [label]="isConfigured ? 'Configured' : 'Configure'"
+          (click)="openConfigDialog()"
+          [class.configured]="isConfigured"
+          class="p-button-sm config-btn"
+        ></button>
+      </div>
+    </ng-template>
+
+    <!-- Messages Area -->
+    <div class="messages-wrapper">
+      <p-scrollPanel #messageContainer class="messages-container">
+        <div *ngIf="messages.length === 0" class="empty-state">
+          <i class="pi pi-inbox"></i>
+          <p>Start a conversation!</p>
+          <p class="hint">
+            Ask me to search vehicles, find customers, or create bookings.
+          </p>
+        </div>
+
+        <div *ngFor="let message of messages" [ngClass]="getMessageClass(message)">
+          <!-- User Message -->
+          <div *ngIf="message.role === 'user'" class="message user-msg">
+            <div class="message-avatar">
+              <i class="pi pi-user"></i>
+            </div>
+            <div class="message-content">
+              {{ message.content }}
+            </div>
+          </div>
+
+          <!-- Assistant Message with Tool Calls -->
+          <div *ngIf="message.role === 'assistant'" class="message assistant-msg">
+            <div class="message-avatar">
+              <i class="pi pi-bolt"></i>
+            </div>
+            <div class="message-content">
+              <!-- Assistant text response -->
+              <div *ngIf="message.content" class="assistant-text">
+                {{ message.content }}
+              </div>
+
+              <!-- Tool Calls -->
+              <div *ngIf="message.toolCalls && message.toolCalls.length > 0" class="tool-calls">
+                <div class="tool-header">
+                  <i class="pi pi-hammer"></i> Tools Called:
+                </div>
+                <div *ngFor="let toolCall of message.toolCalls" class="tool-call">
+                  <div class="tool-name">{{ toolCall.name }}</div>
+                  <div class="tool-args">
+                    <pre>{{ formatToolCall(toolCall.name, toolCall.arguments) }}</pre>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tool Results -->
+          <div *ngIf="message.role === 'tool'" class="message tool-msg">
+            <div class="message-avatar">
+              <i class="pi pi-database"></i>
+            </div>
+            <div class="message-content">
+              <div class="tool-header">
+                <i class="pi pi-check-circle"></i> Tool Results:
+              </div>
+              <div *ngFor="let result of message.toolResults" class="tool-result">
+                <div class="tool-name">{{ result.toolName }}</div>
+                <div *ngIf="result.error" class="tool-error">
+                  <strong>Error:</strong> {{ result.error }}
+                </div>
+                <div *ngIf="!result.error" class="tool-data">
+                  <pre>{{ formatToolResult(result.result) }}</pre>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div *ngIf="loading" class="message assistant-msg">
+          <div class="message-avatar">
+            <i class="pi pi-spin pi-spinner"></i>
+          </div>
+          <div class="message-content">
+            <p-skeleton height="2rem" width="80%"></p-skeleton>
+            <p-skeleton height="2rem" width="60%"></p-skeleton>
+          </div>
+        </div>
+      </p-scrollPanel>
+    </div>
+
+    <!-- Input Area -->
+    <div class="input-area">
+      <div class="input-container">
+        <textarea
+          pInputTextarea
+          [(ngModel)]="userMessage"
+          (keydown.enter.ctrl)="sendMessage()"
+          (keydown.enter.meta)="sendMessage()"
+          placeholder="Ask anything... (Ctrl+Enter to send)"
+          class="message-input"
+          [disabled]="loading || !isConfigured"
+          rows="3"
+        ></textarea>
+        <button
+          pButton
+          type="button"
+          icon="pi pi-send"
+          (click)="sendMessage()"
+          [loading]="loading"
+          [disabled]="loading || !isConfigured || !userMessage.trim()"
+          class="p-button-rounded p-button-success send-btn"
+          pTooltip="Send message (Ctrl+Enter)"
+        ></button>
+      </div>
+
+      <div *ngIf="!isConfigured" class="warning-banner">
+        <i class="pi pi-info-circle"></i>
+        <span>Please configure LLM to start chatting</span>
+      </div>
+    </div>
+  </p-card>
+</div>

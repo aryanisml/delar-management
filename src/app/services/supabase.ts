@@ -4,14 +4,6 @@ import { environment } from '../../environments/environment';
 import { Booking } from '../models/booking';
 import { Vehicle } from '../models/vehicle';
 
-type BulkBookingInput = {
-  id: string;
-  dealer_id: string;
-  total_vehicles: number;
-  notes?: string;
-  status?: string;
-};
-
 type QuoteSubmissionInput = {
   booking: any;
   vehicle: any;
@@ -99,11 +91,6 @@ export class SupabaseService {
     });
   }
 
-  async recoverSession() {
-    const { data } = await this.supabase.auth.refreshSession();
-    return data.session;
-  }
-
   async getCurrentUser() {
     const { data, error } = await this.supabase.auth.getUser();
     if (error || !data) {
@@ -174,10 +161,6 @@ export class SupabaseService {
   }
 
   async getAllUserRoles() {
-    return await this.supabase.from('user_roles').select('*');
-  }
-
-  async getAllUsers() {
     return await this.supabase.from('user_roles').select('*');
   }
 
@@ -312,10 +295,6 @@ export class SupabaseService {
     return await this.supabase.from(this.vehiclesTable).update(vehicle).eq('id', id);
   }
 
-  async deleteVehicle(id: string) {
-    return await this.supabase.from(this.vehiclesTable).delete().eq('id', id);
-  }
-
   async createBooking(booking: Partial<Booking>) {
     return await this.supabase.from('bookings').insert([booking]);
   }
@@ -379,23 +358,6 @@ export class SupabaseService {
       return await this.supabase.from('quotations').select('*').eq('booking_id', bookingId).maybeSingle();
     } catch (error) {
       return { data: null, error };
-    }
-  }
-
-  async searchCustomers(query: string) {
-    const term = query.trim();
-    if (term.length < 3) {
-      return { data: [], error: null };
-    }
-
-    try {
-      return await this.supabase
-        .from('customers')
-        .select('*')
-        .or(`mobile.ilike.%${term}%,email.ilike.%${term}%,full_name.ilike.%${term}%`)
-        .limit(6);
-    } catch (error) {
-      return { data: [], error };
     }
   }
 
@@ -1230,65 +1192,6 @@ export class SupabaseService {
     return await this.supabase.from('bookings').select('*').eq('vehicle_id', vehicleId);
   }
 
-  async getMyBulkBookings(userId: string) {
-    const bulkResult = await this.supabase
-      .from('bulk_bookings')
-      .select('*')
-      .eq('dealer_id', userId)
-      .order('created_at', { ascending: false });
-
-    if (bulkResult.error || !bulkResult.data?.length) {
-      return { data: bulkResult.data ?? [], error: bulkResult.error };
-    }
-
-    const bulkIds = bulkResult.data.map((bulk: any) => bulk.id);
-    const bookingsResult = await this.supabase
-      .from('bookings')
-      .select(`
-          id,
-          vehicle_id,
-          user_id,
-          pickup_location,
-          drop_location,
-          start_date,
-          end_date,
-          purpose,
-          quantity,
-          status,
-          rejection_reason,
-          created_at,
-          bulk_booking_id,
-          vehicle (
-            id,
-            brand,
-            model,
-            location,
-            daily_rate,
-            image_url
-          )
-      `)
-      .in('bulk_booking_id', bulkIds)
-      .order('created_at', { ascending: false });
-
-    if (bookingsResult.error) {
-      return { data: bulkResult.data, error: bookingsResult.error };
-    }
-
-    const bookingsByBulkId = new Map<string, any[]>();
-    for (const booking of bookingsResult.data ?? []) {
-      const key = booking.bulk_booking_id;
-      bookingsByBulkId.set(key, [...(bookingsByBulkId.get(key) ?? []), booking]);
-    }
-
-    return {
-      data: bulkResult.data.map((bulk: any) => ({
-        ...bulk,
-        bookings: bookingsByBulkId.get(bulk.id) ?? [],
-      })),
-      error: null,
-    };
-  }
-
   async updateBookingStatus(bookingId: string, newStatus: string) {
     return await this.supabase.from('bookings').update({ status: newStatus }).eq('id', bookingId);
   }
@@ -1523,33 +1426,6 @@ export class SupabaseService {
     };
   }
 
-  async approveBooking(bookingId: string) {
-    const user = await this.getCurrentUser();
-    return await this.supabase
-      .from('bookings')
-      .update({ status: 'approved', approved_by: user?.id, approved_at: new Date().toISOString() })
-      .eq('id', bookingId);
-  }
-
-  async rejectBooking(bookingId: string, reason: string) {
-    return await this.supabase
-      .from('bookings')
-      .update({ status: 'rejected', rejection_reason: reason })
-      .eq('id', bookingId);
-  }
-
-  async insertBulkBooking(data: BulkBookingInput) {
-    return await this.supabase.from('bulk_bookings').insert([{ ...data, status: data.status ?? 'pending' }]);
-  }
-
-  async getBulkBookings() {
-    return await this.supabase.from('bulk_bookings').select('*').order('created_at', { ascending: false });
-  }
-
-  async insertNotification(userId: string, title: string, message: string, bookingId?: string, type?: string) {
-    return await this.insertNotificationPayload({ user_id: userId, title, message, booking_id: bookingId, type });
-  }
-
   async insertNotificationPayload(payload: NotificationInput) {
     return await this.supabase.from('notifications').insert([payload]);
   }
@@ -1676,44 +1552,6 @@ export class SupabaseService {
     });
   }
 
-  async sendQuotationEmail(payload: {
-    to: string;
-    customerName: string;
-    quoteReference: string;
-    booking: any;
-    quotation: any;
-    vehicle: any;
-    pdfBase64: string;
-    fileName: string;
-  }) {
-    if (!payload.to?.trim()) {
-      return { data: null, error: new Error('Customer email address is missing') };
-    }
-
-    const user = await this.getCurrentUser();
-    const { data: dealer } = user?.id ? await this.getDealerProfile(user.id) : { data: null };
-
-    return await this.supabase.functions.invoke('send-booking-confirmation', {
-      body: {
-        mode: 'quotation',
-        to: payload.to.trim(),
-        quoteReference: payload.quoteReference,
-        customerName: payload.customerName,
-        vehicle: payload.vehicle,
-        booking: payload.booking,
-        quotation: payload.quotation,
-        dealer,
-        attachments: [
-          {
-            filename: payload.fileName,
-            content: payload.pdfBase64,
-            type: 'application/pdf',
-          },
-        ],
-      },
-    });
-  }
-
   async getAuditLogs() {
     return await this.supabase.from('audit_logs').select('*').order('created_at', { ascending: false });
   }
@@ -1827,32 +1665,6 @@ export class SupabaseService {
       .eq('id', bookingId);
   }
 
-  async verifyAndActivatePayment(bookingId: string, currentBookingStatus: string): Promise<{ activated: boolean; error: any }> {
-    if (!['approved', 'confirmed'].includes(currentBookingStatus)) {
-      return { activated: false, error: null };
-    }
-
-    const paymentResult = await this.getPaymentByBooking(bookingId);
-    if (paymentResult.data?.status !== 'paid') {
-      return { activated: false, error: null };
-    }
-
-    const { error } = await this.supabase
-      .from('bookings')
-      .update({ status: 'in_service', updated_at: new Date().toISOString() })
-      .eq('id', bookingId);
-
-    return { activated: !error, error };
-  }
-
-  async updatePaymentStatus(cfOrderId: string, status: string, cfPaymentId?: string | null) {
-    return await this.supabase.rpc('update_payment_status', {
-      p_cf_order_id: cfOrderId,
-      p_status: status,
-      p_cf_payment_id: cfPaymentId ?? null,
-    });
-  }
-
   async getPaymentByBooking(bookingId: string) {
     const result = await this.supabase
       .from('payments')
@@ -1937,6 +1749,50 @@ export class SupabaseService {
     return this.supabase
       .from('vehicle')
       .update({ vehicle_status: 'rented', mileage })
+      .eq('id', vehicleId);
+  }
+
+  async checkHasCheckoutInspection(bookingId: string): Promise<boolean> {
+    const { data } = await this.supabase
+      .from('inspections')
+      .select('id')
+      .eq('booking_id', bookingId)
+      .eq('inspection_type', 'checkout')
+      .maybeSingle();
+    return !!data;
+  }
+
+  async getCheckoutInspection(bookingId: string) {
+    return this.supabase
+      .from('inspections')
+      .select('*')
+      .eq('booking_id', bookingId)
+      .eq('inspection_type', 'checkout')
+      .maybeSingle();
+  }
+
+  async insertBalancePayment(bookingId: string, amount: number, paymentMode: string) {
+    return this.supabase.from('payments').insert({
+      booking_id: bookingId,
+      amount: Number(amount),
+      payment_type: 'balance',
+      payment_mode: paymentMode,
+      status: 'paid',
+      notes: 'Final balance collected on vehicle return',
+    });
+  }
+
+  async completeBooking(bookingId: string) {
+    return this.supabase
+      .from('bookings')
+      .update({ status: 'completed', updated_at: new Date().toISOString() })
+      .eq('id', bookingId);
+  }
+
+  async updateVehicleAfterReturn(vehicleId: string, mileage: number) {
+    return this.supabase
+      .from('vehicle')
+      .update({ vehicle_status: 'dirty', mileage })
       .eq('id', vehicleId);
   }
 

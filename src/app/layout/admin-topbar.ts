@@ -48,6 +48,7 @@ export class AdminTopbar {
   @Output() markAllRead = new EventEmitter<void>();
   @Output() notificationClick = new EventEmitter<any>();
   @Output() themeToggle = new EventEmitter<void>();
+  @Output() chatToggle = new EventEmitter<void>();
 
   badgeValue(count: number) {
     return `${count}`;

@@ -1,5 +1,6 @@
 import { bootstrapApplication } from '@angular/platform-browser';
 import { provideAnimations } from '@angular/platform-browser/animations';
+import { provideHttpClient } from '@angular/common/http';
 import { providePrimeNG } from 'primeng/config';
 import { provideRouter } from '@angular/router';
 import { MessageService } from 'primeng/api';
@@ -12,6 +13,7 @@ bootstrapApplication(App, {
   providers: [
     provideRouter(routes),
     provideAnimations(),
+    provideHttpClient(),
     MessageService,
     providePrimeNG({
       ripple: true,

@@ -11,15 +11,14 @@ import { ThemeService } from '../services/theme';
 import { buildBookings, normalizeVehicle } from '../admin-ui.models';
 import { AdminSidebar } from './admin-sidebar';
 import { AdminTopbar } from './admin-topbar';
-import { BookingAssistant } from '../components/booking-assistant/booking-assistant';
-import { environment } from '../../environments/environment';
+import { ChatbotComponent } from '../Shared/components/chatbot/chatbot.component';
 
 type DealerMenuItem = { section: string; label: string; icon: string; route: string };
 
 @Component({
   selector: 'app-layout',
   standalone: true,
-  imports: [CommonModule, RouterModule, DrawerModule, ButtonModule, AdminSidebar, AdminTopbar, BookingAssistant],
+  imports: [CommonModule, RouterModule, DrawerModule, ButtonModule, AdminSidebar, AdminTopbar, ChatbotComponent],
   templateUrl: './layout.html',
   styleUrl: './layout.scss',
 })
@@ -74,6 +73,7 @@ export class Layout {
   mobileSidebarOpen = signal(false);
   desktopSidebarCollapsed = signal(false);
   menuOpen = signal(false);
+  chatDrawerOpen = signal(false);
   pageTitle = signal('Dashboard');
   pageSearch = signal('');
   notificationCount = signal(5);

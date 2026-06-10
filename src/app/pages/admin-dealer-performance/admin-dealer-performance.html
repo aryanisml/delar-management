@@ -203,6 +203,9 @@
       @if (detail.status === 'payment_received') {
         <button pButton type="button" label="Mark as In Service" icon="pi pi-car" severity="info" (click)="markInService(detail)"></button>
       }
+      @if (detail.status === 'in_service' && hasCheckoutInspection()) {
+        <button pButton type="button" label="Return Vehicle" icon="pi pi-sign-out" severity="danger" (click)="openReturn(detail)"></button>
+      }
     </div>
   }
 </p-dialog>
