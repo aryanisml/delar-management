@@ -10,6 +10,9 @@ export const environment = {
   cashfreeSecretKey: 'cfsk_ma_test_1415afd4dc2db21cb233f06db7dcd8e7_4831b5c7',
   // Booking Assistant (floating chat agent). When false, nothing new renders anywhere.
   enableBookingAgent: true,
-  // Server-side LLM proxy endpoint. The Groq key lives ONLY in api/agent-llm.js.
-  agentApiUrl: '/api/agent-llm',
+  // Dev: the Angular dev-server proxy (/agent-proxy) forwards to Google Gemini's
+  // OpenAI-compatible endpoint and injects the Authorization header from GEMINI_API_KEY
+  // (.env). The key never reaches the browser. For production, use a server-side proxy.
+  agentApiUrl: '/agent-proxy/chat/completions',
+  agentModel: 'gemini-2.5-flash',
 };

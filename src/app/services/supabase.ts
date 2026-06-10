@@ -488,24 +488,28 @@ export class SupabaseService {
     }
   }
 
-  async generateQuoteReference() {
+  async generateQuoteReference(forceUnique = false) {
     const day = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const prefix = `QT-${day}-`;
+    // A short random suffix is appended only when we must dodge a unique collision on a
+    // reference number we could not see (RLS hides other users' quotations from us).
+    const suffix = forceUnique ? `-${this.randomRefSuffix()}` : '';
     const { data, error } = await this.supabase
       .from('quotations')
       .select('quote_reference')
       .ilike('quote_reference', `${prefix}%`);
 
     if (error) {
-      return `${prefix}0001`;
+      return `${prefix}0001${suffix}`;
     }
 
     const max = (data ?? []).reduce((current: number, row: any) => {
-      const value = Number(String(row.quote_reference ?? '').split('-').pop());
+      // Read the sequence segment (QT-<date>-<seq>[-<suffix>]) rather than the last token.
+      const value = Number(String(row.quote_reference ?? '').split('-')[2]);
       return Number.isFinite(value) ? Math.max(current, value) : current;
     }, 0);
 
-    return `${prefix}${String(max + 1).padStart(4, '0')}`;
+    return `${prefix}${String(max + 1).padStart(4, '0')}${suffix}`;
   }
 
   async submitQuotationRequest(input: QuoteSubmissionInput) {
@@ -818,22 +822,57 @@ export class SupabaseService {
         .single();
     }
 
-    const insertResult = await this.supabase
-      .from('quotations')
-      .insert(quotationPayload)
-      .select()
-      .single();
+    // No quotation exists for this booking yet → insert. Lookup-then-insert is racy and
+    // RLS-limited: generateQuoteReference can reuse a number it cannot see (other users'
+    // rows are hidden), so the GLOBAL quote_reference unique constraint can fire as a 409
+    // (Postgres 23505). On a quote_reference collision, regenerate a globally-unique
+    // reference and retry the insert — updating by booking_id (the old fallback) cannot
+    // resolve a reference collision. A booking_id collision instead means a quotation was
+    // already created for this booking (double-submit / retry) → reuse it in place.
+    let payload: Record<string, any> = quotationPayload;
+    let insertResult = await this.supabase.from('quotations').insert(payload).select().single();
 
-    if (insertResult.error?.code === '23505') {
-      return await this.supabase
-        .from('quotations')
-        .update(quotationPayload)
-        .eq('booking_id', input.bookingId)
-        .select()
-        .single();
+    for (let attempt = 0; insertResult.error?.code === '23505' && attempt < 5; attempt += 1) {
+      const err: any = insertResult.error;
+      const conflict = this.classifyQuotationConflict(err);
+      console.warn('[booking] quotations insert conflict (23505)', {
+        attempt,
+        conflict,
+        constraint: err?.constraint,
+        message: err?.message,
+        details: err?.details,
+      });
+
+      if (conflict === 'booking_id') {
+        return await this.supabase
+          .from('quotations')
+          .update(payload)
+          .eq('booking_id', input.bookingId)
+          .select()
+          .single();
+      }
+
+      payload = { ...payload, quote_reference: await this.generateQuoteReference(true) };
+      insertResult = await this.supabase.from('quotations').insert(payload).select().single();
     }
 
     return insertResult;
+  }
+
+  /** Identifies which unique constraint a quotations 23505 violated, from its error text. */
+  private classifyQuotationConflict(error: any): 'quote_reference' | 'booking_id' | 'unknown' {
+    const haystack = `${error?.constraint ?? ''} ${error?.message ?? ''} ${error?.details ?? ''}`.toLowerCase();
+    if (haystack.includes('quote_reference')) {
+      return 'quote_reference';
+    }
+    if (haystack.includes('booking_id')) {
+      return 'booking_id';
+    }
+    return 'unknown';
+  }
+
+  private randomRefSuffix(): string {
+    return Math.random().toString(36).slice(2, 6).toUpperCase();
   }
 
   private hasResolvedPricing(quotation: any) {
@@ -1009,7 +1048,14 @@ export class SupabaseService {
             customerRecord = existing.data;
             duplicateMobile = true;
           } else {
-            return { data: null, error: createResult.error };
+            // The mobile is taken globally but the existing customer row is hidden from
+            // this user by RLS — fail with a clear message instead of a raw 409.
+            return {
+              data: null,
+              error: new Error(
+                'A customer with this mobile number already exists but is not visible to your account (row-level security). Ask an admin to confirm or share that customer record, then try again.'
+              ),
+            };
           }
         } else {
           return { data: null, error: createResult.error };

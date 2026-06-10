@@ -25,6 +25,10 @@ export class AgentService {
   /** Raw OpenAI-format turns (user / assistant / tool), minus the system message. */
   private history: LlmMessage[] = [];
   private counter = 0;
+  /** Tool names called this conversation — gates when create_booking is advertised. */
+  private calledTools = new Set<string>();
+  /** tool_call_id -> tool name, used to compact superseded search results in history. */
+  private toolCallNames = new Map<string, string>();
 
   readonly open = signal(false);
   readonly messages = signal<UiMessage[]>([]);
@@ -35,6 +39,9 @@ export class AgentService {
 
   readonly started = computed(() => this.messages().length > 0);
   readonly dryRun = BOOKING_DRY_RUN;
+
+  // Re-entry guard so a double / retried Confirm cannot create duplicate bookings.
+  private committing = false;
 
   constructor() {
     this.greetingVisible.set(!this.hasGreeted());
@@ -105,6 +112,8 @@ export class AgentService {
       return;
     }
     this.history = [];
+    this.calledTools.clear();
+    this.toolCallNames.clear();
     this.messages.set([]);
     this.pendingConfirmation.set(null);
     this.error.set(null);
@@ -116,7 +125,7 @@ export class AgentService {
       for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
         const assistant = await this.client.chat({
           messages: [this.systemMessage(), ...this.history],
-          tools: this.tools.schemas,
+          tools: this.tools.schemasFor({ includeCreateBooking: this.bookingToolReady() }),
           tool_choice: 'auto',
         });
 
@@ -133,11 +142,15 @@ export class AgentService {
 
         for (const call of toolCalls) {
           const result = await this.tools.execute(call.function.name, call.function.arguments);
+          this.calledTools.add(call.function.name);
+          this.toolCallNames.set(call.id, call.function.name);
           this.history.push({ role: 'tool', tool_call_id: call.id, content: result.content });
           if (result.kind === 'proposal') {
             this.pendingConfirmation.set(result.proposal);
           }
         }
+
+        this.compactHistory();
       }
 
       this.pushUi('assistant', 'Sorry — I got stuck on that. Could you rephrase or try again?', 'error');
@@ -150,16 +163,57 @@ export class AgentService {
     }
   }
 
+  /** create_booking is advertised only once we're past discovery (priced/checked, or editing a proposal). */
+  private bookingToolReady(): boolean {
+    return (
+      this.calledTools.has('price_quote') ||
+      this.calledTools.has('check_availability') ||
+      this.pendingConfirmation() !== null
+    );
+  }
+
+  /**
+   * Replace superseded search_vehicles / search_customers results in history with a tiny stub,
+   * keeping only the latest of each. The chosen entity's id lives on in later tool-call args, so
+   * the bulky earlier lists are no longer needed and shouldn't keep riding along on every request.
+   */
+  private compactHistory() {
+    const compactable = new Set(['search_vehicles', 'search_customers']);
+    const latestIndex = new Map<string, number>();
+    this.history.forEach((msg, index) => {
+      if (msg.role === 'tool' && msg.tool_call_id) {
+        const name = this.toolCallNames.get(msg.tool_call_id);
+        if (name && compactable.has(name)) {
+          latestIndex.set(name, index);
+        }
+      }
+    });
+    this.history.forEach((msg, index) => {
+      if (msg.role !== 'tool' || !msg.tool_call_id) {
+        return;
+      }
+      const name = this.toolCallNames.get(msg.tool_call_id);
+      if (!name || !compactable.has(name) || latestIndex.get(name) === index) {
+        return;
+      }
+      if (msg.content && !msg.content.startsWith('{"note"')) {
+        msg.content = `{"note":"earlier ${name} results omitted to save space"}`;
+      }
+    });
+  }
+
   // ---- Booking confirmation gate -------------------------------------------
 
   /** Triggered ONLY by the advisor clicking Confirm. Runs the real two-step write. */
   async confirmPendingBooking() {
     const proposal = this.pendingConfirmation();
-    if (!proposal || this.busy()) {
+    if (!proposal || this.busy() || this.committing) {
       return;
     }
 
+    this.committing = true;
     this.busy.set(true);
+    // Clear the proposal up front so the card can't be re-submitted while this runs.
     this.pendingConfirmation.set(null);
     try {
       const result = await this.tools.commitBooking(proposal);
@@ -190,6 +244,7 @@ export class AgentService {
       this.pushUi('assistant', message, 'error');
     } finally {
       this.busy.set(false);
+      this.committing = false;
     }
   }
 
@@ -222,28 +277,16 @@ function buildSystemPrompt(): string {
     : '';
 
   return [
-    'You are the Booking Assistant, an in-app helper for rental staff (advisors) who book vehicles on behalf of customers.',
-    `Today's date is ${today}. Resolve relative dates ("tomorrow", "next Friday") against it and always use YYYY-MM-DD when calling tools. All money is Indian Rupees (INR).`,
-    '',
-    'HOW YOU WORK:',
-    '- Never invent availability, prices, vehicles, or customers. Always use the tools to get real data.',
-    '- Gather only the details that are still missing. Required to book:',
-    '  • Customer: full name, mobile, licence number + expiry, and whether individual or business (business needs a business name).',
-    '  • Trip: pickup location, drop location, pickup date, drop date, pickup time, drop-off time, purpose, and number of passengers.',
-    '  • The vehicle.',
-    '- To find a customer use search_customers. If several customers share a name, confirm which one by mobile number before continuing.',
-    '- Refuse to proceed with an expired licence — ask for a valid one.',
-    '- Use search_vehicles / check_availability / price_quote to recommend a vehicle and quote a real price.',
-    '',
-    'BOOKING CONFIRMATION:',
-    '- When every required detail is known and the advisor wants to proceed, FIRST show a short summary (vehicle, dates, customer, total), THEN call create_booking.',
-    '- create_booking does NOT finalise anything — it stages a confirmation card. After calling it, tell the advisor to review the card and click Confirm (or Edit). You cannot confirm on their behalf; the booking is only created when they click Confirm.',
-    '- If a tool returns validation issues or an error, explain what is needed and ask the advisor — do not retry blindly.',
-    '',
-    'STYLE:',
-    '- Keep replies short and practical. Be neutral and professional.',
-    '- Refer to yourself only as the "Booking Assistant". Do not use personal names or any other branding.',
-    '- Refer to vehicles by name and customers by name/mobile rather than internal ids.',
+    'You are the Booking Assistant, an in-app helper for rental staff who book vehicles for customers.',
+    `Today is ${today}. Resolve relative dates against it; always pass dates to tools as YYYY-MM-DD. Money is INR.`,
+    'Rules:',
+    '- Never invent vehicles, customers, availability, or prices — always use the tools for real data.',
+    '- Ask only for missing details. To book you need: customer full name, mobile, licence no + expiry, individual/business (business needs a business name); trip pickup & drop location, pickup & drop dates, pickup & drop times, purpose, passengers; and the vehicle.',
+    '- Use search_customers to find a customer; if several match a name, confirm by mobile. Block expired licences.',
+    '- Use search_vehicles / check_availability / price_quote for real options and prices.',
+    '- To book: show a short summary (vehicle, dates, customer, total), then call create_booking. It does NOT finalise — it stages a card the advisor must Confirm (or Edit). Never say the booking is done; it is created only when they click Confirm.',
+    '- On a tool error or validation issue, explain what is needed and ask — do not retry blindly.',
+    'Keep replies short and neutral. Call yourself only the "Booking Assistant"; refer to vehicles by name and customers by name/mobile, not ids.',
     dryRunNote,
   ].join('\n');
 }

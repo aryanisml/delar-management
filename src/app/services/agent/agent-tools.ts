@@ -11,10 +11,12 @@ import { LlmToolSchema } from './agent-llm.client';
  * database is never touched, so the flow can be exercised end-to-end safely. Read
  * tools always run for real (they are side-effect free).
  */
-export const BOOKING_DRY_RUN = true;
+export const BOOKING_DRY_RUN = false;
 
-const MAX_CUSTOMER_RESULTS = 6;
-const MAX_VEHICLE_RESULTS = 8;
+// Kept small: these lists are appended to the conversation and re-sent on every later
+// model request, so trimming rows/fields directly cuts repeated token cost.
+const MAX_CUSTOMER_RESULTS = 3;
+const MAX_VEHICLE_RESULTS = 4;
 
 export interface CreateBookingCustomer {
   full_name: string;
@@ -91,22 +93,16 @@ export interface CommitResult {
 export class AgentTools {
   private supabase = inject(SupabaseService);
 
-  /** OpenAI-format tool schemas advertised to the model. */
+  /** OpenAI-format tool schemas advertised to the model (descriptions kept terse to save tokens). */
   readonly schemas: LlmToolSchema[] = [
     {
       type: 'function',
       function: {
         name: 'search_customers',
-        description:
-          'Look up existing customers by name, mobile number, or email. Use this before booking to find a returning customer. If several customers share a name, disambiguate by mobile number.',
+        description: 'Find an existing customer by name, mobile, or email. If several share a name, confirm by mobile.',
         parameters: {
           type: 'object',
-          properties: {
-            query: {
-              type: 'string',
-              description: 'A name, 10-digit mobile number, or email to search for.',
-            },
-          },
+          properties: { query: { type: 'string', description: 'Name, 10-digit mobile, or email.' } },
           required: ['query'],
         },
       },
@@ -115,17 +111,16 @@ export class AgentTools {
       type: 'function',
       function: {
         name: 'search_vehicles',
-        description:
-          'List vehicles in the fleet, optionally filtered. Pass start_date and end_date (YYYY-MM-DD) to see availability for that window. Returns daily rate (INR) and availability. Never guess vehicles — always use this.',
+        description: 'List fleet vehicles (optionally filtered). Pass start_date/end_date (YYYY-MM-DD) for availability + daily rate.',
         parameters: {
           type: 'object',
           properties: {
-            type: { type: 'string', description: 'Vehicle body type, e.g. SUV, Sedan, Hatchback.' },
-            capacity: { type: 'integer', description: 'Minimum seating capacity required.' },
+            type: { type: 'string', description: 'Body type, e.g. SUV, Sedan.' },
+            capacity: { type: 'integer', description: 'Min seats.' },
             transmission: { type: 'string', description: 'Automatic or Manual.' },
-            fuel: { type: 'string', description: 'Fuel type, e.g. Petrol, Diesel, Electric.' },
-            start_date: { type: 'string', description: 'Trip pickup date, YYYY-MM-DD.' },
-            end_date: { type: 'string', description: 'Trip drop date, YYYY-MM-DD.' },
+            fuel: { type: 'string', description: 'e.g. Petrol, Diesel, Electric.' },
+            start_date: { type: 'string', description: 'YYYY-MM-DD.' },
+            end_date: { type: 'string', description: 'YYYY-MM-DD.' },
           },
           required: [],
         },
@@ -135,14 +130,13 @@ export class AgentTools {
       type: 'function',
       function: {
         name: 'check_availability',
-        description:
-          'Check whether one specific vehicle is free for a date range. Returns { available: true/false }. Never assert availability without calling this.',
+        description: 'Check if one vehicle is free for a date range. Returns { available }.',
         parameters: {
           type: 'object',
           properties: {
-            vehicle_id: { type: 'string', description: 'The vehicle id from search_vehicles.' },
-            start_date: { type: 'string', description: 'Pickup date, YYYY-MM-DD.' },
-            end_date: { type: 'string', description: 'Drop date, YYYY-MM-DD.' },
+            vehicle_id: { type: 'string' },
+            start_date: { type: 'string', description: 'YYYY-MM-DD.' },
+            end_date: { type: 'string', description: 'YYYY-MM-DD.' },
           },
           required: ['vehicle_id', 'start_date', 'end_date'],
         },
@@ -152,15 +146,14 @@ export class AgentTools {
       type: 'function',
       function: {
         name: 'price_quote',
-        description:
-          'Compute the exact rental price (INR) for a vehicle and date range using the live pricing engine. Returns rate, days, base cost, GST, advance, security deposit, and final amount. Never invent prices.',
+        description: 'Exact rental price (INR) for a vehicle + date range. Returns rate, days, GST, advance, deposit, total.',
         parameters: {
           type: 'object',
           properties: {
-            vehicle_id: { type: 'string', description: 'The vehicle id from search_vehicles.' },
-            start_date: { type: 'string', description: 'Pickup date, YYYY-MM-DD.' },
-            end_date: { type: 'string', description: 'Drop date, YYYY-MM-DD.' },
-            discount_amount: { type: 'number', description: 'Optional flat discount in INR.' },
+            vehicle_id: { type: 'string' },
+            start_date: { type: 'string', description: 'YYYY-MM-DD.' },
+            end_date: { type: 'string', description: 'YYYY-MM-DD.' },
+            discount_amount: { type: 'number', description: 'Optional flat discount, INR.' },
           },
           required: ['vehicle_id', 'start_date', 'end_date'],
         },
@@ -171,7 +164,7 @@ export class AgentTools {
       function: {
         name: 'create_booking',
         description:
-          'Propose the final booking once ALL details are gathered and the advisor wants to proceed. This does NOT write to the database — it stages a confirmation card the advisor must click "Confirm" on. Call it only after presenting a summary. Block expired licences before calling.',
+          'Stage the booking for advisor confirmation once ALL details are gathered. Does NOT save — it shows a Confirm card. Call only after a summary; licence must not be expired.',
         parameters: {
           type: 'object',
           properties: {
@@ -180,12 +173,12 @@ export class AgentTools {
               type: 'object',
               properties: {
                 full_name: { type: 'string' },
-                mobile: { type: 'string', description: '10-digit Indian mobile number.' },
+                mobile: { type: 'string', description: '10-digit mobile.' },
                 email: { type: 'string' },
-                license_no: { type: 'string', description: 'Driving licence number.' },
-                license_expiry: { type: 'string', description: 'Licence expiry date, YYYY-MM-DD. Must be in the future.' },
+                license_no: { type: 'string' },
+                license_expiry: { type: 'string', description: 'YYYY-MM-DD, must be future.' },
                 customer_type: { type: 'string', enum: ['individual', 'business'] },
-                business_name: { type: 'string', description: 'Required when customer_type is business.' },
+                business_name: { type: 'string', description: 'Required if business.' },
                 gst_number: { type: 'string' },
               },
               required: ['full_name', 'mobile', 'license_no', 'license_expiry', 'customer_type'],
@@ -197,32 +190,16 @@ export class AgentTools {
                 drop_location: { type: 'string' },
                 pickup_date: { type: 'string', description: 'YYYY-MM-DD.' },
                 end_date: { type: 'string', description: 'YYYY-MM-DD.' },
-                pickup_time: { type: 'string', description: '24h HH:MM.' },
-                dropoff_time: { type: 'string', description: '24h HH:MM.' },
+                pickup_time: { type: 'string', description: 'HH:MM 24h.' },
+                dropoff_time: { type: 'string', description: 'HH:MM 24h.' },
                 purpose: { type: 'string' },
                 number_of_passengers: { type: 'integer' },
                 special_instructions: { type: 'string' },
               },
-              required: [
-                'pickup_location',
-                'drop_location',
-                'pickup_date',
-                'end_date',
-                'pickup_time',
-                'dropoff_time',
-                'purpose',
-                'number_of_passengers',
-              ],
+              required: ['pickup_location', 'drop_location', 'pickup_date', 'end_date', 'pickup_time', 'dropoff_time', 'purpose', 'number_of_passengers'],
             },
-            existing_customer_id: {
-              type: 'string',
-              description: 'Pass the id from search_customers when booking for a returning customer.',
-            },
-            existing_customer_choice: {
-              type: 'string',
-              enum: ['existing', 'update', 'new'],
-              description: 'Use "existing" to reuse their saved details, "update" to overwrite them, "new" for a brand-new customer.',
-            },
+            existing_customer_id: { type: 'string', description: 'From search_customers, for a returning customer.' },
+            existing_customer_choice: { type: 'string', enum: ['existing', 'update', 'new'] },
           },
           required: ['vehicle_id', 'customer', 'trip'],
         },
@@ -232,17 +209,26 @@ export class AgentTools {
       type: 'function',
       function: {
         name: 'get_booking_status',
-        description: 'Look up the current status of a booking by its id.',
+        description: 'Get a booking status by id.',
         parameters: {
           type: 'object',
-          properties: {
-            booking_id: { type: 'string' },
-          },
+          properties: { booking_id: { type: 'string' } },
           required: ['booking_id'],
         },
       },
     },
   ];
+
+  /**
+   * Tools to advertise this turn. create_booking is the largest schema, so it is withheld
+   * during discovery and only included once details are gathered (saves tokens per request).
+   */
+  schemasFor(opts: { includeCreateBooking: boolean }): LlmToolSchema[] {
+    if (opts.includeCreateBooking) {
+      return this.schemas;
+    }
+    return this.schemas.filter((schema) => schema.function.name !== 'create_booking');
+  }
 
   /** Dispatches a tool call by name. Read tools return data; create_booking stages a proposal. */
   async execute(name: string, rawArgs: string): Promise<ToolResult> {
@@ -570,24 +556,17 @@ export class AgentTools {
   }
 
   private toVehicleSummary(row: any) {
+    // Only the fields the model reasons over. `name` already carries brand/model/year;
+    // create_booking re-validates pricing/availability, so the rest is omitted to save tokens.
     const dailyRate = row?.tier?.daily_rate ?? row?.vehicle_tiers?.daily_rate ?? row?.daily_rate ?? null;
     return {
       vehicle_id: row.id,
       name: this.vehicleLabel(row),
-      brand: row.brand ?? null,
-      model: row.model ?? null,
-      year: row.year ?? null,
       type: row.type ?? null,
-      fuel: row.fuel ?? null,
-      transmission: row.transmission ?? null,
       capacity: row.capacity ?? null,
-      location: row.location ?? null,
       daily_rate_inr: dailyRate != null ? Number(dailyRate) : null,
-      has_pricing: Boolean(row.tier_id),
-      availability_status: row.availability_status ?? row.vehicle_status ?? null,
-      availability_detail: row.availability_detail ?? null,
       available_for_requested_dates: row.is_available_for_selected_dates ?? null,
-      next_available_date: row.next_available_date ?? null,
+      availability_detail: row.availability_detail ?? null,
     };
   }
 
