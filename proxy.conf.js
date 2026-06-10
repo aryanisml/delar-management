@@ -4,10 +4,41 @@
 // (same path as the prod Vercel function, /api/agent-llm) and the Cashfree sandbox. In
 // production the Vercel functions under api/ handle these instead.
 //
-// SECURITY: the Gemini key is hardcoded for this sprint, matching the Cashfree keys and the
-// api/agent-llm.js function. Move it to an env var and ROTATE before real production. An OS
-// GEMINI_API_KEY env var overrides the hardcoded value below.
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'AQ.Ab8RN6Ie-orJjbK6CAmUVw7fm96aplbPuUDFMdTJ9bhLhAMK-g';
+// The Gemini key is read from a gitignored .env.local / .env and is NEVER committed —
+// a committed Google key gets detected by GitHub secret scanning and auto-revoked by
+// Google. For production, set GEMINI_API_KEY in the Vercel project's env vars.
+
+const fs = require('fs');
+const path = require('path');
+
+// Minimal .env reader (no dotenv dependency). Precedence: real env > .env.local > .env.
+function loadEnvFile(file) {
+  const fullPath = path.resolve(__dirname, file);
+  if (!fs.existsSync(fullPath)) return;
+  for (const line of fs.readFileSync(fullPath, 'utf8').split(/\r?\n/)) {
+    const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)\s*$/);
+    if (!match) continue;
+    const key = match[1];
+    let value = match[2].trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    if (process.env[key] === undefined) {
+      process.env[key] = value;
+    }
+  }
+}
+
+loadEnvFile('.env.local');
+loadEnvFile('.env');
+
+if (!process.env.GEMINI_API_KEY) {
+  // eslint-disable-next-line no-console
+  console.warn('[proxy] GEMINI_API_KEY is not set — add it to .env.local. The assistant will get 401s until you do.');
+}
 
 module.exports = {
   // Existing Cashfree dev proxy — kept exactly as before.
@@ -30,7 +61,7 @@ module.exports = {
       '^/api/agent-llm': '/chat/completions',
     },
     headers: {
-      Authorization: `Bearer ${GEMINI_API_KEY}`,
+      Authorization: `Bearer ${process.env.GEMINI_API_KEY || ''}`,
     },
   },
 };

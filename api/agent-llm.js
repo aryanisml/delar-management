@@ -2,14 +2,14 @@
 //
 // The browser POSTs an OpenAI-style chat-completions body to /api/agent-llm; this function
 // forwards it to Google Gemini's OpenAI-compatible endpoint, injects the Authorization
-// header, and passes Gemini's response straight back. Local dev uses the matching
-// /api/agent-llm rule in proxy.conf.js, so the frontend calls the same URL everywhere.
+// header from the GEMINI_API_KEY environment variable, and passes Gemini's response back.
+// Local dev uses the matching /api/agent-llm rule in proxy.conf.js, so the frontend calls
+// the same URL everywhere.
 //
-// SECURITY: the Gemini key is hardcoded for this sprint, matching the pattern used by
-// api/create-cashfree-order.js. It now lives in source/git history, so it MUST be moved to
-// an env var and ROTATED before real production. A Vercel env var named GEMINI_API_KEY
-// overrides the hardcoded value below without a code change.
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'AQ.Ab8RN6Ie-orJjbK6CAmUVw7fm96aplbPuUDFMdTJ9bhLhAMK-g';
+// The key is NOT hardcoded: a committed Google key is detected by GitHub secret scanning
+// and auto-revoked by Google, so it must live in the deployment environment. Set
+// GEMINI_API_KEY in the Vercel project's Settings -> Environment Variables.
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
 
 module.exports = async (req, res) => {
@@ -19,6 +19,11 @@ module.exports = async (req, res) => {
 
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: { message: 'Method not allowed' } });
+
+  if (!GEMINI_API_KEY) {
+    console.error('[agent-llm] GEMINI_API_KEY is not configured');
+    return res.status(500).json({ error: { message: 'GEMINI_API_KEY is not set in the server environment.' } });
+  }
 
   let body = req.body;
   if (typeof body === 'string') {
