@@ -9,9 +9,9 @@ export const environment = {
   cashfreeSecretKey: 'cfsk_ma_test_1415afd4dc2db21cb233f06db7dcd8e7_4831b5c7',
   // Booking Assistant (floating chat agent). When false, nothing new renders anywhere.
   enableBookingAgent: true,
-  // Dev: the Angular dev-server proxy (/agent-proxy) forwards to Google Gemini's
-  // OpenAI-compatible endpoint and injects the Authorization header from GEMINI_API_KEY
-  // (.env). The key never reaches the browser. For production, use a server-side proxy.
-  agentApiUrl: '/agent-proxy/chat/completions',
+  // Both dev and prod call /api/agent-llm. Dev: proxy.conf.js forwards it to Gemini.
+  // Prod: the Vercel function api/agent-llm.js forwards it to Gemini. GEMINI_API_KEY is
+  // injected server-side in both (set it in Vercel env vars) — never in the browser bundle.
+  agentApiUrl: '/api/agent-llm',
   agentModel: 'gemini-2.5-flash',
 };
