@@ -89,6 +89,7 @@ export interface CommitResult {
   error?: string;
 }
 
+
 @Injectable({ providedIn: 'root' })
 export class AgentTools {
   private supabase = inject(SupabaseService);

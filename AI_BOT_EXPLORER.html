@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Booking Assistant — Code Explorer</title>
+<style>
+  :root{
+    --bg:#0f1117;--bg2:#161b27;--bg3:#1e2535;--bg4:#252d3d;
+    --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
+    --text:#e2e8f0;--muted:#8892a4;--faint:#4a5568;
+    --purple:#8b5cf6;--purple-soft:#1e1535;--purple-border:#4c2f8a;
+    --teal:#14b8a6;--teal-soft:#0d2623;--teal-border:#0f7066;
+    --amber:#f59e0b;--amber-soft:#231a05;--amber-border:#854d0e;
+    --coral:#f97316;--coral-soft:#271508;--coral-border:#9a3412;
+    --blue:#3b82f6;--blue-soft:#0d1f3c;--blue-border:#1d4ed8;
+    --green:#22c55e;--green-soft:#0a1f0f;--green-border:#15803d;
+    --red:#ef4444;--red-soft:#2a0a0a;--red-border:#991b1b;
+    --pink:#ec4899;
+    --font-mono:'JetBrains Mono','Fira Code','Consolas',monospace;
+    --font:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    --radius:8px;--radius-lg:12px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:var(--font);background:var(--bg);color:var(--text);display:flex;height:100vh;overflow:hidden;font-size:14px;}
+
+  #sidebar{width:272px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;}
+  #sidebar-header{padding:15px 14px 9px;border-bottom:1px solid var(--border);}
+  #sidebar-header .app-name{font-size:13px;font-weight:700;color:var(--teal);letter-spacing:.05em;text-transform:uppercase;}
+  #sidebar-header .app-sub{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.4;}
+  #search-wrap{padding:9px 12px;border-bottom:1px solid var(--border);}
+  #search{width:100%;background:var(--bg);border:1px solid var(--border2);border-radius:6px;padding:7px 10px;color:var(--text);font-size:12.5px;outline:none;}
+  #search:focus{border-color:var(--teal-border);}
+  #sidebar-scroll{flex:1;overflow-y:auto;padding:6px 0 30px;}
+  #sidebar-scroll::-webkit-scrollbar{width:5px;} #sidebar-scroll::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:2px;}
+  .nav-file{padding:11px 14px 2px;display:flex;align-items:center;gap:7px;}
+  .nav-file .fdot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  .nav-file .ftxt{font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;}
+  .nav-file .fcount{margin-left:auto;font-size:9.5px;color:var(--faint);background:var(--bg3);border-radius:8px;padding:1px 6px;}
+  .nav-path{padding:0 14px 3px 29px;font-size:9px;color:var(--faint);font-family:var(--font-mono);word-break:break-all;}
+  .nav-item{display:flex;align-items:center;gap:8px;padding:4px 14px 4px 29px;cursor:pointer;color:var(--muted);font-size:12px;border-left:2px solid transparent;transition:all .12s;user-select:none;font-family:var(--font-mono);}
+  .nav-item:hover{background:var(--bg3);color:var(--text);} .nav-item.active{background:var(--bg3);color:var(--text);border-left-color:var(--teal);}
+  .nav-item .reuse-pill{font-family:var(--font);font-size:8px;background:var(--coral-soft);color:var(--coral);border:1px solid var(--coral-border);border-radius:3px;padding:0 4px;margin-left:auto;}
+
+  #main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+  #topbar{padding:11px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;background:var(--bg2);flex-shrink:0;}
+  #topbar .page-title{font-size:15px;font-weight:600;} #topbar .page-path{font-size:11px;font-family:var(--font-mono);color:var(--muted);background:var(--bg3);padding:2px 8px;border-radius:4px;}
+  .tabs{display:flex;gap:2px;margin-left:auto;background:var(--bg3);border-radius:var(--radius);padding:4px;}
+  .tab-btn{padding:6px 16px;border-radius:6px;font-size:12.5px;cursor:pointer;color:var(--muted);font-weight:500;border:none;background:transparent;transition:all .12s;}
+  .tab-btn:hover{color:var(--text);background:var(--bg4);} .tab-btn.active{background:var(--bg);color:var(--text);box-shadow:0 0 0 1px var(--border2);}
+  #content{flex:1;overflow-y:auto;padding:24px 28px;} #content::-webkit-scrollbar{width:7px;} #content::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:3px;}
+  .panel{display:none;max-width:1020px;} .panel.active{display:block;}
+  h2.sec{font-size:18px;font-weight:700;margin-bottom:6px;} p.lead{font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:18px;}
+
+  .kw{border-bottom:1px dotted var(--faint);cursor:help;} .kw:hover{border-bottom-color:var(--teal);color:#fff;}
+  #tip{position:fixed;z-index:999;max-width:330px;background:#0b0d13;border:1px solid var(--teal-border);border-radius:8px;padding:9px 11px;font-size:12px;line-height:1.5;color:var(--text);box-shadow:0 8px 30px rgba(0,0,0,.5);pointer-events:none;display:none;}
+  #tip .tip-term{color:var(--teal);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;}
+  #tip .tip-ex{margin-top:6px;font-family:var(--font-mono);font-size:10.5px;color:var(--amber);background:var(--bg4);padding:4px 6px;border-radius:4px;display:block;line-height:1.45;}
+
+  .fn-section-title{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin:24px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;}
+  .fn-section-title:first-child{margin-top:0;} .fn-section-title .fdot{width:9px;height:9px;border-radius:50%;}
+  .fn-section-title .fpath{font-family:var(--font-mono);font-weight:500;font-size:10.5px;color:var(--faint);text-transform:none;letter-spacing:0;margin-left:auto;}
+  .reuse-banner{background:var(--coral-soft);border:1px solid var(--coral-border);color:#f6a16b;border-radius:8px;padding:9px 13px;font-size:12px;line-height:1.55;margin:8px 0 14px;}
+  .fn-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:10px;overflow:hidden;transition:border-color .15s;scroll-margin-top:16px;}
+  .fn-card:hover{border-color:var(--border2);} .fn-card.flash{border-color:var(--teal);box-shadow:0 0 0 1px var(--teal-border);}
+  .fn-header{display:flex;align-items:flex-start;gap:12px;padding:13px 16px;cursor:pointer;}
+  .fn-sig{flex:1;min-width:0;}
+  .fn-name-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px;}
+  .fn-name{font-family:var(--font-mono);font-size:13.5px;font-weight:600;color:var(--amber);}
+  .fn-params{font-family:var(--font-mono);font-size:12px;color:var(--muted);}
+  .fn-desc{font-size:13px;color:var(--text);line-height:1.55;}
+  .fn-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;}
+  .tag{font-size:10.5px;padding:2px 7px;border-radius:4px;font-weight:600;}
+  .tag-async{background:var(--blue-soft);color:#7fa8f5;border:1px solid var(--blue-border);}
+  .tag-read{background:var(--teal-soft);color:#3fcabb;border:1px solid var(--teal-border);}
+  .tag-write{background:var(--coral-soft);color:#f6a16b;border:1px solid var(--coral-border);}
+  .tag-ui{background:var(--green-soft);color:#5fd47e;border:1px solid var(--green-border);}
+  .tag-reuse{background:var(--coral-soft);color:#f6a16b;border:1px solid var(--coral-border);}
+  .tag-private{background:var(--bg3);color:var(--muted);border:1px solid var(--border);}
+  .tag-entry{background:var(--purple-soft);color:#b39bf0;border:1px solid var(--purple-border);}
+  .fn-expand-btn{font-size:13px;color:var(--faint);transition:transform .15s,color .15s;margin-top:3px;flex-shrink:0;}
+  .fn-card.open .fn-expand-btn{transform:rotate(90deg);color:var(--teal);}
+  .fn-detail{display:none;border-top:1px solid var(--border);padding:14px 16px;background:var(--bg3);}
+  .fn-card.open .fn-detail{display:block;}
+  .fn-row{display:flex;gap:12px;margin-bottom:9px;font-size:12.5px;line-height:1.6;}
+  .fn-row .lbl{color:var(--muted);font-weight:700;min-width:90px;flex-shrink:0;text-transform:uppercase;font-size:10.5px;letter-spacing:.05em;padding-top:2px;}
+  .fn-row .val{color:var(--text);flex:1;}
+  code,.mono{font-family:var(--font-mono);font-size:11.5px;background:var(--bg4);color:var(--amber);padding:1px 5px;border-radius:3px;}
+  .loc{font-family:var(--font-mono);font-size:11px;color:var(--teal);}
+  .caller{display:inline-flex;align-items:center;gap:5px;background:var(--bg2);border:1px solid var(--border2);border-radius:5px;padding:2px 8px;margin:0 4px 4px 0;font-size:11.5px;color:var(--muted);}
+  .caller.link{cursor:pointer;color:#b39bf0;border-color:var(--purple-border);} .caller.link:hover{background:var(--purple-soft);}
+  .caller .cloc{font-family:var(--font-mono);font-size:10px;color:var(--faint);}
+
+  .walk-title{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--teal);margin:13px 0 9px;padding-top:11px;border-top:1px dashed var(--border2);display:flex;align-items:center;gap:6px;}
+  .walk-row{margin-bottom:9px;}
+  .walk-code{display:block;background:#0b0d13;border:1px solid var(--border);border-left:2px solid var(--teal-border);color:#cdd4e0;padding:6px 9px;border-radius:5px 5px 0 0;font-family:var(--font-mono);font-size:11px;white-space:pre-wrap;word-break:break-word;line-height:1.5;}
+  .walk-note{font-size:12.5px;color:var(--muted);line-height:1.55;background:var(--bg2);border:1px solid var(--border);border-top:none;border-radius:0 0 5px 5px;padding:6px 9px;}
+
+  .arch{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px 18px;margin-bottom:22px;}
+  .arch-lane-label{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:4px 0 12px;}
+  .arch-lane{display:flex;align-items:stretch;flex-wrap:wrap;gap:6px 0;margin-bottom:24px;}
+  .arch-box{background:var(--bg3);border:1px solid var(--border2);border-radius:9px;padding:10px 13px;min-width:128px;text-align:center;display:flex;flex-direction:column;justify-content:center;cursor:pointer;transition:transform .12s,border-color .12s;}
+  .arch-box:hover{transform:translateY(-2px);}
+  .arch-box .ab-t{font-size:12.5px;font-weight:700;} .arch-box .ab-s{font-size:10px;color:var(--muted);margin-top:3px;font-family:var(--font-mono);}
+  .arch-box .ab-fns{font-size:9px;color:var(--faint);margin-top:5px;}
+  .arch-box.b-ui{border-color:var(--green-border);} .arch-box.b-ui .ab-t{color:#5fd47e;}
+  .arch-box.b-svc{border-color:var(--purple-border);} .arch-box.b-svc .ab-t{color:#b39bf0;}
+  .arch-box.b-net{border-color:var(--blue-border);} .arch-box.b-net .ab-t{color:#7fa8f5;}
+  .arch-box.b-wire{border-color:var(--amber-border);} .arch-box.b-wire .ab-t{color:#f5c869;}
+  .arch-box.b-ext{border-color:var(--teal-border);} .arch-box.b-ext .ab-t{color:#3fcabb;}
+  .arch-box.b-tools{border-color:var(--teal-border);} .arch-box.b-tools .ab-t{color:#3fcabb;}
+  .arch-box.b-db{border-color:var(--coral-border);} .arch-box.b-db .ab-t{color:#f6a16b;}
+  .arch-arrow{display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--faint);font-size:18px;padding:0 7px;}
+  .arch-arrow span{font-size:8.5px;color:var(--faint);}
+  .arch-hint{font-size:11.5px;color:var(--muted);margin-top:2px;}
+
+  .flow-step{display:flex;gap:16px;}
+  .flow-left{display:flex;flex-direction:column;align-items:center;width:30px;flex-shrink:0;}
+  .flow-num{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:var(--bg3);border:1px solid var(--border2);}
+  .flow-line{width:2px;flex:1;min-height:14px;margin:3px 0;background:var(--border2);}
+  .flow-body{padding-bottom:18px;flex:1;padding-top:3px;}
+  .flow-who{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px;}
+  .flow-title{font-size:14px;font-weight:600;margin-bottom:5px;}
+  .flow-desc{font-size:12.8px;color:var(--muted);line-height:1.6;}
+  .flow-fns{margin-top:8px;display:flex;flex-wrap:wrap;gap:5px;}
+  .flow-fn{font-family:var(--font-mono);font-size:11px;padding:2px 8px;border-radius:5px;background:var(--purple-soft);color:#b39bf0;border:1px solid var(--purple-border);cursor:pointer;}
+  .flow-fn:hover{background:var(--purple);color:#fff;}
+  .flow-fn.ext{background:var(--coral-soft);color:#f6a16b;border-color:var(--coral-border);}
+  .w-ui{color:#5fd47e;} .w-svc{color:#b39bf0;} .w-tools{color:#3fcabb;} .w-net{color:#7fa8f5;} .w-ext{color:#f6a16b;} .w-model{color:#f5c869;}
+
+  .alert{border-radius:var(--radius);padding:11px 14px;font-size:12.5px;margin-bottom:16px;line-height:1.6;}
+  .alert-info{background:var(--blue-soft);color:#9fc2ff;border:1px solid var(--blue-border);}
+  .alert-warn{background:var(--amber-soft);color:#f5c869;border:1px solid var(--amber-border);}
+  .stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:22px;}
+  .stat-box{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;}
+  .stat-num{font-size:24px;font-weight:700;color:var(--teal);} .stat-label{font-size:11px;color:var(--muted);margin-top:3px;}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:8px;font-size:11.5px;color:var(--muted);}
+  .legend span{display:inline-flex;align-items:center;gap:6px;} .legend i{width:9px;height:9px;border-radius:50%;display:inline-block;}
+  .empty{color:var(--faint);font-size:13px;padding:30px;text-align:center;}
+</style>
+</head>
+<body>
+  <aside id="sidebar">
+    <div id="sidebar-header">
+      <div class="app-name">AI Booking Assistant</div>
+      <div class="app-sub">Code explorer · the floating chat agent that books vehicles · post-Gemini build</div>
+    </div>
+    <div id="search-wrap"><input id="search" placeholder="Search functions…" autocomplete="off"></div>
+    <div id="sidebar-scroll"></div>
+  </aside>
+  <main id="main">
+    <div id="topbar">
+      <div class="page-title" id="page-title">Overview</div>
+      <div class="page-path" id="page-path">how the bot is wired</div>
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="overview">Overview</button>
+        <button class="tab-btn" data-tab="flow">Flow</button>
+        <button class="tab-btn" data-tab="functions">Functions</button>
+      </div>
+    </div>
+    <div id="content">
+      <section class="panel active" id="panel-overview"></section>
+      <section class="panel" id="panel-flow"></section>
+      <section class="panel" id="panel-functions"></section>
+    </div>
+  </main>
+  <div id="tip"></div>
+<script>
+const TERMS = {
+  "function":{d:"A named, reusable block of code that takes inputs and gives back a result.",e:"searchCustomers(query) -> matching customers"},
+  "parameter":{d:"A named input a function expects in its definition.",e:"in chat(request), request is the parameter"},
+  "parameters":{d:"The named inputs a function expects in its definition."},
+  "argument":{d:"The actual value you pass in for a parameter when calling a function."},
+  "arguments":{d:"The actual values passed in for a function's parameters when calling it."},
+  "return value":{d:"The result a function hands back to whoever called it.",e:"isVehicleAvailable(...) -> { available: true/false }"},
+  "returns":{d:"What the function hands back to its caller."},
+  "variable":{d:"A named container for a value that can change while the code runs.",e:"let rows = []"},
+  "constant":{d:"A named value fixed once and never changed afterwards.",e:"const MAX_TOOL_ITERATIONS = 8"},
+  "library":{d:"Pre-written code from outside this project that we reuse (e.g. Angular, the Supabase client)."},
+  "package":{d:"A bundle of reusable code installed into the project (e.g. @angular/core)."},
+  "import":{d:"A statement that pulls code in from another file or library so this file can use it.",e:"import { AgentTools } from './agent-tools'"},
+  "class":{d:"A blueprint that bundles related data and functions together into one unit.",e:"class AgentService { ... }"},
+  "service":{d:"In Angular, a class that holds shared logic/state and is 'injected' wherever it is needed.",e:"AgentService is a root service"},
+  "signal":{d:"Angular's reactive value holder. When it changes, any template reading it re-renders automatically.",e:"messages = signal([])"},
+  "computed":{d:"An Angular signal whose value is derived from other signals and recalculated automatically."},
+  "effect":{d:"Angular code that re-runs automatically whenever a signal it reads changes.",e:"effect(() => scrollToBottom())"},
+  "interface":{d:"A description of an object's shape (which fields it has). Used for safety while coding; gone at runtime.",e:"interface LlmMessage { role; content }"},
+  "type":{d:"A label describing what kind of value something is (string, number, an object shape, etc.)."},
+  "promise":{d:"A placeholder for a value that will arrive later (e.g. after a network call). You 'await' it."},
+  "async":{d:"Marks a function that does slow work (like a network or database call) and returns a Promise."},
+  "await":{d:"Inside an async function, pauses until a Promise resolves, then continues with the result."},
+  "async/await":{d:"A pair: 'async' marks a function that does slow work; 'await' pauses for a result inside it."},
+  "synchronous":{d:"Runs start-to-finish immediately with no waiting - no network or database call involved."},
+  "fetch":{d:"The browser's built-in function for making an HTTP request to a server.",e:"fetch('/api/agent-llm', { method:'POST' })"},
+  "http":{d:"The protocol browsers use to talk to servers. POST is the method used to send data."},
+  "post":{d:"An HTTP request method used to send data to a server (here, the chat messages)."},
+  "endpoint":{d:"A specific URL the app sends requests to.",e:"/api/agent-llm"},
+  "json":{d:"A plain-text format for structured data (keys and values). Used to send/receive data over the network."},
+  "tool schema":{d:"A JSON description of a tool - its name, purpose and inputs - given to the AI so it knows the tool exists."},
+  "tool schemas":{d:"JSON descriptions of the tools (name, purpose, inputs) handed to the AI so it knows what it can call."},
+  "tool call":{d:"When the AI model asks to run a tool, returning the tool's name and arguments as JSON."},
+  "tool calls":{d:"The AI model's requests to run tools, each with a name and JSON arguments."},
+  "tool_choice":{d:"A setting telling the model whether it may pick tools itself.",e:"tool_choice: 'auto'"},
+  "agent loop":{d:"The repeat cycle: ask the model -> if it requests a tool, run it and feed the result back -> ask again, until it replies with text."},
+  "executor":{d:"The function that actually performs a tool when the model calls it."},
+  "proxy":{d:"A small server-side relay that forwards the browser's request to an external API and adds the secret key."},
+  "feature flag":{d:"A config switch that turns a feature on/off without changing code.",e:"enableBookingAgent: true"},
+  "environment flag":{d:"A config value (in environment.ts) that turns features on/off or points at URLs."},
+  "rls":{d:"Row-Level Security - database rules that limit which rows each logged-in user may read or write."},
+  "system prompt":{d:"The hidden instructions handed to the AI that define its role, rules and the current date."},
+  "singleton":{d:"A class with exactly one shared instance for the whole app (so its state is shared everywhere)."},
+  "inject":{d:"Angular's way of handing a service instance to whoever asks for it (dependency injection).",e:"inject(AgentService)"},
+  "dependency injection":{d:"Angular creates shared objects (services) once and hands them to whoever declares they need them."},
+  "gemini":{d:"Google's AI model family. Here gemini-2.5-flash writes the assistant's replies and decides tool calls."},
+  "supabase":{d:"The hosted Postgres database + auto-generated API this app uses for all its data."},
+  "regex":{d:"A regular expression - a pattern for matching/validating text.",e:"/^[6-9]\\d{9}$/ checks a 10-digit mobile"},
+  "validation":{d:"Checking that data is well-formed and allowed before using it (e.g. licence not expired)."},
+  "validate":{d:"To check that data is well-formed and allowed before using it."},
+  "switch":{d:"A control structure that picks one branch of code based on a value (here, the tool name)."},
+  "dispatch":{d:"To route a request to the right handler - here, sending a tool call to its executor."},
+  "map":{d:"A key->value lookup collection.",e:"toolCallNames: Map<id, name>"},
+  "set":{d:"A collection of unique values with fast membership checks.",e:"calledTools = new Set()"},
+  "array":{d:"An ordered list of values.",e:"history: LlmMessage[]"},
+  "state":{d:"The data the app currently holds in memory (here, the conversation and the staged booking)."},
+  "mutate":{d:"To change a value or object in place rather than creating a new one."},
+  "guard":{d:"A small check at the top of a function that stops it early if conditions are not right."},
+  "enum":{d:"A fixed set of allowed values for a field.",e:"customer_type: 'individual' | 'business'"},
+  "serverless function":{d:"A small backend function (here on Vercel) that runs on demand without a full server."},
+  "rollback":{d:"Undoing earlier database writes when a later step fails, so no half-finished record is left behind."},
+  "upsert":{d:"Insert a row, or update it if one already exists - 'update or insert'."},
+  "trim":{d:"Remove leading/trailing spaces from text.",e:"' hi '.trim() -> 'hi'"},
+  "coerce":{d:"Convert a value to another type, e.g. text to a number with Number(x)."}
+};
+
+const GROUPS = [
+{
+ id:"ui", dot:"dot-ui", color:"#22c55e", title:"UI · BookingAssistant component",
+ path:"src/app/components/booking-assistant/booking-assistant.ts (+ .html)",
+ blurb:"The floating avatar + popover chat card. It owns no conversation state itself - it reads signals from AgentService and forwards clicks/typing to it.",
+ fns:[
+  {id:"ui-send",name:"send",params:"()",line:61,tags:["ui"],
+   desc:"Reads the textarea draft, clears it, and hands the text to the agent by calling sendUserMessage. This is the entry point for a typed message.",
+   callers:[{t:"Send button",loc:"booking-assistant.html:126"},{t:"onKeydown (Enter)",ref:"ui-onkeydown"}],
+   when:"When the advisor clicks the send button or presses Enter.",
+   as:"Not async - it fires the request and forgets it (void), so it does not await the reply.",
+   walk:[
+    {c:"const text = this.draft;",t:"Copy the current textarea contents (the draft variable, two-way bound to the box) into a local variable."},
+    {c:"this.draft = '';",t:"Clear the box immediately so the UI feels instant."},
+    {c:"void this.agent.sendUserMessage(text);",t:"Call the service to actually process the message. void means 'start it but do not await the result here'."}
+   ]},
+  {id:"ui-onkeydown",name:"onKeydown",params:"(event)",line:67,tags:["ui"],
+   desc:"Watches the message box for Enter (without Shift) and turns it into a send, so Enter sends and Shift+Enter makes a new line.",
+   callers:[{t:"textarea (keydown)",loc:"booking-assistant.html:122"}],
+   when:"On every key press inside the message textarea.",
+   as:"Not async - pure UI event handling.",
+   walk:[
+    {c:"if (event.key === 'Enter' && !event.shiftKey) {",t:"Only react to Enter pressed without Shift held."},
+    {c:"  event.preventDefault();",t:"Stop the browser from inserting a newline."},
+    {c:"  this.send();",t:"Send the message. (Shift+Enter is not caught here, so it falls through to a normal newline.)"}
+   ]},
+  {id:"ui-runquick",name:"runQuickAction",params:"(text)",line:74,tags:["ui"],
+   desc:"Sends one of the three starter chips ('Book a vehicle', 'Check availability', 'Find a customer') as if the advisor had typed it.",
+   callers:[{t:"quick-action chips",loc:"booking-assistant.html:67"}],
+   when:"When the advisor clicks a quick-start chip (only shown before the first message).",
+   as:"Not async - delegates to the service.",
+   walk:[{c:"this.agent.sendQuickAction(text);",t:"Forward the chip's preset text to the service's quick-action path (which just calls sendUserMessage)."}]},
+  {id:"ui-mask",name:"mask",params:"(text) -> string",line:79,tags:["ui"],
+   desc:"Masks any 10-digit Indian mobile number for display (e.g. 98••••4321) so full numbers are not shown on screen. The model still receives the real number - masking is display-only.",
+   callers:[{t:"message bubbles",loc:"booking-assistant.html:81"},{t:"confirm card",loc:"booking-assistant.html:90"}],
+   when:"Every time a message bubble or the confirm card is rendered.",
+   as:"Not async - a synchronous string transform using a regex.",
+   walk:[
+    {c:"return String(text ?? '')",t:"Safely coerce the input to a string (handles null/undefined via the ?? fallback)."},
+    {c:"  .replace(/(\\+?91[\\s-]?)?(\\d{10})(?!\\d)/g, (_m,_p,digits) =>",t:"Find every 10-digit number (optionally prefixed by +91), not followed by another digit. The regex captures the 10 digits in 'digits'."},
+    {c:"    `${digits.slice(0,2)}••••${digits.slice(6)}`);",t:"Keep the first 2 and last 4 digits, replace the middle with dots."}
+   ]},
+  {id:"ui-proposal",name:"proposalTotal / proposalAdvance / formatInr",params:"(proposal) -> string",line:85,tags:["ui"],
+   desc:"Format the staged booking's total and advance amounts as Indian Rupees for the inline confirm card.",
+   callers:[{t:"confirm card",loc:"booking-assistant.html:93-94"}],
+   when:"When a booking proposal is staged and the confirm card is shown.",
+   as:"Not async - pure number formatting.",
+   walk:[
+    {c:"return this.formatInr(Number(p.pricing.final_amount) || 0);",t:"Pull the total off the staged proposal, coerce to a number (|| 0 guards a bad value), and format it."},
+    {c:"new Intl.NumberFormat('en-IN', { style:'currency', currency:'INR', maximumFractionDigits:0 }).format(v)",t:"formatInr uses the browser's built-in Intl formatter to render a whole-rupee amount like ₹12,345."}
+   ]},
+  {id:"ui-ctor",name:"constructor / ngAfterViewInit / scrollToBottom",params:"",line:40,tags:["ui","private"],
+   desc:"Wiring that keeps the chat usable: auto-scroll to the newest message and focus the input when the panel opens.",
+   callers:[{t:"Angular lifecycle",loc:"on component create"}],
+   when:"When the component is created and after its view renders.",
+   as:"Not async - sets up effects that fire later.",
+   walk:[
+    {c:"effect(() => { this.agent.messages(); this.agent.busy(); this.agent.pendingConfirmation(); queueMicrotask(() => this.scrollToBottom()); });",t:"An effect that READS three signals; whenever any of them changes, it schedules a scroll-to-bottom so the newest bubble / typing dots / confirm card stays visible. queueMicrotask defers until after Angular re-renders."},
+    {c:"effect(() => { if (this.agent.open()) queueMicrotask(() => this.chatInput?.nativeElement?.focus()); });",t:"A second effect: when the open signal becomes true, focus the message box."},
+    {c:"scrollToBottom() { const el = this.scrollArea?.nativeElement; if (el) el.scrollTop = el.scrollHeight; }",t:"Scrolls the messages area all the way down."}
+   ]},
+  {id:"ui-confirmbtn",name:"(template) Confirm / Edit buttons",params:"",line:103,tags:["ui","entry"],
+   desc:"The inline confirmation card's two buttons call the service directly: Confirm -> the real write, Edit -> drop the card and keep chatting.",
+   callers:[{t:"Confirm button -> confirmPendingBooking",ref:"svc-confirm"},{t:"Edit button -> cancelPendingBooking",ref:"svc-cancel"}],
+   when:"When the advisor reviews the staged booking and clicks Confirm or Edit.",
+   as:"Template bindings - they invoke the (async) service methods.",
+   walk:[
+    {c:'<button (click)="agent.cancelPendingBooking()" [disabled]="agent.busy()">Edit</button>',t:"Edit drops the staged proposal so the advisor can change something. Disabled while busy."},
+    {c:'<button (click)="agent.confirmPendingBooking()" [disabled]="agent.busy()">Confirm</button>',t:"Confirm is the ONLY thing that triggers a real database write."}
+   ]}
+ ]
+},
+{
+ id:"svc", dot:"dot-svc", color:"#8b5cf6", title:"Brain · AgentService (the agent loop)",
+ path:"src/app/services/agent/agent.service.ts",
+ blurb:"A root singleton service holding the whole conversation in memory and driving the agent loop. Because it is a singleton, the chat survives page navigation.",
+ fns:[
+  {id:"svc-fields",name:"class fields, signals & constants",params:"",line:12,tags:["svc","private"],
+   desc:"The in-memory state the service holds and the reactive signals the template reads.",
+   callers:[{t:"used throughout the service"}],
+   when:"Set up once when the singleton is created.",
+   as:"Declarations.",
+   walk:[
+    {c:"const MAX_TOOL_ITERATIONS = 8;",t:"The agent loop will not run more than 8 model round-trips per message (a safety cap)."},
+    {c:"private history: LlmMessage[] = [];",t:"The raw OpenAI-format conversation (user / assistant / tool turns) actually sent to the model - separate from the pretty on-screen bubbles."},
+    {c:"private calledTools = new Set<string>();",t:"Remembers which tool names have run this conversation; used to unlock create_booking."},
+    {c:"private toolCallNames = new Map<string, string>();",t:"Maps each tool call-id to its tool name; used by compactHistory."},
+    {c:"readonly messages = signal<UiMessage[]>([]);",t:"The on-screen transcript, as an Angular signal. Other signals: open, busy, error, pendingConfirmation, greetingVisible."},
+    {c:"readonly started = computed(() => this.messages().length > 0);",t:"A computed signal: true once there is at least one message (used to hide the welcome chips)."},
+    {c:"private committing = false;",t:"A re-entry lock so a double-click on Confirm cannot create two bookings."}
+   ]},
+  {id:"svc-senduser",name:"sendUserMessage",params:"(text)",line:92,tags:["svc","async","entry"],
+   desc:"Adds the advisor's text to the transcript and the raw history, cancels any pending confirm card, then starts the agent loop. Ignores empty input or input sent while busy.",
+   callers:[{t:"send()",ref:"ui-send"},{t:"sendQuickAction()",ref:"svc-sendquick"}],
+   when:"Every time the advisor submits a message (typed or via a chip).",
+   as:"async - it awaits runLoop, which makes network calls to the model.",
+   walk:[
+    {c:"const trimmed = (text ?? '').trim();",t:"Clean the input: handle null and strip surrounding spaces."},
+    {c:"if (!trimmed || this.busy()) return;",t:"Guard: ignore an empty message, or anything sent while the bot is already working."},
+    {c:"this.error.set(null); this.pendingConfirmation.set(null);",t:"Clear any old error, and cancel a staged confirm card (typing instead of clicking Confirm cancels it)."},
+    {c:"this.pushUi('user', trimmed);",t:"Show the message as a right-side bubble."},
+    {c:"this.history.push({ role: 'user', content: trimmed });",t:"Add it to the raw history that is sent to the model."},
+    {c:"await this.runLoop();",t:"Start the agent loop and wait for it to finish."}
+   ]},
+  {id:"svc-sendquick",name:"sendQuickAction",params:"(text)",line:107,tags:["svc"],
+   desc:"A thin wrapper so the quick-start chips reuse the exact same path as a typed message.",
+   callers:[{t:"runQuickAction()",ref:"ui-runquick"}],
+   when:"When a quick-start chip is clicked.",
+   as:"Not async - kicks off sendUserMessage without waiting.",
+   walk:[{c:"void this.sendUserMessage(text);",t:"Fire the normal message path with the chip's preset text."}]},
+  {id:"svc-runloop",name:"runLoop",params:"() · private",line:123,tags:["svc","async","entry"],
+   desc:"The heart of the agent loop. Up to 8 times it builds the request {system prompt + history + tool schemas}, calls the model, runs any tool calls, appends results, compacts history, and repeats. A plain-text reply ends the loop.",
+   callers:[{t:"sendUserMessage()",ref:"svc-senduser"}],
+   when:"Once per advisor message; it spins internally for each round-trip with the model.",
+   as:"async - every iteration awaits a network reply and each tool's result.",
+   walk:[
+    {c:"this.busy.set(true);",t:"Flip the busy signal on; the UI shows typing dots and disables the input."},
+    {c:"for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {",t:"Repeat up to 8 times. Each pass is one round-trip to the model. The cap stops runaway loops."},
+    {c:"const assistant = await this.client.chat({ messages: [this.systemMessage(), ...this.history], tools: this.tools.schemasFor({ includeCreateBooking: this.bookingToolReady() }), tool_choice: 'auto' });",t:"Send the request: a fresh system prompt then the whole history; the tool schemas (create_booking gated by bookingToolReady); tool_choice 'auto' lets the model pick a tool or reply with text."},
+    {c:"this.history.push(assistant);",t:"Record the model's reply in history so the next turn has context."},
+    {c:"if (assistant.content && assistant.content.trim()) this.pushUi('assistant', assistant.content.trim());",t:"If the model wrote any text, show it as a left bubble."},
+    {c:"const toolCalls = assistant.tool_calls ?? [];",t:"Read any tool calls the model requested."},
+    {c:"if (!toolCalls.length) return;",t:"No tool calls = the model gave its final answer -> stop the loop."},
+    {c:"for (const call of toolCalls) {",t:"Otherwise run every requested tool:"},
+    {c:"  const result = await this.tools.execute(call.function.name, call.function.arguments);",t:"Actually run the tool and get its result."},
+    {c:"  this.calledTools.add(call.function.name); this.toolCallNames.set(call.id, call.function.name);",t:"Remember the tool ran (unlocks create_booking later) and which call-id it was (for compaction)."},
+    {c:"  this.history.push({ role: 'tool', tool_call_id: call.id, content: result.content });",t:"Feed the tool's result back into history so the model sees it next turn."},
+    {c:"  if (result.kind === 'proposal') this.pendingConfirmation.set(result.proposal);",t:"If the tool staged a booking, store it -> the confirm card appears."},
+    {c:"this.compactHistory();",t:"Trim old search results out of history to save tokens, then loop again."},
+    {c:"} catch (err) { ... this.pushUi('assistant', message, 'error'); } finally { this.busy.set(false); }",t:"Any error becomes a friendly red bubble; the finally block always turns busy off."}
+   ]},
+  {id:"svc-bookingready",name:"bookingToolReady",params:"() -> boolean · private",line:168,tags:["svc","private"],
+   desc:"Decides whether create_booking should be advertised this turn. Returns true only once the conversation is past discovery - keeping the big create_booking schema out of early requests to save tokens.",
+   callers:[{t:"runLoop()",ref:"svc-runloop"}],
+   when:"Once per loop iteration, while building the tool list.",
+   as:"Not async - a quick check of in-memory state.",
+   walk:[
+    {c:"return this.calledTools.has('price_quote') || this.calledTools.has('check_availability') || this.pendingConfirmation() !== null;",t:"True if pricing or an availability check has already run, OR a proposal is already on screen (so an Edit-then-rebook still works). Otherwise create_booking is withheld."}
+   ]},
+  {id:"svc-compact",name:"compactHistory",params:"() · private",line:182,tags:["svc","private"],
+   desc:"Token-saver: replaces older search_vehicles / search_customers results in history with a tiny stub, keeping only the most recent of each. The chosen id still lives in later tool-call arguments, so nothing needed is lost.",
+   callers:[{t:"runLoop()",ref:"svc-runloop"}],
+   when:"After each batch of tool calls in a loop iteration.",
+   as:"Not async - it mutates the in-memory history array.",
+   walk:[
+    {c:"const compactable = new Set(['search_vehicles', 'search_customers']);",t:"Only these two tools produce big lists worth trimming."},
+    {c:"this.history.forEach((msg, index) => { ... latestIndex.set(name, index); });",t:"First pass: record the index of the LATEST result for each of those tools."},
+    {c:"if (latestIndex.get(name) === index) return;",t:"Second pass: skip the latest one (keep it in full)."},
+    {c:"msg.content = `{\"note\":\"earlier ${name} results omitted to save space\"}`;",t:"For every OLDER result, replace its bulky content with a tiny note. The model already acted on it, and the chosen vehicle/customer id is in later tool-call arguments."}
+   ]},
+  {id:"svc-confirm",name:"confirmPendingBooking",params:"()",line:210,tags:["svc","async","write","entry"],
+   desc:"Runs ONLY when the advisor clicks Confirm. Guards against double-clicks, clears the card, calls commitBooking to actually write the booking, then posts a success or error message. The single point where a real booking is created.",
+   callers:[{t:"Confirm button",loc:"booking-assistant.html:103"}],
+   when:"When the advisor clicks Confirm on the staged card.",
+   as:"async - it awaits the two database writes inside commitBooking.",
+   walk:[
+    {c:"const proposal = this.pendingConfirmation();",t:"Read the staged booking."},
+    {c:"if (!proposal || this.busy() || this.committing) return;",t:"Three guards: nothing staged, already busy, or a commit already running (prevents a double-click making two bookings)."},
+    {c:"this.committing = true; this.busy.set(true); this.pendingConfirmation.set(null);",t:"Take the re-entry lock, set busy, and hide the card immediately so it cannot be submitted twice."},
+    {c:"const result = await this.tools.commitBooking(proposal);",t:"Do the real write (createWalkInQuotation then confirmWalkInBooking)."},
+    {c:"if (!result.ok) { ... pushUi(..., 'error'); return; }",t:"On failure show a clear error - with a special 'partial' message if the booking was created but submitting it failed."},
+    {c:"this.pushUi('assistant', `✅ Booking ${idShort} ... is submitted as pending ...`, 'success');",t:"On success, show a green bubble with the short booking id, total, quote ref (and a '(rehearsal)' note if dry-run)."},
+    {c:"} finally { this.busy.set(false); this.committing = false; }",t:"Always release busy and the committing lock."}
+   ]},
+  {id:"svc-cancel",name:"cancelPendingBooking",params:"()",line:254,tags:["svc"],
+   desc:"Runs when the advisor clicks Edit: drops the staged proposal and posts a short 'tell me what to change' message so the conversation continues.",
+   callers:[{t:"Edit button",loc:"booking-assistant.html:100"}],
+   when:"When the advisor clicks Edit on the staged card.",
+   as:"Not async - clears a signal and posts a message.",
+   walk:[
+    {c:"if (!this.pendingConfirmation()) return;",t:"Guard if nothing is staged."},
+    {c:"this.pendingConfirmation.set(null);",t:"Drop the card."},
+    {c:"this.pushUi('assistant', message); this.history.push({ role:'assistant', content: message });",t:"Post an inviting message and record it in history so the model knows the booking was not confirmed."}
+   ]},
+  {id:"svc-reset",name:"resetConversation",params:"()",line:111,tags:["svc"],
+   desc:"Wipes the transcript, history, called-tools set and any pending card - a fresh chat. Blocked while busy.",
+   callers:[{t:"New-chat button",loc:"booking-assistant.html:42"}],
+   when:"When the advisor clicks the refresh / new-chat icon.",
+   as:"Not async - clears in-memory state.",
+   walk:[
+    {c:"if (this.busy()) return;",t:"Do not reset mid-request."},
+    {c:"this.history = []; this.calledTools.clear(); this.toolCallNames.clear();",t:"Empty the raw history and the tracking collections."},
+    {c:"this.messages.set([]); this.pendingConfirmation.set(null); this.error.set(null);",t:"Clear the on-screen bubbles, any card, and the error - a clean slate."}
+   ]},
+  {id:"svc-systemmsg",name:"systemMessage / buildSystemPrompt",params:"() -> LlmMessage / string",line:270,tags:["svc","private"],
+   desc:"Builds the system prompt sent at the top of every request: who the assistant is, today's date, and the rules. buildSystemPrompt is a plain module function.",
+   callers:[{t:"runLoop()",ref:"svc-runloop"}],
+   when:"Rebuilt fresh on every model request (so 'today' is always current).",
+   as:"Not async - pure string assembly.",
+   walk:[
+    {c:"return { role: 'system', content: buildSystemPrompt() };",t:"systemMessage wraps the prompt text as a system-role message."},
+    {c:"`Today is ${today}. Resolve relative dates against it; always pass dates to tools as YYYY-MM-DD.`",t:"The prompt injects today's date so the model can resolve 'tomorrow' etc."},
+    {c:"'- Use search_customers ...; if several match a name, confirm by mobile. Block expired licences.'",t:"The rules tell the model to use tools for real data, gather the required fields, confirm by mobile, and block expired licences."},
+    {c:"'- To book: show a short summary ..., then call create_booking. It does NOT finalise - it stages a card ... Never say the booking is done; it is created only when they click Confirm.'",t:"This is the safety rule that makes Confirm the only way a booking is written."},
+    {c:"const dryRunNote = BOOKING_DRY_RUN ? '\\nREHEARSAL MODE is ON ...' : '';",t:"When dry-run is on, a note is appended so the model knows bookings are simulated."}
+   ]},
+  {id:"svc-pushui",name:"pushUi",params:"(role, text, kind) · private",line:266,tags:["svc","private"],
+   desc:"Appends one bubble to the on-screen transcript signal (user/assistant, and a kind of normal/error/success that drives the bubble colour).",
+   callers:[{t:"sendUserMessage / runLoop / confirm / cancel",ref:"svc-runloop"}],
+   when:"Whenever something needs to appear in the chat window.",
+   as:"Not async - updates a signal.",
+   walk:[
+    {c:"this.messages.update(list => [...list, { id: ++this.counter, role, text, kind }]);",t:"Update the messages signal by returning a NEW array (signals detect change by reference) with one bubble appended. ++counter gives a unique id; kind sets the colour."}
+   ]},
+  {id:"svc-panel",name:"toggle / openPanel / closePanel / dismissGreeting",params:"()",line:53,tags:["svc"],
+   desc:"Small panel-state helpers: open/close the popover and dismiss the one-time greeting bubble (remembered in the browser's localStorage).",
+   callers:[{t:"avatar + header buttons",loc:"booking-assistant.html:20,23,42-49,137"}],
+   when:"When the advisor clicks the floating avatar or header minimize/close.",
+   as:"Not async - flips signals / writes localStorage.",
+   walk:[
+    {c:"toggle() { this.open.update(v => !v); if (this.open()) this.markGreeted(); }",t:"Flip the open signal; opening also marks the greeting as seen."},
+    {c:"markGreeted() { this.greetingVisible.set(false); try { window.localStorage.setItem(GREETED_KEY, '1'); } catch {} }",t:"Hide the greeting bubble and remember it in localStorage so it does not show again. The try/catch handles blocked storage."}
+   ]}
+ ]
+},
+{
+ id:"tools", dot:"dot-tools", color:"#14b8a6", title:"Tools · AgentTools (schemas + executors)",
+ path:"src/app/services/agent/agent-tools.ts",
+ blurb:"Defines the 6 tool schemas the model sees, and the executors that run them. Every executor just wraps an existing SupabaseService method and runs client-side as the logged-in user (so the database's RLS still applies).",
+ fns:[
+  {id:"tools-consts",name:"BOOKING_DRY_RUN & result caps",params:"constants",line:14,tags:["tools","private"],
+   desc:"A rehearsal switch and two result-size caps at the top of the file.",
+   callers:[{t:"commitBooking / stageBooking / the search executors",ref:"tools-commit"}],
+   when:"Read whenever a booking is written/staged or a search returns rows.",
+   as:"Constants.",
+   walk:[
+    {c:"export const BOOKING_DRY_RUN = false;",t:"When true, the write path (commitBooking) only simulates and the database is never touched. Currently false = real bookings are written."},
+    {c:"const MAX_CUSTOMER_RESULTS = 3; const MAX_VEHICLE_RESULTS = 4;",t:"Search results are capped small because the lists get re-sent to the model on later turns - fewer rows = fewer tokens."}
+   ]},
+  {id:"tools-schemas",name:"schemas",params:"property · LlmToolSchema[]",line:98,tags:["tools","read"],
+   desc:"The 6 tool schemas advertised to the model: search_customers, search_vehicles, check_availability, price_quote, create_booking, get_booking_status. Each names the tool, describes it in one line, and lists its inputs.",
+   callers:[{t:"schemasFor()",ref:"tools-schemasfor"}],
+   when:"Read once per loop iteration when assembling the request.",
+   as:"Not async - a static data array.",
+   walk:[
+    {c:"{ type:'function', function:{ name:'search_customers', description:'Find an existing customer ...', parameters:{ type:'object', properties:{ query:{ type:'string', ... } }, required:['query'] } } }",t:"Each schema follows the OpenAI tool format: a name, a one-line description, and a JSON-schema of its parameters with a 'required' list. The model reads these to decide what it can call and what arguments to send."},
+    {c:"create_booking: { ... customer:{...}, trip:{...}, required:['vehicle_id','customer','trip'] }",t:"create_booking is the largest schema (nested customer + trip objects), which is why it is gated out of early turns."}
+   ]},
+  {id:"tools-schemasfor",name:"schemasFor",params:"({ includeCreateBooking }) -> LlmToolSchema[]",line:227,tags:["tools","read"],
+   desc:"Returns the tools to advertise this turn. When create_booking is not ready it filters that one out, so discovery turns send fewer tokens.",
+   callers:[{t:"runLoop()",ref:"svc-runloop"}],
+   when:"Once per loop iteration, paired with bookingToolReady().",
+   as:"Not async - filters an array.",
+   walk:[
+    {c:"if (opts.includeCreateBooking) return this.schemas;",t:"If ready, advertise all 6 tools."},
+    {c:"return this.schemas.filter(s => s.function.name !== 'create_booking');",t:"Otherwise return the 5 read tools, dropping the big create_booking schema."}
+   ]},
+  {id:"tools-execute",name:"execute",params:"(name, rawArgs) -> ToolResult",line:235,tags:["tools","async","entry"],
+   desc:"The dispatcher. Safely parses the model's JSON arguments, then a switch routes the named tool call to its executor. Read tools return data; create_booking returns a staged proposal. Any thrown error is caught and returned as a tool error the model can read.",
+   callers:[{t:"runLoop()",ref:"svc-runloop"}],
+   when:"Once for every tool call the model makes.",
+   as:"async - it awaits whichever executor runs (all touch the database).",
+   walk:[
+    {c:"if (rawArgs && rawArgs.trim()) { try { args = JSON.parse(rawArgs); } catch { return this.data({ error:'invalid_arguments' }); } }",t:"The model sends arguments as a JSON string; parse it into an object. If parsing fails, return an error the model can read (not a crash)."},
+    {c:"switch (name) { case 'search_customers': return this.data(await this.searchCustomers(args.query)); ...",t:"Route the tool name to its executor. Read results are wrapped in this.data(...) which JSON-stringifies them."},
+    {c:"case 'create_booking': return await this.stageBooking(args);",t:"create_booking is special - it returns a staged proposal, not plain data."},
+    {c:"} catch (err) { return this.data({ error:'tool_failed', detail: err?.message }); }",t:"A surrounding try/catch turns any thrown error into a tool-error result, so one bad tool never breaks the loop."}
+   ]},
+  {id:"tools-searchcustomers",name:"searchCustomers",params:"(query) · private",line:269,tags:["tools","read","async"],
+   desc:"Executor for search_customers. If the query looks like a number it searches by mobile; otherwise a broad name search. Returns up to 3 trimmed rows.",
+   callers:[{t:"execute() switch",ref:"tools-execute"}],
+   when:"When the model calls search_customers.",
+   as:"async - awaits Supabase lookups.",
+   walk:[
+    {c:"const digits = term.replace(/\\D/g, '');",t:"Strip non-digits to test whether the query is a phone number."},
+    {c:"if (digits.length >= 5) { const byMobile = await this.supabase.searchCustomersByField('mobile', digits); ... }",t:"If it looks like a mobile, do a partial mobile match."},
+    {c:"if (!rows.length) { const exact = await this.supabase.findCustomerByMobile(digits); ... }",t:"If that found nothing, try an exact mobile lookup."},
+    {c:"if (!rows.length && term.length >= 3) { const broad = await this.supabase.searchCustomers(term); ... }",t:"Otherwise (a name), do a broad search across mobile/email/name."},
+    {c:"return { count: rows.length, customers: rows.slice(0, MAX_CUSTOMER_RESULTS).map(r => this.toCustomerSummary(r)) };",t:"Return at most 3 customers, each trimmed to the fields the model needs. (A thrown DB error bubbles up to execute()'s catch.)"}
+   ]},
+  {id:"tools-searchvehicles",name:"searchVehicles",params:"(filters) · private",line:301,tags:["tools","read","async"],
+   desc:"Executor for search_vehicles. Wraps getWalkInVehicles with the model's filters/dates and returns up to 4 trimmed vehicles.",
+   callers:[{t:"execute() switch",ref:"tools-execute"}],
+   when:"When the model calls search_vehicles.",
+   as:"async - awaits the vehicle query.",
+   walk:[
+    {c:"const startDate = parseDateOnly(filters?.start_date); const endDate = parseDateOnly(filters?.end_date);",t:"Normalize the dates to YYYY-MM-DD."},
+    {c:"const { data, error } = await this.supabase.getWalkInVehicles({ type, capacity, transmission, fuel, pickup_date: startDate, end_date: endDate });",t:"Call the existing fleet loader with the model's filters (capacity coerced to a Number). When dates are given, it also computes availability."},
+    {c:"return { count, note, vehicles: rows.slice(0, MAX_VEHICLE_RESULTS).map(r => this.toVehicleSummary(r)) };",t:"Return up to 4 trimmed vehicles plus a note about whether availability reflects the dates."}
+   ]},
+  {id:"tools-checkavail",name:"checkAvailability",params:"(args) · private",line:322,tags:["tools","read","async"],
+   desc:"Executor for check_availability. Validates the dates, wraps isVehicleAvailable, and returns { available } for one vehicle and range.",
+   callers:[{t:"execute() switch",ref:"tools-execute"}],
+   when:"When the model calls check_availability.",
+   as:"async - awaits the overlap check against bookings.",
+   walk:[
+    {c:"if (!vehicleId || !startDate || !endDate) return { error:'missing_fields', ... };",t:"Require an id and both dates."},
+    {c:"if (endDate < startDate) return { error:'invalid_dates', ... };",t:"String comparison works for YYYY-MM-DD, so this checks the date order."},
+    {c:"const { data } = await this.supabase.isVehicleAvailable(vehicleId, startDate, endDate); return { ..., available: Boolean(data) };",t:"Wrap the availability check and return a clean boolean."}
+   ]},
+  {id:"tools-pricequote",name:"priceQuote",params:"(args) · private",line:338,tags:["tools","read","async"],
+   desc:"Executor for price_quote. Fetches the vehicle, wraps buildQuotationPricingPreview, and returns real rate/days/GST/advance/deposit/total - never an invented price.",
+   callers:[{t:"execute() switch",ref:"tools-execute"}],
+   when:"When the model calls price_quote.",
+   as:"async - awaits the vehicle fetch (the pricing maths itself is synchronous).",
+   walk:[
+    {c:"const vehicle = await this.fetchVehicleRow(vehicleId); if (!vehicle) return { error:'vehicle_not_found' };",t:"Load the vehicle row (needed for its pricing tier)."},
+    {c:"const options = args?.discount_amount != null ? { discountAmount: Math.max(0, Number(args.discount_amount) || 0) } : undefined;",t:"Pass through an optional flat discount."},
+    {c:"const pricing = this.supabase.buildQuotationPricingPreview(vehicle, startDate, endDate, options);",t:"Compute the real price from the tier (synchronous maths)."},
+    {c:"return { currency:'INR', vehicle: this.vehicleLabel(vehicle), start_date, end_date, ...pricing };",t:"Spread the pricing fields into the result so the model sees rate/days/gst/advance/total."}
+   ]},
+  {id:"tools-getstatus",name:"getBookingStatus",params:"(rawId) · private",line:366,tags:["tools","read","async"],
+   desc:"Executor for get_booking_status. Wraps getBookingById and returns the booking's status and dates.",
+   callers:[{t:"execute() switch",ref:"tools-execute"}],
+   when:"When the model calls get_booking_status.",
+   as:"async - awaits the booking lookup.",
+   walk:[
+    {c:"const { data } = await this.supabase.getBookingById(bookingId); if (!data) return { error:'not_found' };",t:"Load the booking; report not_found if it does not exist."},
+    {c:"return { booking_id: data.id, status: data.status, start_date, end_date, total_price: data.total_price ?? null };",t:"Return just the status and key dates."}
+   ]},
+  {id:"tools-stage",name:"stageBooking",params:"(args) -> ToolResult · private",line:387,tags:["tools","read","async"],
+   desc:"Executor for create_booking - but it does NOT write anything. It validates the args, re-checks availability, recomputes the real price, and returns a 'proposal' that the UI renders as the inline confirm card.",
+   callers:[{t:"execute() switch",ref:"tools-execute"}],
+   when:"When the model calls create_booking (after a summary, once details are gathered).",
+   as:"async - awaits the vehicle fetch and availability check.",
+   walk:[
+    {c:"const normalized = this.normalizeBookingArgs(args); const issues = this.validateBookingArgs(normalized);",t:"Clean the loose model output, then validate it (expired licence, past date, missing field, etc.)."},
+    {c:"if (issues.length) return this.data({ error:'validation_failed', issues });",t:"If there are any problems, hand them back to the model (no write) so it can ask the advisor."},
+    {c:"if (!vehicle) ... if (!vehicle.tier_id) return this.data({ error:'no_pricing', ... });",t:"Refuse if the vehicle is missing or has no pricing tier."},
+    {c:"const availability = await this.supabase.isVehicleAvailable(...); if (!availability.data) return this.data({ error:'vehicle_unavailable' });",t:"Re-check availability for the real dates (defence-in-depth - the model might have stale data)."},
+    {c:"const pricing = this.supabase.buildQuotationPricingPreview(vehicle, ...);",t:"Recompute the real price."},
+    {c:"const proposal: BookingProposal = { args: normalized, vehicleLabel, customerName, ..., pricing, dryRun: BOOKING_DRY_RUN };",t:"Build the proposal object - everything the confirm card and the later write need. Nothing is saved to the database here."},
+    {c:"return { kind:'proposal', content, proposal };",t:"Return kind:'proposal'. The loop stores it in pendingConfirmation -> the card appears. The content string tells the model to stop and wait for the advisor."}
+   ]},
+  {id:"tools-commit",name:"commitBooking",params:"(proposal) -> CommitResult",line:462,tags:["tools","write","async"],
+   desc:"The actual write, and the only place one happens. Runs the wizard's exact two steps: createWalkInQuotation then confirmWalkInBooking. If BOOKING_DRY_RUN is true it simulates instead and touches nothing.",
+   callers:[{t:"confirmPendingBooking()",ref:"svc-confirm"}],
+   when:"Only when the advisor clicks Confirm.",
+   as:"async - awaits two sequential database writes.",
+   walk:[
+    {c:"if (BOOKING_DRY_RUN) return { ok:true, bookingId:'DRY-RUN-BOOKING', ..., dryRun:true };",t:"If rehearsal mode is on, simulate and return fake ids - the database is never touched."},
+    {c:"const created = await this.supabase.createWalkInQuotation({ vehicle_id, trip:{...}, customer:{ ..., id_proof_url: null }, existing_customer_id, existing_customer_choice: args.existing_customer_id ? ... ?? 'existing' : 'new' });",t:"Step 1: build the exact input and create the customer + 'pending' booking + quotation. business_name/gst only for business; id_proof_url is null because chat cannot upload a file; choice is 'existing' if an id was supplied, else 'new'."},
+    {c:"if (created.error || !created.data) return { ok:false, dryRun:false, error: ... };",t:"On failure, return an error."},
+    {c:"const bookingId = created.data.booking?.id; const quoteReference = created.data.quotation?.quote_reference ?? null;",t:"Pull the new booking id and quote reference from the result."},
+    {c:"const submitted = await this.supabase.confirmWalkInBooking(bookingId, 'online', null);",t:"Step 2: submit the quotation and notify admins (the admin-approval queue)."},
+    {c:"if (submitted.error) return { ok:false, partial:true, ..., bookingId, quoteReference, error: ... };",t:"If only this step fails, return a 'partial' result - the booking exists as pending but submitting it failed."},
+    {c:"return { ok:true, dryRun:false, bookingId, quoteReference, status:'pending' };",t:"Success: return the booking id, reference and 'pending' status."}
+   ]},
+  {id:"tools-validate",name:"normalizeBookingArgs / validateBookingArgs",params:"(args) · private",line:580,tags:["tools","private"],
+   desc:"normalizeBookingArgs cleans loose model output into a tidy object. validateBookingArgs mirrors the wizard's rules and returns plain-English issues - crucially it blocks an expired licence and past dates.",
+   callers:[{t:"stageBooking()",ref:"tools-stage"}],
+   when:"Inside stageBooking, before a proposal is built.",
+   as:"Not async - pure checks and string cleanup.",
+   walk:[
+    {c:"mobile: normalizeMobile(customer.mobile), license_expiry: parseDateOnly(customer.license_expiry) ?? '', number_of_passengers: Math.max(1, Math.round(Number(trip.number_of_passengers) || 0)),",t:"normalize trims strings, strips the mobile to 10 digits, forces dates to YYYY-MM-DD, and makes passengers at least 1."},
+    {c:"if (!/^[6-9]\\d{9}$/.test(c.mobile)) issues.push('A valid 10-digit Indian mobile number is required.');",t:"validate checks the mobile is a real Indian number."},
+    {c:"} else if (c.license_expiry < today) { issues.push('The licence has expired and cannot be accepted.'); }",t:"The expired-licence block - a hard rule, identical to the human wizard."},
+    {c:"} else if (t.pickup_date < today) { issues.push('Pickup date cannot be in the past.'); }",t:"And dates cannot be in the past, end on/after pickup, etc. Returns the list of issues (empty = all good)."}
+   ]},
+  {id:"tools-fetchvehicle",name:"fetchVehicleRow / vehicleLabel / toVehicleSummary / toCustomerSummary",params:"· private",line:533,tags:["tools","private"],
+   desc:"Small helpers. fetchVehicleRow loads one vehicle. The toSummary helpers trim DB rows to the few fields the model needs - another token saving.",
+   callers:[{t:"price/stage/search executors",ref:"tools-pricequote"}],
+   when:"Inside the read/stage executors.",
+   as:"fetchVehicleRow is async (awaits the DB); the rest are synchronous.",
+   walk:[
+    {c:"const { data } = await this.supabase.getWalkInVehicles({ vehicleId }); return (data ?? [])[0] ?? null;",t:"fetchVehicleRow loads one vehicle by id and returns the first row (or null)."},
+    {c:"return `${label || 'Vehicle'}${year}`;",t:"vehicleLabel builds a readable name like 'Honda City (2022)'."},
+    {c:"return { vehicle_id, name, type, capacity, daily_rate_inr, available_for_requested_dates, availability_detail };",t:"toVehicleSummary keeps only 7 fields (a deliberate trim). daily_rate is read from tier / vehicle_tiers / daily_rate with fallbacks."}
+   ]},
+  {id:"tools-modhelpers",name:"normalizeMobile / parseDateOnly / todayDateOnly",params:"module functions",line:658,tags:["tools","private"],
+   desc:"File-level helpers shared by the tools.",
+   callers:[{t:"normalize/validate/search executors",ref:"tools-validate"}],
+   when:"Wherever a mobile or date needs cleaning.",
+   as:"Not async - pure functions.",
+   walk:[
+    {c:"normalizeMobile: strips spaces/dashes, removes a leading +91 or 91, returns the bare 10 digits.",t:"So '+91 98765 43210' becomes '9876543210'."},
+    {c:"parseDateOnly: accepts 'YYYY-MM-DD' as-is, otherwise new Date(raw) and reformats to local YYYY-MM-DD (or null if unparseable).",t:"Forces every date into one comparable format."},
+    {c:"todayDateOnly: returns today's date as 'YYYY-MM-DD'.",t:"Used by validate to block past dates / expired licences."}
+   ]}
+ ]
+},
+{
+ id:"net", dot:"dot-net", color:"#3b82f6", title:"Network · AgentLlmClient",
+ path:"src/app/services/agent/agent-llm.client.ts",
+ blurb:"The single place the browser talks to the model. It POSTs to /api/agent-llm - never to Google directly - so the API key stays server-side.",
+ fns:[
+  {id:"net-types",name:"interfaces & constants",params:"",line:10,tags:["net","private"],
+   desc:"The message/tool shapes and the retry settings used by chat().",
+   callers:[{t:"used by chat()",ref:"net-chat"}],
+   when:"Declarations.",
+   as:"Types and constants.",
+   walk:[
+    {c:"interface LlmMessage { role:'system'|'user'|'assistant'|'tool'; content: string|null; tool_calls?: LlmToolCall[]; tool_call_id?: string; }",t:"Describes one turn in the conversation - the same shape OpenAI/Gemini use."},
+    {c:"interface LlmToolSchema { type:'function'; function:{ name; description; parameters } }",t:"The shape of a tool schema."},
+    {c:"const AGENT_TEMPERATURE = 0.1;",t:"A low temperature keeps the model's tool picks and field extraction consistent."},
+    {c:"const TRANSIENT_STATUSES = new Set([429, 502, 503, 504]); const MAX_RETRIES = 2; const RETRY_BASE_MS = 500;",t:"Which HTTP errors are worth retrying, how many times, and the back-off base."}
+   ]},
+  {id:"net-chat",name:"chat",params:"(request) -> LlmMessage",line:52,tags:["net","async","entry"],
+   desc:"Builds the Gemini request body and POSTs it via fetch to /api/agent-llm, returning the model's reply (choices[0].message). Transient failures are retried up to twice with a short back-off.",
+   callers:[{t:"runLoop()",ref:"svc-runloop"}],
+   when:"Once per loop iteration - every round-trip to the model.",
+   as:"async - awaits the network request (and any retry delays).",
+   walk:[
+    {c:"const body = { model: this.model, temperature: AGENT_TEMPERATURE, messages: request.messages };",t:"Build the request: the model name (gemini-2.5-flash), a low temperature, and the messages."},
+    {c:"if (request.tools && request.tools.length) { body.tools = request.tools; body.tool_choice = request.tool_choice ?? 'auto'; }",t:"Only attach tools / tool_choice when tools were given."},
+    {c:"for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {",t:"Try up to 3 times (1 + 2 retries)."},
+    {c:"response = await fetch(this.endpoint, { method:'POST', headers:{'Content-Type':'application/json'}, body: payload });",t:"POST the body to /api/agent-llm. A thrown fetch = network failure -> friendly message, retry or give up."},
+    {c:"if (response.ok) { const data = await response.json(); const message = data?.choices?.[0]?.message; if (message) return message; }",t:"On success, parse the JSON and return choices[0].message - the model's reply. An empty reply is retried."},
+    {c:"lastMessage = this.friendlyError(response.status, detail);",t:"On a non-OK response, turn the status into a clear message."},
+    {c:"if (TRANSIENT_STATUSES.has(response.status) && attempt < MAX_RETRIES) { await this.delay(attempt); continue; }",t:"Only retry transient errors (overload / rate-limit / gateway). Otherwise throw the friendly message, which the loop's catch shows."}
+   ]},
+  {id:"net-friendly",name:"friendlyError",params:"(status, detail) -> string · private",line:112,tags:["net","private"],
+   desc:"Turns a raw HTTP status into a clear, non-technical message. The key one: a 500 saying the key is not set becomes 'The Booking Assistant isn't set up on the server yet...' - so a missing Vercel key is obvious, not a scary error.",
+   callers:[{t:"chat()",ref:"net-chat"}],
+   when:"Whenever the proxy/model returns a non-OK response.",
+   as:"Not async - maps a status to a message.",
+   walk:[
+    {c:"if (status === 500 && (text.includes('gemini_api_key') || text.includes('not set'))) return 'The Booking Assistant isn't set up on the server yet ...';",t:"The 'key not configured' case (the interim state before the Vercel key is added)."},
+    {c:"if (status === 401 || status === 403) return 'The assistant's API key is missing, invalid, or was revoked ...';",t:"Auth failure -> tell the user the key needs fixing on the server."},
+    {c:"if (status === 429) return 'busy right now (rate limit) ...'; if (status === 503 ...) return 'temporarily overloaded ...';",t:"Friendly text for rate-limit and overload."}
+   ]},
+  {id:"net-helpers",name:"extractDetail / delay",params:"· private",line:129,tags:["net","private"],
+   desc:"extractDetail pulls the human message out of an error body; delay waits a few hundred ms between retries (back-off).",
+   callers:[{t:"chat()",ref:"net-chat"}],
+   when:"During error handling / retry inside chat.",
+   as:"delay returns a Promise (used with await); extractDetail is synchronous.",
+   walk:[
+    {c:"const raw = errorBody?.error?.message ?? errorBody?.error ?? errorBody?.message ?? '';",t:"extractDetail digs the readable message out of whatever error shape came back."},
+    {c:"return new Promise(resolve => setTimeout(resolve, RETRY_BASE_MS * (attempt + 1)));",t:"delay resolves after 500ms, then 1000ms - an increasing back-off between retries."}
+   ]}
+ ]
+},
+{
+ id:"wire", dot:"dot-wire", color:"#f59e0b", title:"Wiring · proxy, environment & mount",
+ path:"proxy.conf.js · src/environments/environment.ts · src/app/layout/layout.html",
+ blurb:"How the browser request reaches Gemini, the config switches, and where the avatar is mounted.",
+ fns:[
+  {id:"wire-proxy",name:"'/api/agent-llm' proxy route + loadEnvFile",params:"proxy.conf.js",line:56,tags:["wire","read"],
+   desc:"In local dev this dev-server proxy catches /api/agent-llm, rewrites the path, forwards it to Gemini's OpenAI-compatible endpoint, and injects the Authorization header. The key is read from a gitignored .env.local and never reaches the browser. In production the Vercel function api/agent-llm.js does the same.",
+   callers:[{t:"AgentLlmClient.chat() -> fetch('/api/agent-llm')",ref:"net-chat"}],
+   when:"On every request the client makes (in dev). On Vercel, the serverless function handles it.",
+   as:"The proxy forwards asynchronously; loadEnvFile runs once at startup.",
+   walk:[
+    {c:"loadEnvFile('.env.local'); loadEnvFile('.env');",t:"Read the key files line by line into process.env at startup, so GEMINI_API_KEY is available without ever committing it."},
+    {c:"'/api/agent-llm': { target: 'https://generativelanguage.googleapis.com/v1beta/openai', changeOrigin: true, secure: true,",t:"Route everything starting with /api/agent-llm to Gemini's OpenAI-compatible base URL."},
+    {c:"  pathRewrite: { '^/api/agent-llm': '/chat/completions' },",t:"Rewrite the path so /api/agent-llm becomes .../v1beta/openai/chat/completions."},
+    {c:"  headers: { Authorization: `Bearer ${process.env.GEMINI_API_KEY || ''}` } }",t:"Inject the secret key as a Bearer header here, server-side. The browser never sees it."}
+   ]},
+  {id:"wire-env",name:"environment (agent config)",params:"environment.ts",line:12,tags:["wire","read"],
+   desc:"Three switches for the bot: enableBookingAgent (the feature flag), agentApiUrl ('/api/agent-llm'), and agentModel ('gemini-2.5-flash').",
+   callers:[{t:"AgentLlmClient (url + model)",ref:"net-chat"},{t:"layout (flag)",ref:"wire-mount"}],
+   when:"Read at startup / when the client is constructed.",
+   as:"A config object.",
+   walk:[
+    {c:"enableBookingAgent: true,",t:"The feature flag. When false the avatar never renders and nothing changes anywhere."},
+    {c:"agentApiUrl: '/api/agent-llm',",t:"The same-origin URL the client POSTs to (dev proxy or prod Vercel function)."},
+    {c:"agentModel: 'gemini-2.5-flash',",t:"Which Gemini model to use."}
+   ]},
+  {id:"wire-mount",name:"<app-booking-assistant> mount + flag guard",params:"layout.html:1 / layout.ts:28",line:1,tags:["wire","ui"],
+   desc:"The avatar is mounted once in the authenticated shell, wrapped in @if (bookingAgentEnabled && initialized()). So the whole feature is gated by the flag and only appears once the user is loaded - never on login.",
+   callers:[{t:"layout template",loc:"layout.html:1-2"}],
+   when:"Rendered when an authenticated user is in the app and the flag is on.",
+   as:"Template binding.",
+   walk:[
+    {c:"@if (bookingAgentEnabled && initialized()) { <app-booking-assistant /> }",t:"layout.html: render the avatar only when the flag is on AND the user has loaded."},
+    {c:"readonly bookingAgentEnabled = environment.enableBookingAgent;",t:"layout.ts: the guard reads the feature flag from the environment config."}
+   ]}
+ ]
+},
+{
+ id:"db", dot:"dot-db", color:"#f97316", reuse:true, title:"Existing app code the bot REUSES · SupabaseService",
+ path:"src/app/services/supabase.ts",
+ blurb:"These are NOT new bot code - they are the same database methods the human booking wizard already uses. The bot's tool executors call them unchanged, so a chat booking goes in exactly like a wizard booking. Each runs as the logged-in user, so RLS applies.",
+ fns:[
+  {id:"sb-searchcustomers",name:"searchCustomers",params:"(query) -> {data,error}",line:385,tags:["reuse","read","async"],
+   desc:"Broad customer search - matches the term against mobile, email OR name (needs >=3 chars), returns up to 6 rows. The bot's fallback when the query is not a number.",
+   callers:[{t:"AgentTools.searchCustomers()",ref:"tools-searchcustomers"}],
+   when:"When the bot searches a customer by name.",
+   as:"async - awaits the database query.",
+   walk:[
+    {c:"if (term.length < 3) return { data: [], error: null };",t:"Need at least 3 characters."},
+    {c:".or(`mobile.ilike.%${term}%,email.ilike.%${term}%,full_name.ilike.%${term}%`).limit(6);",t:"One query matching the term against mobile OR email OR name (case-insensitive ilike), max 6 rows. RLS still limits which rows this user can see."}
+   ]},
+  {id:"sb-searchbyfield",name:"searchCustomersByField",params:"(field, query) -> {data,error}",line:402,tags:["reuse","read","async"],
+   desc:"Targeted lookup by a single field (mobile or email), partial match, up to 5 rows. The bot uses it for mobile searches; the routed wizard's customer step uses it too.",
+   callers:[{t:"AgentTools.searchCustomers()",ref:"tools-searchcustomers"},{t:"customer-details.component.ts:135"}],
+   when:"When the bot (or wizard) searches by mobile/email.",
+   as:"async - awaits the query.",
+   walk:[
+    {c:"const minLength = field === 'mobile' ? 5 : 3; if (term.length < minLength || (field === 'email' && !term.includes('@'))) return { data: [], error: null };",t:"Require a minimum length (and an @ for email)."},
+    {c:"return await this.supabase.from('customers').select('*').ilike(field, `%${term}%`).limit(5);",t:"Partial match on just that one field, max 5."}
+   ]},
+  {id:"sb-findbymobile",name:"findCustomerByMobile",params:"(mobile) -> {data,error}",line:416,tags:["reuse","read","async"],
+   desc:"Exact mobile-number lookup (one row or null). The bot uses it for a precise match; the wizard and createWalkInQuotation use it too.",
+   callers:[{t:"AgentTools.searchCustomers()",ref:"tools-searchcustomers"},{t:"dealer-bookings.ts:343,890 (wizard)"},{t:"createWalkInQuotation (internal)",ref:"sb-createwalkin"}],
+   when:"When an exact customer-by-mobile is needed.",
+   as:"async - awaits the query.",
+   walk:[
+    {c:"if (!normalized) return { data: null, error: null };",t:"Empty mobile -> null."},
+    {c:"return await this.supabase.from('customers').select('*').eq('mobile', normalized).maybeSingle();",t:"Exact match on mobile; maybeSingle returns one row or null."}
+   ]},
+  {id:"sb-getwalkin",name:"getWalkInVehicles",params:"(filters) -> {data,error}",line:623,tags:["reuse","read","async"],
+   desc:"Loads the bookable fleet with tier/price + image data and computes per-vehicle availability against existing bookings for the requested dates. The bot's search_vehicles and price/stage steps read through this; the wizard uses it too.",
+   callers:[{t:"AgentTools.searchVehicles()",ref:"tools-searchvehicles"},{t:"AgentTools.fetchVehicleRow()",ref:"tools-fetchvehicle"},{t:"dealer-bookings.ts:221,686 (wizard)"}],
+   when:"When listing vehicles or loading one vehicle for pricing.",
+   as:"async - awaits several database queries.",
+   walk:[
+    {c:"let query = this.supabase.from('vehicle').select(`... vehicle_tiers ( daily_rate, security_deposit, ... ), vehicle_images ( url, is_primary )`).order('created_at', { ascending:false });",t:"Select the vehicle columns plus the joined pricing tier and images, newest first."},
+    {c:"if (filters.vehicleId) query = query.eq('id', filters.vehicleId);",t:"Narrow to one vehicle when an id is given (this is how fetchVehicleRow loads a single car)."},
+    {c:"const bookingWindows = await this.getActiveVehicleBookingWindows();",t:"Find which vehicles are currently inside a blocking booking window."},
+    {c:"if (filters.pickup_date && filters.end_date) { const conflicts = await this.supabase.from('bookings').select('vehicle_id, end_date').lte('start_date', filters.end_date).gte('end_date', filters.pickup_date).in('status', this.blockingBookingStatuses); ... }",t:"If dates were given, find bookings that OVERLAP the range (start <= end AND end >= start) with a blocking status -> a Set of conflicting vehicle ids and a map of when each is next free."},
+    {c:".filter(... status !== 'deleted').filter(... type).filter(... capacity)...",t:"Drop deleted vehicles and apply the type/capacity/transmission/fuel filters."},
+    {c:".map(row => ({ ...row, is_available_for_selected_dates: !blockedForSelectedDates, availability_detail: ... }))",t:"Enrich each row with a thumbnail, the tier, an effective status, the is_available_for_selected_dates flag (used by the bot), and a human availability string."}
+   ]},
+  {id:"sb-isavailable",name:"isVehicleAvailable",params:"(vehicleId, pickupDate, endDate, excludeBookingId?) -> {data:boolean,error}",line:741,tags:["reuse","read","async"],
+   desc:"Checks whether a vehicle overlaps any blocking booking in the date range; returns true if free. The bot calls it for check_availability and again inside stageBooking; createWalkInQuotation re-checks it before writing.",
+   callers:[{t:"AgentTools.checkAvailability()",ref:"tools-checkavail"},{t:"AgentTools.stageBooking()",ref:"tools-stage"},{t:"createWalkInQuotation (internal)",ref:"sb-createwalkin"}],
+   when:"Before quoting and before writing a booking.",
+   as:"async - awaits the overlap query.",
+   walk:[
+    {c:".eq('vehicle_id', vehicleId).lte('start_date', endDate).gte('end_date', pickupDate).in('status', this.blockingBookingStatuses);",t:"Find any booking for this vehicle that overlaps [pickup, end] and has a blocking status."},
+    {c:"if (excludeBookingId) query = query.neq('id', excludeBookingId);",t:"Optionally ignore one booking (used when editing an existing one)."},
+    {c:"return { data: !(data?.length), error };",t:"available = true when NO overlapping booking was found."}
+   ]},
+  {id:"sb-buildpricing",name:"buildQuotationPricingPreview",params:"(vehicle, startDate, endDate, options?) -> pricing",line:889,tags:["reuse"],
+   desc:"Computes rate x days, GST, advance, security deposit, discount and final total purely from the vehicle's tier data. The bot uses it for price_quote and inside stageBooking; the payment and routed-quotation pages use it too.",
+   callers:[{t:"AgentTools.priceQuote()",ref:"tools-pricequote"},{t:"AgentTools.stageBooking()",ref:"tools-stage"},{t:"createOrFetchQuotation (internal)",ref:"sb-createorfetch"},{t:"payment.component.ts:69, quotation.component.ts:67"}],
+   when:"Whenever a price needs computing.",
+   as:"Synchronous (no async) - it is pure in-memory maths with no database call, so there is nothing to await.",
+   walk:[
+    {c:"const tier = Array.isArray(vehicle?.vehicle_tiers) ? vehicle.vehicle_tiers[0] : vehicle?.vehicle_tiers ?? vehicle?.tier ?? null;",t:"Find the pricing tier (handles an array, an object, or a 'tier' alias)."},
+    {c:"const rate = Number(tier?.daily_rate ?? vehicle?.daily_rate ?? 0); const days = this.calculateBookingDays(startDate, endDate); const baseCost = rate * days;",t:"Daily rate x number of days (always >= 1) = base cost."},
+    {c:"const taxableAmount = Math.max(0, baseCost - discountAmount); const gst = taxableAmount * this.gstRate; const finalAmount = taxableAmount + gst + extraMileageCharge;",t:"Apply any discount, add GST, plus any extra-mileage charge = final total."},
+    {c:"advance: taxableAmount * this.advanceRate,",t:"The advance is a fixed fraction of the taxable amount. The whole result object (rate, days, gst, advance, deposit, total) is returned."}
+   ]},
+  {id:"sb-createwalkin",name:"createWalkInQuotation",params:"(input) -> {data,error}",line:982,tags:["reuse","write","async"],
+   desc:"The main booking writer the bot reuses. Re-checks availability, creates or reuses the customer, inserts a booking with status 'pending', creates the quotation, marks the vehicle booked, and logs an audit row. Step 1 of commitBooking.",
+   callers:[{t:"AgentTools.commitBooking()",ref:"tools-commit"},{t:"dealer-bookings.ts:448 (wizard)"}],
+   when:"On Confirm (and from the wizard's Generate Quotation step).",
+   as:"async - awaits many sequential inserts/updates.",
+   walk:[
+    {c:"const user = await this.getCurrentUser(); if (!user) return { ..., error: new Error('Session expired') };",t:"Require a logged-in user."},
+    {c:"const availability = await this.isVehicleAvailable(...); if (!availability.data) return { ..., error: new Error('Vehicle is no longer available ...') };",t:"Re-check availability right before writing."},
+    {c:"const existingByMobile = await this.findCustomerByMobile(input.customer.mobile);",t:"See if this customer already exists."},
+    {c:"if (input.existing_customer_id && choice !== 'new') { ...update or load that row... } else if (existingByMobile.data?.id) { reuse it } else { insert a new customer }",t:"Decide the customer: update/reuse a known one, reuse by mobile, or insert a new one."},
+    {c:"} else { ... if (this.isDuplicateMobileError(...)) { ...if RLS hides the row... return { error: new Error('A customer with this mobile ... is not visible to your account ...') } } }",t:"If the insert hits the unique-mobile error and the existing row is hidden by RLS, return a clear message instead of a raw 409."},
+    {c:"const bookingResult = await this.supabase.from('bookings').insert([{ ..., status: 'pending', ... }]).select().single();",t:"Insert the booking with status 'pending' - this is what makes a chat booking identical to a wizard booking."},
+    {c:"const quotationResult = await this.createOrFetchQuotation({ bookingId: bookingResult.data.id, ... });",t:"Create the quotation for that booking. If it fails, the next lines DELETE the booking+quotation (rollback)."},
+    {c:"const vehicleUpdate = await this.supabase.from('vehicle').update({ vehicle_status: 'booked', next_available_date: input.trip.end_date }) ...",t:"Mark the vehicle booked (with rollback on failure)."},
+    {c:"await this.logAudit('walk_in_quotation_generated', bookingResult.data.id); return { data: { booking, quotation, customer, duplicateMobile }, error: null };",t:"Write an audit row and return the new records."}
+   ]},
+  {id:"sb-createorfetch",name:"createOrFetchQuotation",params:"(input) -> {data,error}",line:758,tags:["reuse","write","async"],
+   desc:"Reuses an existing quotation for the booking or creates one with computed pricing. Now also retries with a fresh, globally-unique quote reference if a unique-constraint (409) collision happens. Called inside createWalkInQuotation (so the bot uses it indirectly) and directly by the wizard.",
+   callers:[{t:"createWalkInQuotation (internal)",ref:"sb-createwalkin"},{t:"dealer-bookings.ts:419 (wizard)"}],
+   when:"During booking creation.",
+   as:"async - awaits database reads/writes.",
+   walk:[
+    {c:"const existing = await this.supabase.from('quotations').select('*').eq('booking_id', input.bookingId).limit(1).maybeSingle();",t:"Look up any quotation already attached to this booking."},
+    {c:"if (this.hasResolvedPricing(existing.data)) return { data: existing.data, error: null };",t:"If one already has a real total, reuse it as-is."},
+    {c:"const pricing = this.buildQuotationPricingPreview(vehicleResult.data, input.startDate, input.endDate); const quoteReference = existing.data?.quote_reference || await this.generateQuoteReference();",t:"Otherwise compute pricing and pick/generate a quote reference."},
+    {c:"if (existing.data) { return await this.supabase.from('quotations').update(quotationPayload)... } ",t:"If a row existed, update it."},
+    {c:"for (let attempt = 0; insertResult.error?.code === '23505' && attempt < 5; attempt += 1) { const conflict = this.classifyQuotationConflict(err); if (conflict === 'booking_id') { ...update by booking_id... } payload = { ...payload, quote_reference: await this.generateQuoteReference(true) }; insertResult = await ...insert... }",t:"Else insert, wrapped in a retry loop: on a 23505 unique violation, a booking_id collision means reuse the existing row; a quote_reference collision means regenerate a unique reference and retry (up to 5x). This is the fix for the 409 you hit."}
+   ]},
+  {id:"sb-genref",name:"generateQuoteReference",params:"(forceUnique=false) -> string",line:491,tags:["reuse","write","async"],
+   desc:"Builds the QT-YYYYMMDD-#### quote reference by reading the day's existing quotations. With forceUnique it appends a short random suffix so a retry can dodge a reference collision.",
+   callers:[{t:"createOrFetchQuotation",ref:"sb-createorfetch"},{t:"submitQuotationRequest (supabase.ts:527)"}],
+   when:"While creating a quotation.",
+   as:"async - awaits a query of existing references.",
+   walk:[
+    {c:"const prefix = `QT-${day}-`; const suffix = forceUnique ? `-${this.randomRefSuffix()}` : '';",t:"Prefix is QT- plus today's date; a random suffix is added only on a forced retry."},
+    {c:"const max = (data ?? []).reduce((current, row) => { const value = Number(String(row.quote_reference).split('-')[2]); ... });",t:"Find the highest existing sequence number for today."},
+    {c:"return `${prefix}${String(max + 1).padStart(4, '0')}${suffix}`;",t:"Return prefix + next number padded to 4 digits (+ the suffix if forced)."}
+   ]},
+  {id:"sb-confirmwalkin",name:"confirmWalkInBooking",params:"(bookingId, advanceMode='online', customerChannel?) -> {data,error}",line:1131,tags:["reuse","write","async"],
+   desc:"Flips the quotation to 'submitted', keeps the booking 'pending', stores the total, and notifies admins - putting the booking into the normal admin-approval queue. Step 2 of commitBooking, and the same method the wizard uses.",
+   callers:[{t:"AgentTools.commitBooking()",ref:"tools-commit"},{t:"dealer-bookings.ts:587 (wizard)"}],
+   when:"On Confirm, right after createWalkInQuotation succeeds.",
+   as:"async - awaits updates + admin notifications.",
+   walk:[
+    {c:"const request = await this.getAdminBookingDetails(bookingId);",t:"Load the booking + advisor name (needed for the admin notification)."},
+    {c:"const quotationUpdate = await this.supabase.from('quotations').update({ status: 'submitted', sent_at: ..., advance_mode }).eq('booking_id', bookingId)...",t:"Mark the quotation 'submitted'."},
+    {c:"const bookingUpdate = await this.supabase.from('bookings').update({ status: 'pending', total_price: quotationUpdate.data.final_amount }).eq('id', bookingId)...",t:"Keep the booking 'pending' and store the total."},
+    {c:"await this.notifyAdminsOfBookingRequest(...); await this.logAudit(`walk_in_booking_submitted:...`, bookingId);",t:"Notify admins (the approval queue) and write an audit row. Return { booking, quotation }."}
+   ]},
+  {id:"sb-getbooking",name:"getBookingById",params:"(bookingId) -> {data,error}",line:1920,tags:["reuse","read","async"],
+   desc:"Loads a single booking row. The bot uses it for get_booking_status; the inspection page uses it too.",
+   callers:[{t:"AgentTools.getBookingStatus()",ref:"tools-getstatus"},{t:"inspection-placeholder.component.ts:107"}],
+   when:"When a booking's status is requested.",
+   as:"async - awaits the query.",
+   walk:[{c:"return this.supabase.from('bookings').select('*').eq('id', bookingId).maybeSingle();",t:"One booking row by id (or null)."}]},
+  {id:"sb-logaudit",name:"logAudit",params:"(action, entityId?)",line:1734,tags:["reuse","write","async"],
+   desc:"Inserts an audit-log row for the current user. The bot does not call it directly, but it runs inside createWalkInQuotation and confirmWalkInBooking, so every chat booking is audited exactly like a wizard booking.",
+   callers:[{t:"createWalkInQuotation / confirmWalkInBooking (internal)",ref:"sb-createwalkin"},{t:"admin-dashboard.ts:292,295,314 + other flows"}],
+   when:"After key booking writes (and admin actions).",
+   as:"async - awaits the insert.",
+   walk:[
+    {c:"const user = await this.getCurrentUser(); if (!user) return;",t:"Do nothing if no one is logged in."},
+    {c:"await this.supabase.from('audit_logs').insert([{ action: entityId ? `${action}:${entityId}` : action, user_id: user.id, created_at: ... }]);",t:"Insert one audit row with the action (suffixed with the entity id when given), the user id, and a timestamp."}
+   ]}
+ ]
+}
+];
+
+const FLOW = [
+ {who:"Advisor",cls:"w-ui",title:"Advisor types the request",
+  desc:"In the popover the advisor types: \"Book a Honda City for Rahul Sharma, mobile 98xxxx1234, pickup 2026-06-15 09:00 from Hyderabad City Centre, drop 2026-06-18 18:00 at the airport, 3 passengers.\" and presses Enter.",
+  fns:[{t:"BookingAssistant.send()",ref:"ui-send"},{t:"onKeydown()",ref:"ui-onkeydown"}]},
+ {who:"UI -> Service",cls:"w-svc",title:"Message handed to the agent",
+  desc:"send() clears the box and calls sendUserMessage(), which adds the text to the on-screen transcript and to the raw message history, then starts the agent loop.",
+  fns:[{t:"sendUserMessage()",ref:"svc-senduser"}]},
+ {who:"Agent loop",cls:"w-svc",title:"runLoop builds the request",
+  desc:"runLoop assembles { system prompt + full history + tool schemas } and sets tool_choice:'auto'. Because nothing has been priced yet, bookingToolReady() is false, so create_booking is withheld this turn (tool gating) - the model only sees the read tools.",
+  fns:[{t:"runLoop()",ref:"svc-runloop"},{t:"bookingToolReady()",ref:"svc-bookingready"},{t:"schemasFor()",ref:"tools-schemasfor"}]},
+ {who:"Network -> Proxy",cls:"w-net",title:"Request POSTed to the proxy",
+  desc:"AgentLlmClient.chat() POSTs the body with fetch to /api/agent-llm. The proxy injects the Authorization: Bearer key header and forwards it to Gemini's chat-completions endpoint. The key never reaches the browser.",
+  fns:[{t:"AgentLlmClient.chat()",ref:"net-chat"},{t:"/api/agent-llm proxy",ref:"wire-proxy"}]},
+ {who:"Model decides",cls:"w-model",title:"Gemini replies with a tool call",
+  desc:"The model reads the tool schemas and the message. It DECIDES which tool fits - here it wants to find the customer - and returns a tool call: search_customers with arguments {\"query\":\"98xxxx1234\"} as JSON. The decision is the model's; our code never hard-codes which tool runs.",
+  fns:[{t:"tool schemas",ref:"tools-schemas"}]},
+ {who:"Agent loop",cls:"w-svc",title:"Loop dispatches the tool call",
+  desc:"runLoop sees reply.tool_calls is non-empty, so for each call it invokes AgentTools.execute(name, args), records the tool name, and appends the result to history.",
+  fns:[{t:"runLoop()",ref:"svc-runloop"},{t:"AgentTools.execute()",ref:"tools-execute"}]},
+ {who:"Tools -> DB",cls:"w-ext",title:"Executor runs the real lookup",
+  desc:"execute()'s switch picks searchCustomers, which calls the existing Supabase methods (searchCustomersByField / findCustomerByMobile). Rahul is found; up to 3 trimmed rows are returned and appended to history. The loop repeats.",
+  fns:[{t:"AgentTools.searchCustomers()",ref:"tools-searchcustomers"},{t:"findCustomerByMobile (reused)",ref:"sb-findbymobile",ext:true}]},
+ {who:"Model + Tools",cls:"w-model",title:"Find the vehicle, then check it is free",
+  desc:"With the customer known, the model next calls search_vehicles ('Honda City'), then check_availability for 2026-06-15 -> 2026-06-18. Each is dispatched the same way and wraps getWalkInVehicles / isVehicleAvailable. The car is free.",
+  fns:[{t:"searchVehicles()",ref:"tools-searchvehicles"},{t:"getWalkInVehicles (reused)",ref:"sb-getwalkin",ext:true},{t:"checkAvailability()",ref:"tools-checkavail"},{t:"isVehicleAvailable (reused)",ref:"sb-isavailable",ext:true}]},
+ {who:"Model + Tools",cls:"w-model",title:"Price the trip",
+  desc:"The model calls price_quote, which wraps buildQuotationPricingPreview to compute the real rate, GST, advance and 3-day total from the vehicle's tier. Now a real price exists.",
+  fns:[{t:"priceQuote()",ref:"tools-pricequote"},{t:"buildQuotationPricingPreview (reused)",ref:"sb-buildpricing",ext:true}]},
+ {who:"Agent loop",cls:"w-svc",title:"create_booking is now unlocked",
+  desc:"On the next iteration bookingToolReady() returns true (price_quote ran), so schemasFor() now INCLUDES create_booking. The model shows a short summary and calls create_booking with the gathered customer + trip + vehicle.",
+  fns:[{t:"bookingToolReady()",ref:"svc-bookingready"},{t:"schemasFor()",ref:"tools-schemasfor"}]},
+ {who:"Tools",cls:"w-tools",title:"Booking is STAGED, not written",
+  desc:"execute() routes to stageBooking, which validates everything (mobile, licence-not-expired, dates), re-checks availability, recomputes the price, and returns a 'proposal'. AgentService stores it in the pendingConfirmation signal - and the UI renders the inline confirm card. No database write yet.",
+  fns:[{t:"stageBooking()",ref:"tools-stage"},{t:"validateBookingArgs()",ref:"tools-validate"}]},
+ {who:"Advisor",cls:"w-ui",title:"Advisor reviews & clicks Confirm",
+  desc:"The card shows vehicle, dates, customer and total with Confirm and Edit. Confirm is the only thing that triggers a real booking; Edit drops the card and keeps chatting.",
+  fns:[{t:"confirm card",ref:"ui-confirmbtn"}]},
+ {who:"Service -> Tools",cls:"w-tools",title:"commitBooking writes the booking",
+  desc:"confirmPendingBooking() calls commitBooking, which runs the wizard's two steps: createWalkInQuotation (customer + 'pending' booking + quotation, marks the vehicle booked, logs an audit) then confirmWalkInBooking (quotation 'submitted', admins notified).",
+  fns:[{t:"confirmPendingBooking()",ref:"svc-confirm"},{t:"commitBooking()",ref:"tools-commit"},{t:"createWalkInQuotation (reused)",ref:"sb-createwalkin",ext:true},{t:"confirmWalkInBooking (reused)",ref:"sb-confirmwalkin",ext:true}]},
+ {who:"Result",cls:"w-ext",title:"Pending booking -> admin approval",
+  desc:"A normal booking now exists with status 'pending', identical to one made in the wizard, and enters the existing admin-approval path. The chat shows a success bubble with the booking id and total. (If BOOKING_DRY_RUN were true, this step would only simulate.)",
+  fns:[{t:"logAudit (reused)",ref:"sb-logaudit",ext:true}]}
+];
+
+/* ===== render ===== */
+const ALLFN = {};
+GROUPS.forEach(g => g.fns.forEach(f => { f.group = g; ALLFN[f.id] = f; }));  // attach group so fnCard can read f.group.path
+
+function escapeHtml(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+function escapeRe(s){return s.replace(/[.*+?^${}()|[\]\\\/]/g,"\\$&");}
+const TERM_KEYS = Object.keys(TERMS).sort((a,b)=>b.length-a.length);
+const TERM_RE = new RegExp("(?<![\\w-])(" + TERM_KEYS.map(escapeRe).join("|") + ")(?![\\w-])","gi");
+function annotate(text){
+  return escapeHtml(text).replace(TERM_RE, m => {
+    const key = m.toLowerCase();
+    if(!TERMS[key]) return m;
+    return '<span class="kw" data-term="'+key+'">'+m+'</span>';
+  });
+}
+
+const tip = document.getElementById('tip');
+function showTip(html, e){ tip.innerHTML = html; tip.style.display='block'; positionTip(e); }
+document.addEventListener('mouseover', e => {
+  const kw = e.target.closest('.kw');
+  if(kw){ const t = TERMS[kw.dataset.term]; if(t){ showTip('<div class="tip-term">'+escapeHtml(kw.dataset.term)+'</div>'+escapeHtml(t.d)+(t.e?'<span class="tip-ex">'+escapeHtml(t.e)+'</span>':''), e); } return; }
+  const box = e.target.closest('.arch-box[data-fns]');
+  if(box){
+    const names = box.dataset.fns.split(',').map(id => (ALLFN[id]?ALLFN[id].name:id));
+    showTip('<div class="tip-term">implemented by</div>'+escapeHtml(names.join('  ·  '))+'<span class="tip-ex">click the box to open the first function</span>', e);
+  }
+});
+document.addEventListener('mousemove', e => { if(tip.style.display==='block' && (e.target.closest('.kw')||e.target.closest('.arch-box[data-fns]'))) positionTip(e); });
+document.addEventListener('mouseout', e => { if(e.target.closest('.kw')||e.target.closest('.arch-box[data-fns]')){ tip.style.display='none'; } });
+function positionTip(e){
+  const pad=14; let x=e.clientX+pad, y=e.clientY+pad;
+  const r=tip.getBoundingClientRect();
+  if(x+r.width>window.innerWidth-8) x=e.clientX-r.width-pad;
+  if(y+r.height>window.innerHeight-8) y=e.clientY-r.height-pad;
+  tip.style.left=x+'px'; tip.style.top=y+'px';
+}
+
+function tagHtml(tags){
+  const map={async:["tag-async","async"],write:["tag-write","writes DB"],read:["tag-read","reads DB"],ui:["tag-ui","UI"],
+    reuse:["tag-reuse","reused app code"],private:["tag-private","internal"],entry:["tag-entry","key step"]};
+  return (tags||[]).filter(t=>map[t]).map(t=>'<span class="tag '+map[t][0]+'">'+map[t][1]+'</span>').join('');
+}
+function callerHtml(callers){
+  return (callers||[]).map(c=>{
+    if(c.ref && ALLFN[c.ref]) return '<span class="caller link" data-goto="'+c.ref+'">'+escapeHtml(c.t)+' <span class="cloc">&#8599;</span></span>';
+    return '<span class="caller">'+escapeHtml(c.t)+(c.loc?' <span class="cloc">'+escapeHtml(c.loc)+'</span>':'')+'</span>';
+  }).join('');
+}
+function walkHtml(walk){
+  if(!walk||!walk.length) return '';
+  return '<div class="walk-title">&#9776; Line by line</div>'+walk.map(w=>
+    '<div class="walk-row"><code class="walk-code">'+escapeHtml(w.c)+'</code><div class="walk-note">'+annotate(w.t)+'</div></div>'
+  ).join('');
+}
+function fnCard(f){
+  return '<div class="fn-card" id="card-'+f.id+'">'+
+    '<div class="fn-header" onclick="this.parentNode.classList.toggle(\'open\')">'+
+      '<div class="fn-sig">'+
+        '<div class="fn-name-row"><span class="fn-name">'+escapeHtml(f.name)+'</span><span class="fn-params">'+escapeHtml(f.params||'')+'</span></div>'+
+        '<div class="fn-desc">'+annotate(f.desc)+'</div>'+
+        '<div class="fn-tags">'+tagHtml(f.tags)+'</div>'+
+      '</div><div class="fn-expand-btn">&#9654;</div>'+
+    '</div>'+
+    '<div class="fn-detail">'+
+      '<div class="fn-row"><div class="lbl">Defined in</div><div class="val"><span class="loc">'+escapeHtml(f.group.path)+' : '+f.line+'</span></div></div>'+
+      '<div class="fn-row"><div class="lbl">Called by</div><div class="val">'+(f.callers&&f.callers.length?callerHtml(f.callers):'<span style="color:var(--faint)">&mdash;</span>')+'</div></div>'+
+      '<div class="fn-row"><div class="lbl">When it runs</div><div class="val">'+annotate(f.when||'')+'</div></div>'+
+      '<div class="fn-row"><div class="lbl">Async?</div><div class="val">'+annotate(f.as||'')+'</div></div>'+
+      walkHtml(f.walk)+
+    '</div></div>';
+}
+function renderTree(filter){
+  const wrap=document.getElementById('sidebar-scroll'); let h='', any=false;
+  GROUPS.forEach(g=>{
+    const fns=g.fns.filter(f=>!filter || f.name.toLowerCase().includes(filter) || f.id.includes(filter));
+    if(!fns.length) return; any=true;
+    h+='<div class="nav-file"><span class="fdot" style="background:'+g.color+'"></span><span class="ftxt">'+escapeHtml(g.title.split('·')[0].trim())+'</span><span class="fcount">'+fns.length+'</span></div>';
+    h+='<div class="nav-path">'+escapeHtml(g.path)+'</div>';
+    fns.forEach(f=>{ h+='<div class="nav-item" data-goto="'+f.id+'">'+escapeHtml(f.name)+(g.reuse?'<span class="reuse-pill">reused</span>':'')+'</div>'; });
+  });
+  wrap.innerHTML=any?h:'<div class="empty">No matches</div>';
+}
+function renderFunctions(){
+  let h='';
+  GROUPS.forEach(g=>{
+    h+='<div class="fn-section-title"><span class="fdot" style="background:'+g.color+'"></span>'+escapeHtml(g.title)+'<span class="fpath">'+escapeHtml(g.path)+'</span></div>';
+    h+='<p class="lead" style="margin-bottom:10px">'+annotate(g.blurb)+'</p>';
+    if(g.reuse) h+='<div class="reuse-banner"><b>Existing app code &mdash; not new bot code.</b> The bot\'s tools call these unchanged, so a chat booking is written exactly like a wizard booking.</div>';
+    g.fns.forEach(f=> h+=fnCard(f));
+  });
+  document.getElementById('panel-functions').innerHTML=h;
+}
+function renderFlow(){
+  let h='<h2 class="sec">One booking, end to end</h2>'+
+    '<p class="lead">Follow a single request from the advisor\'s keystroke to a pending booking. Notice <b>where the model decides</b> which tool to use (it reads the tool schemas and picks one) and <b>where our code executes that decision</b> (runLoop &rarr; execute &rarr; an executor &rarr; an existing Supabase method). Hover any dotted term for a definition; click a function chip to jump to its card.</p><div>';
+  FLOW.forEach((s,i)=>{
+    const last=i===FLOW.length-1;
+    h+='<div class="flow-step"><div class="flow-left"><div class="flow-num">'+(i+1)+'</div>'+(last?'':'<div class="flow-line"></div>')+'</div>'+
+      '<div class="flow-body"><div class="flow-who '+s.cls+'">'+escapeHtml(s.who)+'</div><div class="flow-title">'+escapeHtml(s.title)+'</div>'+
+      '<div class="flow-desc">'+annotate(s.desc)+'</div>'+
+      (s.fns?'<div class="flow-fns">'+s.fns.map(f=>'<span class="flow-fn'+(f.ext?' ext':'')+'" data-goto="'+f.ref+'">'+escapeHtml(f.t)+'</span>').join('')+'</div>':'')+
+      '</div></div>';
+  });
+  h+='</div>';
+  document.getElementById('panel-flow').innerHTML=h;
+}
+function renderOverview(){
+  const fnCount=GROUPS.reduce((n,g)=>n+g.fns.length,0);
+  const reuseCount=GROUPS.find(g=>g.reuse).fns.length;
+  const box=(cls,t,s,fns)=>{ const first=(fns&&fns[0])||''; return '<div class="arch-box '+cls+'" data-fns="'+(fns?fns.join(','):'')+'"'+(first?' data-goto="'+first+'"':'')+'><div class="ab-t">'+t+'</div><div class="ab-s">'+s+'</div><div class="ab-fns">hover &middot; click</div></div>'; };
+  const arrow=(l)=>'<div class="arch-arrow">&rarr;'+(l?'<span>'+l+'</span>':'')+'</div>';
+  let h='<h2 class="sec">The AI Booking Assistant, at a glance</h2>'+
+   '<p class="lead">A floating chat avatar (on every logged-in page, behind the <span class="kw" data-term="feature flag">enableBookingAgent</span> flag) lets rental staff book a vehicle by chatting. The model (<span class="kw" data-term="gemini">Gemini</span>) drives an <span class="kw" data-term="agent loop">agent loop</span>: it calls read <span class="kw" data-term="tool call">tools</span> to find the customer, vehicle, availability and price, then stages a booking the advisor must <b>Confirm</b> &mdash; which writes a normal pending booking through the <i>existing</i> app code. <b>Tip:</b> hover a box below to see which functions implement it; click it to open one.</p>'+
+   '<div class="stat-row">'+
+     '<div class="stat-box"><div class="stat-num">'+fnCount+'</div><div class="stat-label">functions / items documented</div></div>'+
+     '<div class="stat-box"><div class="stat-num">8</div><div class="stat-label">source files covered</div></div>'+
+     '<div class="stat-box"><div class="stat-num">6</div><div class="stat-label">tools the model can call</div></div>'+
+     '<div class="stat-box"><div class="stat-num">'+reuseCount+'</div><div class="stat-label">existing methods reused</div></div>'+
+   '</div>'+
+   '<div class="arch">'+
+     '<div class="arch-lane-label">Request path &mdash; advisor message &rarr; a reply</div>'+
+     '<div class="arch-lane">'+
+       box('b-ui','BookingAssistant','UI: avatar + chat',['ui-send','ui-onkeydown','ui-mask','ui-confirmbtn'])+arrow('sends')+
+       box('b-svc','AgentService','the agent loop',['svc-senduser','svc-runloop','svc-confirm'])+arrow('POST')+
+       box('b-net','AgentLlmClient','HTTP client',['net-chat','net-friendly'])+arrow('/api/agent-llm')+
+       box('b-wire','proxy / Vercel fn','injects the key',['wire-proxy'])+arrow('Bearer key')+
+       box('b-ext','Gemini','gemini-2.5-flash',['tools-schemas','net-chat'])+
+     '</div>'+
+     '<div class="arch-lane-label">Tool path &mdash; when the model calls a tool</div>'+
+     '<div class="arch-lane">'+
+       box('b-svc','runLoop','dispatches tool_calls',['svc-runloop'])+arrow('execute()')+
+       box('b-tools','AgentTools','6 executors',['tools-execute','tools-stage','tools-commit'])+arrow('wraps')+
+       box('b-ext','SupabaseService','existing app methods',['sb-getwalkin','sb-createwalkin','sb-buildpricing'])+arrow('SQL · RLS')+
+       box('b-db','Supabase DB','customers · bookings · quotations',['sb-createwalkin','sb-confirmwalkin'])+
+     '</div>'+
+     '<div class="arch-hint">Each box is hoverable (shows its functions) and clickable (opens the first).</div>'+
+   '</div>'+
+   '<div class="alert alert-info"><b>The one rule that makes it safe:</b> the model can only <i>stage</i> a booking (an on-screen card). The single real write happens in <span class="kw" data-term="function">commitBooking</span>, and only after the advisor clicks <b>Confirm</b> &mdash; using the very same <span class="kw" data-term="function">createWalkInQuotation</span> + <span class="kw" data-term="function">confirmWalkInBooking</span> the human wizard uses.</div>'+
+   '<div class="alert alert-warn"><b>Note on accuracy:</b> this reflects the current post-Gemini code. The browser calls <code>/api/agent-llm</code> (dev: the proxy in <code>proxy.conf.js</code>; prod: the Vercel function <code>api/agent-llm.js</code>) and the network client uses transient-error <i>retries + friendly messages</i>.</div>'+
+   '<div class="legend">'+
+     '<span><i style="background:#22c55e"></i> UI</span><span><i style="background:#8b5cf6"></i> AgentService</span>'+
+     '<span><i style="background:#14b8a6"></i> AgentTools</span><span><i style="background:#3b82f6"></i> AgentLlmClient</span>'+
+     '<span><i style="background:#f59e0b"></i> proxy / config</span><span><i style="background:#f97316"></i> reused Supabase code</span>'+
+   '</div>';
+  document.getElementById('panel-overview').innerHTML=h;
+}
+function goTo(id){
+  const f=ALLFN[id]; if(!f) return;
+  switchTab('functions');
+  const card=document.getElementById('card-'+id);
+  if(card){
+    card.classList.add('open','flash');
+    card.scrollIntoView({behavior:'smooth',block:'center'});
+    setTimeout(()=>card.classList.remove('flash'),1600);
+    document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.goto===id));
+  }
+}
+document.addEventListener('click', e=>{ const g=e.target.closest('[data-goto]'); if(g) goTo(g.dataset.goto); });
+const TITLES={overview:['Overview','how the bot is wired'],flow:['Flow','one booking, end to end'],functions:['Functions','every function, line by line']};
+function switchTab(tab){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id==='panel-'+tab));
+  document.getElementById('page-title').textContent=TITLES[tab][0];
+  document.getElementById('page-path').textContent=TITLES[tab][1];
+  document.getElementById('content').scrollTop=0;
+}
+document.querySelectorAll('.tab-btn').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
+document.getElementById('search').addEventListener('input',e=>renderTree(e.target.value.trim().toLowerCase()));
+
+renderOverview(); renderFlow(); renderFunctions(); renderTree('');
+</script>
+</body>
+</html>

@@ -22,6 +22,7 @@ export class AgentService {
   private client = inject(AgentLlmClient);
   private tools = inject(AgentTools);
 
+
   /** Raw OpenAI-format turns (user / assistant / tool), minus the system message. */
   private history: LlmMessage[] = [];
   private counter = 0;
@@ -128,6 +129,7 @@ export class AgentService {
           tools: this.tools.schemasFor({ includeCreateBooking: this.bookingToolReady() }),
           tool_choice: 'auto',
         });
+
 
         this.history.push(assistant);
 
