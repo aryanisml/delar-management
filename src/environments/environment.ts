@@ -14,5 +14,6 @@ export const environment = {
   // Prod: the Vercel function api/agent-llm.js forwards it to Gemini. GEMINI_API_KEY is
   // injected server-side in both (set it in Vercel env vars) — never in the browser bundle.
   agentApiUrl: '/api/agent-llm',
-  agentModel: 'gemini-2.5-flash',
+  agentModel: 'gemini-2.5-flash-lite',
 };
+

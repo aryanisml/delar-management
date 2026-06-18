@@ -98,7 +98,14 @@ export class AgentLlmClient {
       const detail = this.extractDetail(errorBody);
       lastMessage = this.friendlyError(response.status, detail);
 
-      if (TRANSIENT_STATUSES.has(response.status) && attempt < MAX_RETRIES) {
+      // Retry transient upstream errors. A dev-proxy / network blip reaching Gemini
+      // (e.g. DNS ENOTFOUND) surfaces as a 500 — retry that too, but NOT the 500 that
+      // means the server key isn't configured (that won't recover on retry).
+      const keyNotConfigured =
+        response.status === 500 && /gemini_api_key|not set|not configured/i.test(detail);
+      const retriable =
+        TRANSIENT_STATUSES.has(response.status) || (response.status === 500 && !keyNotConfigured);
+      if (retriable && attempt < MAX_RETRIES) {
         await this.delay(attempt);
         continue;
       }

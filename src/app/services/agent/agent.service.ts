@@ -1,6 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { AgentLlmClient, LlmMessage } from './agent-llm.client';
-import { AgentTools, BookingProposal, BOOKING_DRY_RUN } from './agent-tools';
+import { AgentTools, BookingProposal, BookingFormSpec, BOOKING_DRY_RUN } from './agent-tools';
 
 export interface UiMessage {
   id: number;
@@ -36,6 +36,7 @@ export class AgentService {
   readonly busy = signal(false);
   readonly error = signal<string | null>(null);
   readonly pendingConfirmation = signal<BookingProposal | null>(null);
+  readonly pendingForm = signal<BookingFormSpec | null>(null);
   readonly greetingVisible = signal(false);
 
   readonly started = computed(() => this.messages().length > 0);
@@ -96,8 +97,9 @@ export class AgentService {
     }
 
     this.error.set(null);
-    // Typing instead of clicking Confirm cancels any staged booking card.
+    // Typing instead of using a card/form cancels any staged booking card or open form.
     this.pendingConfirmation.set(null);
+    this.pendingForm.set(null);
     this.pushUi('user', trimmed);
     this.history.push({ role: 'user', content: trimmed });
     await this.runLoop();
@@ -117,6 +119,7 @@ export class AgentService {
     this.toolCallNames.clear();
     this.messages.set([]);
     this.pendingConfirmation.set(null);
+    this.pendingForm.set(null);
     this.error.set(null);
   }
 
@@ -126,7 +129,10 @@ export class AgentService {
       for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
         const assistant = await this.client.chat({
           messages: [this.systemMessage(), ...this.history],
-          tools: this.tools.schemasFor({ includeCreateBooking: this.bookingToolReady() }),
+          tools: this.tools.schemasFor({
+            includeCreateBooking: this.bookingToolReady(),
+            includeTripForm: this.tripFormReady(),
+          }),
           tool_choice: 'auto',
         });
 
@@ -142,6 +148,7 @@ export class AgentService {
           return;
         }
 
+        let formOpened = false;
         for (const call of toolCalls) {
           const result = await this.tools.execute(call.function.name, call.function.arguments);
           this.calledTools.add(call.function.name);
@@ -149,10 +156,22 @@ export class AgentService {
           this.history.push({ role: 'tool', tool_call_id: call.id, content: result.content });
           if (result.kind === 'proposal') {
             this.pendingConfirmation.set(result.proposal);
+          } else if (result.kind === 'form') {
+            this.pendingConfirmation.set(null);
+            this.pendingForm.set(result.form);
+            formOpened = true;
           }
         }
 
         this.compactHistory();
+
+        // A form is now on screen — stop here and let the advisor fill it (no extra model call).
+        if (formOpened) {
+          const note = 'I’ve opened a quick form below — fill in the trip details and I’ll prepare the booking to confirm.';
+          this.pushUi('assistant', note);
+          this.history.push({ role: 'assistant', content: note });
+          return;
+        }
       }
 
       this.pushUi('assistant', 'Sorry — I got stuck on that. Could you rephrase or try again?', 'error');
@@ -172,6 +191,11 @@ export class AgentService {
       this.calledTools.has('check_availability') ||
       this.pendingConfirmation() !== null
     );
+  }
+
+  /** The trip-details form can open as soon as a vehicle has been looked up (one is choosable). */
+  private tripFormReady(): boolean {
+    return this.calledTools.has('search_vehicles') || this.bookingToolReady();
   }
 
   /**
@@ -261,6 +285,82 @@ export class AgentService {
     this.history.push({ role: 'assistant', content: message });
   }
 
+  // ---- Trip-details form ----------------------------------------------------
+
+  /** Triggered when the advisor submits the inline trip-details form. Stages the booking. */
+  async submitBookingForm(values: {
+    pickup_location: string;
+    drop_location: string;
+    pickup_date: string;
+    end_date: string;
+    pickup_time: string;
+    dropoff_time: string;
+    purpose: string;
+    number_of_passengers: number;
+  }) {
+    const form = this.pendingForm();
+    if (!form || this.busy() || this.committing) {
+      return;
+    }
+
+    this.busy.set(true);
+    try {
+      const args = {
+        vehicle_id: form.context.vehicle_id,
+        customer: form.context.customer ?? {},
+        existing_customer_id: form.context.existing_customer_id,
+        existing_customer_choice: form.context.existing_customer_id ? 'existing' : 'new',
+        trip: {
+          pickup_location: values.pickup_location,
+          drop_location: values.drop_location,
+          pickup_date: values.pickup_date,
+          end_date: values.end_date,
+          pickup_time: values.pickup_time,
+          dropoff_time: values.dropoff_time,
+          purpose: values.purpose,
+          number_of_passengers: values.number_of_passengers,
+        },
+      };
+
+      const result = await this.tools.execute('create_booking', JSON.stringify(args));
+
+      if (result.kind === 'proposal') {
+        this.pendingForm.set(null);
+        this.pendingConfirmation.set(result.proposal);
+        const summary =
+          `${values.pickup_location} → ${values.drop_location}, ${values.pickup_date} ${values.pickup_time} – ` +
+          `${values.end_date} ${values.dropoff_time}, ${values.number_of_passengers} passenger(s), purpose ${values.purpose}.`;
+        this.history.push({ role: 'user', content: `Trip details submitted: ${summary}` });
+        this.history.push({ role: 'assistant', content: 'Booking prepared — showing the confirmation card to review.' });
+      } else {
+        // Validation / availability problem — keep the form open and explain what to fix.
+        let detail = 'Please review the details and try again.';
+        try {
+          const parsed = JSON.parse(result.content);
+          detail = Array.isArray(parsed.issues) ? parsed.issues.join(' ') : parsed.detail || detail;
+        } catch {
+          // keep the default message
+        }
+        this.pushUi('assistant', detail, 'error');
+      }
+    } catch (err: any) {
+      this.pushUi('assistant', err?.message || 'The booking could not be prepared.', 'error');
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
+  /** Triggered by the Cancel button on the trip form. */
+  cancelBookingForm() {
+    if (!this.pendingForm()) {
+      return;
+    }
+    this.pendingForm.set(null);
+    const message = 'No problem — tell me what you’d like to do instead.';
+    this.pushUi('assistant', message);
+    this.history.push({ role: 'assistant', content: message });
+  }
+
   // ---- Internals ------------------------------------------------------------
 
   private pushUi(role: 'user' | 'assistant', text: string, kind: UiMessage['kind'] = 'normal') {
@@ -286,6 +386,8 @@ function buildSystemPrompt(): string {
     '- Ask only for missing details. To book you need: customer full name, mobile, licence no + expiry, individual/business (business needs a business name); trip pickup & drop location, pickup & drop dates, pickup & drop times, purpose, passengers; and the vehicle.',
     '- Use search_customers to find a customer; if several match a name, confirm by mobile. Block expired licences.',
     '- Use search_vehicles / check_availability / price_quote for real options and prices.',
+    '- Seat capacity is a SOFT guide, not a hard limit: accept up to 3 passengers over a vehicle’s listed capacity without objection; only push back if it exceeds capacity + 3.',
+    '- Once a customer and a vehicle are chosen, if ANY trip detail is missing (pickup/drop time, pickup/drop location, purpose, or passengers), call request_trip_form to show the advisor a quick form instead of asking one-by-one in chat. Pass everything you already know so it pre-fills. Purpose is optional.',
     '- To book: show a short summary (vehicle, dates, customer, total), then call create_booking. It does NOT finalise — it stages a card the advisor must Confirm (or Edit). Never say the booking is done; it is created only when they click Confirm.',
     '- On a tool error or validation issue, explain what is needed and ask — do not retry blindly.',
     'Keep replies short and neutral. Call yourself only the "Booking Assistant"; refer to vehicles by name and customers by name/mobile, not ids.',

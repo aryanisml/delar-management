@@ -544,6 +544,95 @@
   }
 }
 
+/* ---- Inline trip-details form -------------------------------------------- */
+
+.ba-form {
+  border: 1px solid var(--brand-primary);
+  border-radius: 14px;
+  background: var(--card-bg);
+  box-shadow: var(--shadow-soft);
+  padding: 0.75rem 0.8rem;
+
+  &__head {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--brand-dark);
+
+    i {
+      color: var(--brand-primary);
+    }
+  }
+
+  &__sub {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    margin: 0.1rem 0 0.65rem;
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem 0.55rem;
+  }
+
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    font-size: 0.66rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+
+    &.full {
+      grid-column: 1 / -1;
+    }
+  }
+
+  &__opt {
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+    opacity: 0.7;
+  }
+
+  input,
+  select {
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--text-primary);
+    background: var(--surface-muted);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    padding: 0.42rem 0.55rem;
+    width: 100%;
+    outline: none;
+
+    &:focus {
+      border-color: var(--brand-primary);
+    }
+  }
+
+  &__hint {
+    margin: 0.55rem 0 0;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+  }
+
+  &__actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.7rem;
+  }
+}
+
 /* ---- Animations ----------------------------------------------------------- */
 
 @keyframes ba-rise {

@@ -107,6 +107,60 @@
           </div>
         }
 
+        @if (agent.pendingForm(); as f) {
+          <div class="ba-form">
+            <div class="ba-form__head"><i class="pi pi-clipboard"></i> Trip details</div>
+            <div class="ba-form__sub">{{ f.vehicleLabel }} · {{ f.customerName }}</div>
+            <div class="ba-form__grid">
+              <label class="full">Pickup location
+                <input type="text" [(ngModel)]="form.pickup_location" list="ba-locs" placeholder="e.g. Hyderabad City Centre" />
+              </label>
+              <label class="full">Drop location
+                <input type="text" [(ngModel)]="form.drop_location" list="ba-locs" placeholder="e.g. Gachibowli" />
+              </label>
+              <label>Pickup date
+                <input type="date" [(ngModel)]="form.pickup_date" />
+              </label>
+              <label>Drop date
+                <input type="date" [(ngModel)]="form.end_date" />
+              </label>
+              <label>Pickup time
+                <input type="time" [(ngModel)]="form.pickup_time" />
+              </label>
+              <label>Drop-off time
+                <input type="time" [(ngModel)]="form.dropoff_time" />
+              </label>
+              <label>Purpose <span class="ba-form__opt">optional</span>
+                <select [(ngModel)]="form.purpose">
+                  <option value="">—</option>
+                  @for (p of purposeOptions; track p) {
+                    <option [value]="p">{{ p }}</option>
+                  }
+                </select>
+              </label>
+              <label>Passengers
+                <input type="number" min="1" [attr.max]="f.maxPassengers || null" [(ngModel)]="form.number_of_passengers" />
+              </label>
+            </div>
+            @if (f.capacity) {
+              <p class="ba-form__hint">Seats {{ f.capacity }} · up to {{ f.maxPassengers }} accepted for this vehicle.</p>
+            }
+            <datalist id="ba-locs">
+              @for (loc of locationSuggestions; track loc) {
+                <option [value]="loc"></option>
+              }
+            </datalist>
+            <div class="ba-form__actions">
+              <button class="ba-btn ba-btn--ghost" (click)="agent.cancelBookingForm()" [disabled]="agent.busy()">
+                Cancel
+              </button>
+              <button class="ba-btn ba-btn--primary" (click)="submitForm()" [disabled]="agent.busy() || formInvalid()">
+                Continue
+              </button>
+            </div>
+          </div>
+        }
+
         @if (agent.busy()) {
           <div class="ba-msg ba-msg--assistant">
             <div class="ba-bubble ba-typing"><span></span><span></span><span></span></div>

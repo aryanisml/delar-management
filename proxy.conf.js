@@ -11,6 +11,11 @@
 const fs = require('fs');
 const path = require('path');
 
+// Prefer IPv4 when resolving upstream hosts. On some Windows / dev networks Node returns
+// IPv6 (AAAA) records first but lacks a working IPv6 route, which can make the proxy
+// intermittently fail to reach Gemini (ENOTFOUND / connection errors). ipv4first avoids it.
+try { require('dns').setDefaultResultOrder('ipv4first'); } catch {}
+
 // Minimal .env reader (no dotenv dependency). Precedence: real env > .env.local > .env.
 function loadEnvFile(file) {
   const fullPath = path.resolve(__dirname, file);

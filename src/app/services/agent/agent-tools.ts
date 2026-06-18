@@ -17,6 +17,8 @@ export const BOOKING_DRY_RUN = false;
 // model request, so trimming rows/fields directly cuts repeated token cost.
 const MAX_CUSTOMER_RESULTS = 3;
 const MAX_VEHICLE_RESULTS = 4;
+// Seat capacity is a soft limit: allow up to this many extra passengers before refusing.
+const PASSENGER_OVERAGE = 3;
 
 export interface CreateBookingCustomer {
   full_name: string;
@@ -75,9 +77,29 @@ export interface BookingProposal {
   dryRun: boolean;
 }
 
+export interface BookingFormSpec {
+  vehicleLabel: string;
+  customerName: string;
+  customerMobile: string;
+  capacity: number;
+  maxPassengers: number;
+  context: { vehicle_id: string; existing_customer_id: string | null; customer: any };
+  prefill: {
+    pickup_location: string;
+    drop_location: string;
+    pickup_date: string;
+    end_date: string;
+    pickup_time: string;
+    dropoff_time: string;
+    purpose: string;
+    number_of_passengers: number;
+  };
+}
+
 export type ToolResult =
   | { kind: 'data'; content: string }
-  | { kind: 'proposal'; content: string; proposal: BookingProposal };
+  | { kind: 'proposal'; content: string; proposal: BookingProposal }
+  | { kind: 'form'; content: string; form: BookingFormSpec };
 
 export interface CommitResult {
   ok: boolean;
@@ -218,17 +240,56 @@ export class AgentTools {
         },
       },
     },
+    {
+      type: 'function',
+      function: {
+        name: 'request_trip_form',
+        description:
+          'PREFER THIS once a customer and a vehicle are chosen but ANY trip detail is missing (pickup/drop time, pickup/drop location, purpose, or passengers). It shows the advisor a quick fill-in form instead of asking in chat. Pass everything you already know so it pre-fills. After calling it, do NOT ask for these details in text — wait for the advisor to submit.',
+        parameters: {
+          type: 'object',
+          properties: {
+            vehicle_id: { type: 'string' },
+            existing_customer_id: { type: 'string', description: 'For a returning customer, the id from search_customers.' },
+            customer: {
+              type: 'object',
+              description: 'For a NEW customer, the gathered details.',
+              properties: {
+                full_name: { type: 'string' },
+                mobile: { type: 'string' },
+                email: { type: 'string' },
+                license_no: { type: 'string' },
+                license_expiry: { type: 'string', description: 'YYYY-MM-DD.' },
+                customer_type: { type: 'string', enum: ['individual', 'business'] },
+                business_name: { type: 'string' },
+                gst_number: { type: 'string' },
+              },
+            },
+            pickup_location: { type: 'string' },
+            drop_location: { type: 'string' },
+            pickup_date: { type: 'string', description: 'YYYY-MM-DD.' },
+            end_date: { type: 'string', description: 'YYYY-MM-DD.' },
+            pickup_time: { type: 'string', description: 'HH:MM.' },
+            dropoff_time: { type: 'string', description: 'HH:MM.' },
+            purpose: { type: 'string' },
+            number_of_passengers: { type: 'integer' },
+          },
+          required: ['vehicle_id'],
+        },
+      },
+    },
   ];
 
   /**
    * Tools to advertise this turn. create_booking is the largest schema, so it is withheld
    * during discovery and only included once details are gathered (saves tokens per request).
    */
-  schemasFor(opts: { includeCreateBooking: boolean }): LlmToolSchema[] {
-    if (opts.includeCreateBooking) {
-      return this.schemas;
-    }
-    return this.schemas.filter((schema) => schema.function.name !== 'create_booking');
+  schemasFor(opts: { includeCreateBooking: boolean; includeTripForm: boolean }): LlmToolSchema[] {
+    return this.schemas.filter((schema) => {
+      if (schema.function.name === 'create_booking') return opts.includeCreateBooking;
+      if (schema.function.name === 'request_trip_form') return opts.includeTripForm;
+      return true;
+    });
   }
 
   /** Dispatches a tool call by name. Read tools return data; create_booking stages a proposal. */
@@ -254,6 +315,8 @@ export class AgentTools {
           return this.data(await this.priceQuote(args));
         case 'create_booking':
           return await this.stageBooking(args);
+        case 'request_trip_form':
+          return await this.requestTripForm(args);
         case 'get_booking_status':
           return this.data(await this.getBookingStatus(args.booking_id));
         default:
@@ -382,10 +445,84 @@ export class AgentTools {
     };
   }
 
-  // ---- Write path (staged, then committed only on explicit confirm) ---------
+  // ---- Trip-details form (model pops a UI form instead of asking in chat) ----
+
+  /**
+   * Opens the inline trip-details form. The model calls this once a customer + vehicle are
+   * chosen but trip logistics are missing; the advisor fills the form instead of chatting.
+   * Carries the resolved customer/vehicle so the form can stage the booking deterministically.
+   */
+  private async requestTripForm(args: any): Promise<ToolResult> {
+    const vehicleId = String(args?.vehicle_id ?? '').trim();
+    if (!vehicleId) {
+      return this.data({ error: 'missing_fields', detail: 'A vehicle must be chosen before the form can open.' });
+    }
+    const vehicle = await this.fetchVehicleRow(vehicleId);
+    if (!vehicle) {
+      return this.data({ error: 'vehicle_not_found', detail: `No vehicle found for id ${vehicleId}.` });
+    }
+
+    const existingId = args?.existing_customer_id ? String(args.existing_customer_id) : null;
+    let customer: any = args?.customer ?? {};
+    if (existingId && (!customer.full_name || !customer.license_no)) {
+      const fetched = await this.supabase.getCustomerById(existingId);
+      if (fetched.data) {
+        customer = { ...fetched.data, ...customer };
+      }
+    }
+
+    const capacity = Number(vehicle.capacity ?? 0);
+    const form: BookingFormSpec = {
+      vehicleLabel: this.vehicleLabel(vehicle),
+      customerName: customer.full_name || 'Customer',
+      customerMobile: normalizeMobile(customer.mobile),
+      capacity,
+      maxPassengers: capacity > 0 ? capacity + PASSENGER_OVERAGE : 0,
+      context: { vehicle_id: vehicleId, existing_customer_id: existingId, customer },
+      prefill: {
+        pickup_location: String(args?.pickup_location ?? '').trim(),
+        drop_location: String(args?.drop_location ?? '').trim(),
+        pickup_date: parseDateOnly(args?.pickup_date) ?? '',
+        end_date: parseDateOnly(args?.end_date) ?? '',
+        pickup_time: String(args?.pickup_time ?? '').trim(),
+        dropoff_time: String(args?.dropoff_time ?? '').trim(),
+        purpose: String(args?.purpose ?? '').trim(),
+        number_of_passengers: Math.max(1, Math.round(Number(args?.number_of_passengers) || 1)),
+      },
+    };
+
+    const content = JSON.stringify({
+      status: 'awaiting_trip_form',
+      message:
+        'A trip-details form is now shown to the advisor to fill in. Wait for them to submit it; do NOT ask for pickup/drop times, locations, purpose, or passengers in text.',
+    });
+    return { kind: 'form', content, form };
+  }
+
+  /** Fills missing fields of a returning customer (existing_customer_id) from the database. */
+  private async backfillExistingCustomer(normalized: CreateBookingArgs): Promise<void> {
+    const id = normalized.existing_customer_id;
+    if (!id) return;
+    const c = normalized.customer;
+    if (c.full_name && /^[6-9]\d{9}$/.test(c.mobile) && c.license_no && c.license_expiry) return;
+    const fetched = await this.supabase.getCustomerById(id);
+    const row: any = fetched.data;
+    if (!row) return;
+    c.full_name = c.full_name || row.full_name || '';
+    if (!/^[6-9]\d{9}$/.test(c.mobile)) c.mobile = normalizeMobile(row.mobile);
+    c.license_no = c.license_no || row.license_no || '';
+    c.license_expiry = c.license_expiry || (parseDateOnly(row.license_expiry) ?? '');
+    c.customer_type = row.customer_type === 'business' ? 'business' : c.customer_type || 'individual';
+    c.email = c.email || row.email || null;
+    c.business_name = c.business_name || row.business_name || null;
+    c.gst_number = c.gst_number || row.gst_number || null;
+  }
+
+  // ---- Write path (staged, then committed only on explicit confirm) ----------
 
   private async stageBooking(args: any): Promise<ToolResult> {
     const normalized = this.normalizeBookingArgs(args);
+    await this.backfillExistingCustomer(normalized);
     const issues = this.validateBookingArgs(normalized);
     if (issues.length) {
       return this.data({ error: 'validation_failed', issues });
@@ -399,6 +536,15 @@ export class AgentTools {
       return this.data({
         error: 'no_pricing',
         detail: 'This vehicle has no pricing tier configured and cannot be booked. Ask an admin to set pricing.',
+      });
+    }
+
+    // Seat capacity is a soft limit — allow up to PASSENGER_OVERAGE extra; only refuse beyond.
+    const capacity = Number(vehicle.capacity ?? 0);
+    if (capacity > 0 && normalized.trip.number_of_passengers > capacity + PASSENGER_OVERAGE) {
+      return this.data({
+        error: 'too_many_passengers',
+        detail: `${this.vehicleLabel(vehicle)} seats ${capacity}; up to ${capacity + PASSENGER_OVERAGE} can be accommodated. Reduce passengers or choose a larger vehicle.`,
       });
     }
 
@@ -601,7 +747,7 @@ export class AgentTools {
         end_date: parseDateOnly(trip.end_date) ?? '',
         pickup_time: String(trip.pickup_time ?? '').trim(),
         dropoff_time: String(trip.dropoff_time ?? '').trim(),
-        purpose: String(trip.purpose ?? '').trim(),
+        purpose: String(trip.purpose ?? '').trim() || 'Personal',
         number_of_passengers: Math.max(1, Math.round(Number(trip.number_of_passengers) || 0)),
         special_instructions: trip.special_instructions ? String(trip.special_instructions).trim() : null,
       },
@@ -633,7 +779,6 @@ export class AgentTools {
     const t = args.trip;
     if (!t.pickup_location) issues.push('Pickup location is required.');
     if (!t.drop_location) issues.push('Drop location is required.');
-    if (!t.purpose) issues.push('Trip purpose is required.');
     if (!t.pickup_time) issues.push('Pickup time is required (HH:MM).');
     if (!t.dropoff_time) issues.push('Drop-off time is required (HH:MM).');
     if (!t.pickup_date) {

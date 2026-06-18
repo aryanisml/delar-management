@@ -37,6 +37,41 @@ export class BookingAssistant implements AfterViewInit {
     { label: 'Find a customer', icon: 'pi pi-user', text: 'Find a customer.' },
   ];
 
+  /** Two-way bound model for the inline trip-details form. */
+  protected form = {
+    pickup_location: '',
+    drop_location: '',
+    pickup_date: '',
+    end_date: '',
+    pickup_time: '',
+    dropoff_time: '',
+    purpose: '',
+    number_of_passengers: 1,
+  };
+
+  protected readonly locationSuggestions = [
+    'Hyderabad City Centre',
+    'Hyderabad Airport (RGIA)',
+    'Secunderabad Railway Station',
+    'Gachibowli',
+    'HITEC City',
+    'Madhapur',
+    'Banjara Hills',
+    'Jubilee Hills',
+    'Kondapur',
+    'Begumpet',
+  ];
+
+  protected readonly purposeOptions = [
+    'Leisure',
+    'Business',
+    'Airport Transfer',
+    'Outstation Trip',
+    'Wedding',
+    'Local Errands',
+    'Personal',
+  ];
+
   constructor() {
     // Keep the transcript pinned to the latest message / typing indicator / card.
     effect(() => {
@@ -50,6 +85,23 @@ export class BookingAssistant implements AfterViewInit {
     effect(() => {
       if (this.agent.open()) {
         queueMicrotask(() => this.chatInput?.nativeElement?.focus());
+      }
+    });
+
+    // Pre-fill the inline form whenever the agent opens one.
+    effect(() => {
+      const spec = this.agent.pendingForm();
+      if (spec) {
+        this.form = {
+          pickup_location: spec.prefill.pickup_location,
+          drop_location: spec.prefill.drop_location,
+          pickup_date: spec.prefill.pickup_date,
+          end_date: spec.prefill.end_date,
+          pickup_time: spec.prefill.pickup_time || '09:00',
+          dropoff_time: spec.prefill.dropoff_time || '18:00',
+          purpose: spec.prefill.purpose,
+          number_of_passengers: spec.prefill.number_of_passengers || 1,
+        };
       }
     });
   }
@@ -73,6 +125,26 @@ export class BookingAssistant implements AfterViewInit {
 
   protected runQuickAction(text: string) {
     this.agent.sendQuickAction(text);
+  }
+
+  protected submitForm() {
+    void this.agent.submitBookingForm({
+      ...this.form,
+      number_of_passengers: Number(this.form.number_of_passengers) || 1,
+    });
+  }
+
+  /** Disables Continue until the required (non-optional) fields are present. */
+  protected formInvalid(): boolean {
+    const f = this.form;
+    return (
+      !f.pickup_location?.trim() ||
+      !f.drop_location?.trim() ||
+      !f.pickup_date ||
+      !f.end_date ||
+      !f.pickup_time ||
+      !f.dropoff_time
+    );
   }
 
   /** Masks 10-digit Indian mobile numbers for display (e.g. 98••••4321). */
